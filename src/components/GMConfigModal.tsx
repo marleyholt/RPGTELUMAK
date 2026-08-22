@@ -87,6 +87,17 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
       const gId = targetGuildId || guildId;
       const cId = targetChanId || defaultChannelId;
       const res = await fetch(`/api/discord/server-info?guildId=${encodeURIComponent(gId)}&channelId=${encodeURIComponent(cId)}`);
+      
+      if (!res.ok || res.status === 405) {
+        setBotTestStatus(`⚠️ Backend Node.js offline ou executando em hospedagem estática (GitHub Pages). O bot roda via server.ts.`);
+        return;
+      }
+
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        return;
+      }
+
       const data = await res.json();
       if (data.online && data.guildName) {
         setGuildName(data.guildName);
@@ -146,15 +157,21 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
           channelId: chanId
         })
       });
+
+      if (res.status === 405 || !res.headers.get('content-type')?.includes('application/json')) {
+        setBotTestStatus('⚠️ Erro 405 (Servidor estático como GitHub Pages detectado): O Bot do Discord necessita do backend Node.js (server.ts) ativo com o DISCORD_BOT_TOKEN configurado no ambiente.');
+        return;
+      }
+
       const data = await res.json();
       if (res.ok && data.success) {
         setBotTestStatus('✓ Mensagem de teste enviada com sucesso ao Discord!');
         fetchGuildInfo(undefined, chanId);
       } else {
-        setBotTestStatus(`⚠️ Erro: ${data.error || 'Não foi possível enviar ao canal.'}`);
+        setBotTestStatus(`⚠️ Erro: ${data.error || 'Não foi possível enviar ao canal. Verifique o DISCORD_BOT_TOKEN e permissões do bot no canal.'}`);
       }
     } catch (e: any) {
-      setBotTestStatus(`❌ Falha de rede: ${e.message}`);
+      setBotTestStatus(`❌ Falha de conexão com o backend: ${e.message}`);
     } finally {
       setIsTestingBot(false);
     }

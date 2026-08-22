@@ -172,22 +172,39 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
 
     try {
       // 1. Send to Backend API which relays to Discord channel
-      const res = await fetch('/api/discord/notebook/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          channelId: activeChannelId,
-          remetente: senderName,
-          conteudo: contentToSend,
-          attachment: imageToSend || undefined
-        })
-      });
+      let sentToBackend = false;
+      try {
+        const res = await fetch('/api/discord/notebook/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            channelId: activeChannelId,
+            remetente: senderName,
+            conteudo: contentToSend,
+            attachment: imageToSend || undefined
+          })
+        });
 
-      if (!res.ok) {
-        console.warn("Falha no envio direto ao Discord API, salvando no banco local");
+        if (res.ok) {
+          sentToBackend = true;
+        }
+      } catch (networkErr) {
+        console.warn("Backend /api/discord não disponível, salvando diretamente no Firestore:", networkErr);
+      }
+
+      // 2. If running on static host (e.g. GitHub Pages) where backend is not available, save directly to Firestore
+      if (!sentToBackend && activeChannelId) {
+        await addDoc(collection(db, 'discord_notebook_messages'), {
+          channelId: activeChannelId,
+          authorName: senderName,
+          content: contentToSend,
+          attachments: imageToSend ? [imageToSend] : undefined,
+          isFromDiscord: false,
+          createdAt: serverTimestamp()
+        });
       }
     } catch (err) {
-      console.error("Erro ao enviar mensagem ao Discord Notebook:", err);
+      console.error("Erro ao salvar mensagem ao Discord Notebook:", err);
     } finally {
       setIsSending(false);
     }
