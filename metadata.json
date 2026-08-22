@@ -1,0 +1,6 @@
+{
+  "name": "Telumak RPG Portal",
+  "description": "Portal profissional de fichas e grid de combate em tempo real com áudio-chamada integrada, gerenciamento de status visuais, transformações e exportação em PDF.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

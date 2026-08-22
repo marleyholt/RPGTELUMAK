@@ -1,0 +1,167 @@
+{
+  "entities": {
+    "Character": {
+      "title": "Character",
+      "description": "RPG character sheet containing base attributes, state, and active conditions.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier matching the document ID." },
+        "email_dono": { "type": "string", "description": "Owner's email for login/auth matching." },
+        "nome": { "type": "string" },
+        "cla": { "type": "string", "description": "Character's clan / clã." },
+        "ocupacao": { "type": "string", "description": "Character's occupation / ocupação." },
+        "nivel": { "type": "integer" },
+        "hp_atual": { "type": "integer" },
+        "hp_max": { "type": "integer" },
+        "ether_atual": { "type": "integer" },
+        "ether_max": { "type": "integer" },
+        "destino_atual": { "type": "integer" },
+        "destino_max": { "type": "integer" },
+        "fisico": { "type": "integer" },
+        "destreza": { "type": "integer" },
+        "cognicao": { "type": "integer" },
+        "carisma": { "type": "integer" },
+        "primordio": { "type": "integer" },
+        "ferramenta_fisico": { "type": "integer" },
+        "ferramenta_destreza": { "type": "integer" },
+        "ferramenta_cognicao": { "type": "integer" },
+        "ferramenta_carisma": { "type": "integer" },
+        "img_saudavel": { "type": "string" },
+        "img_ferido": { "type": "string" },
+        "img_muito_ferido": { "type": "string" },
+        "html_ataques": { "type": "string" },
+        "html_dons": { "type": "string" },
+        "html_equipamentos": { "type": "string" },
+        "html_defesa": { "type": "string" },
+        "status_ativos": { "type": "array", "description": "Array of active status IDs applied to this player." },
+        "ativo_na_mesa": { "type": "boolean", "description": "Whether the character is added to the combat grid by the GM." },
+        "versao_ativa_id": { "type": "string", "description": "If active, points to alternate version ID (e.g. standard or transformation)." }
+      },
+      "required": ["email_dono", "nome", "nivel", "hp_atual", "hp_max"]
+    },
+    "CharVersion": {
+      "title": "CharVersion",
+      "description": "An alternate version or sheet layout for transformation states, with overriding attributes or HTML summaries.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "versao_nome": { "type": "string", "description": "Name of this version e.g. Base Form, Titan Form." },
+        "nivel": { "type": "integer" },
+        "hp_max": { "type": "integer" },
+        "ether_max": { "type": "integer" },
+        "destino_max": { "type": "integer" },
+        "fisico": { "type": "integer" },
+        "destreza": { "type": "integer" },
+        "cognicao": { "type": "integer" },
+        "carisma": { "type": "integer" },
+        "primordio": { "type": "integer" },
+        "img_saudavel": { "type": "string" },
+        "img_ferido": { "type": "string" },
+        "img_muito_ferido": { "type": "string" },
+        "html_ataques": { "type": "string" },
+        "html_dons": { "type": "string" },
+        "html_equipamentos": { "type": "string" },
+        "html_defesa": { "type": "string" }
+      },
+      "required": ["id", "versao_nome"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Chat log registry containing whispers, dice rols, or generic system speech.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "remetente": { "type": "string" },
+        "remetente_email": { "type": "string" },
+        "destinatario": { "type": "string", "description": "Can be 'TODOS', 'GM', or a specific character ID for a whisper." },
+        "tipo": { "type": "string", "description": "CHAT, ROLL, SYSTEM, or WHISPER." },
+        "conteudo": { "type": "string", "description": "HTML or plain-text body of the message." },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["remetente", "destinatario", "tipo", "conteudo"]
+    },
+    "ArenaState": {
+      "title": "ArenaState",
+      "description": "Session layout for the default combat map.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "bg": { "type": "string", "description": "Background image URL of the grid." },
+        "gridWidth": { "type": "integer" },
+        "gridHeight": { "type": "integer" }
+      },
+      "required": ["bg"]
+    },
+    "ArenaToken": {
+      "title": "ArenaToken",
+      "description": "Active board token placed on the SQM grid of the battle map.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "img": { "type": "string" },
+        "type": { "type": "string", "description": "PLAYER, NPC, or OBJ." },
+        "x": { "type": "integer" },
+        "y": { "type": "integer" },
+        "charId": { "type": "string", "description": "Optional linkage to a real character sheet." }
+      },
+      "required": ["id", "name", "img", "type", "x", "y"]
+    },
+    "StatusType": {
+      "title": "StatusType",
+      "description": "Custom game status tags created by the GM with associated images.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nome": { "type": "string" },
+        "imageUrl": { "type": "string" }
+      },
+      "required": ["id", "nome", "imageUrl"]
+    },
+    "CampaignNote": {
+      "title": "CampaignNote",
+      "description": "Notes for GM prep, characters logs, and player session summaries.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "titulo": { "type": "string" },
+        "conteudo": { "type": "string" },
+        "autor_uid": { "type": "string" },
+        "autor_email": { "type": "string" },
+        "tipo": { "type": "string", "enum": ["PUBLIC", "PRIVATE", "GM_ONLY"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["titulo", "conteudo", "autor_uid", "autor_email", "tipo"]
+    }
+  },
+  "firestore": {
+    "/characters/{charId}": {
+      "schema": "Character",
+      "description": "RPG player documents containing current vital metrics."
+    },
+    "/characters/{charId}/versions/{versionId}": {
+      "schema": "CharVersion",
+      "description": "Alternate character sheets representing transformations."
+    },
+    "/messages/{msgId}": {
+      "schema": "Message",
+      "description": "Real-time communication and dice rolling queue."
+    },
+    "/arena/{arenaId}": {
+      "schema": "ArenaState",
+      "description": "Global battle map session registry."
+    },
+    "/arena/{arenaId}/tokens/{tokenId}": {
+      "schema": "ArenaToken",
+      "description": "SQM grid layout tokens."
+    },
+    "/statuses/{statusId}": {
+      "schema": "StatusType",
+      "description": "Custom statuses mapped to icons managed by the GM directly."
+    },
+    "/campaign_notes/{noteId}": {
+      "schema": "CampaignNote",
+      "description": "Durable structured campaign notes for GM prep, public log, or private notes."
+    }
+  }
+}

@@ -1,0 +1,119 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net: default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- REUSABLE SECURITY PRIMITIVES ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isGM() {
+      return isSignedIn() && (
+        request.auth.token.email == "leaog.8@gmail.com" ||
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "GM"
+      );
+    }
+
+    function isOwner(email_dono) {
+      return isSignedIn() && request.auth.token.email == email_dono;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // --- USERS REGISTRATION ---
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isSignedIn() && request.auth.uid == userId 
+        && (!request.resource.data.keys().hasAny(['role']) || isGM()); // Cannot self-promote to GM
+      allow delete: if isGM();
+    }
+
+    // --- CHARACTERS ---
+    match /characters/{charId} {
+      allow read: if isSignedIn();
+      allow create: if isGM() || (isSignedIn() && request.resource.data.email_dono == request.auth.token.email);
+      allow update: if isGM() || (isSignedIn() && resource.data.email_dono == request.auth.token.email);
+      allow delete: if isGM();
+
+      // Alternate Versions / Transformations Subcollection
+      match /versions/{versionId} {
+        allow read: if isSignedIn();
+        allow create, update, delete: if isGM() || (isSignedIn() && get(/databases/$(database)/documents/characters/$(charId)).data.email_dono == request.auth.token.email);
+      }
+    }
+
+    // --- CHAT MESSAGES ---
+    match /messages/{msgId} {
+      allow get: if isSignedIn() && (
+        isGM() ||
+        resource.data.remetente_email == request.auth.token.email ||
+        resource.data.destinatario == request.auth.token.email ||
+        (
+          resource.data.destinatario == "TODOS" &&
+          (!resource.data.keys().hasAny(['ocultada']) || resource.data.ocultada == false)
+        )
+      );
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && (request.resource.data.remetente_email == request.auth.token.email || request.auth.token.email == "discord-bot@system.local");
+      allow update, delete: if isGM() || request.auth.token.email == "discord-bot@system.local";
+    }
+
+    // --- ARENA STATE ---
+    match /arena/{arenaId} {
+      allow read: if isSignedIn();
+      allow write: if isGM();
+
+      // Tokens Subcollection
+      match /tokens/{tokenId} {
+        allow read: if isSignedIn();
+        allow create: if isGM() || isSignedIn();
+        // Players can drag their own token if they are the owner of the character linked to that token
+        allow update: if isGM() || (
+          isSignedIn() && 
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['x', 'y']) &&
+          resource.data.type == "PLAYER" &&
+          resource.data.charId != null &&
+          get(/databases/$(database)/documents/characters/$(resource.data.charId)).data.email_dono == request.auth.token.email
+        );
+        allow delete: if isGM();
+      }
+    }
+
+    // --- GAME STATUSES Managed by GM ---
+    match /statuses/{statusId} {
+      allow read: if isSignedIn();
+      allow write: if isGM();
+    }
+
+    // --- CAMPAIGN NOTES ---
+    match /campaign_notes/{noteId} {
+      allow get: if isSignedIn() && (
+        resource.data.tipo == "PUBLIC" ||
+        isGM() ||
+        resource.data.autor_uid == request.auth.uid
+      );
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && (
+        request.resource.data.autor_uid == request.auth.uid &&
+        (request.resource.data.tipo != "GM_ONLY" || isGM())
+      );
+      allow update: if isSignedIn() && (
+        isGM() || (
+          resource.data.autor_uid == request.auth.uid &&
+          request.resource.data.autor_uid == request.auth.uid &&
+          (request.resource.data.tipo != "GM_ONLY" || isGM())
+        )
+      );
+      allow delete: if isGM() || (isSignedIn() && resource.data.autor_uid == request.auth.uid);
+    }
+  }
+}
