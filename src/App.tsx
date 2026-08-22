@@ -14,7 +14,7 @@ import {
 } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { 
-  Plus, Trash2, LogOut, Heart, Shield, Swords, User as UserIcon, Send, EyeOff, Eye, LayoutGrid, Scroll, Flame, RefreshCw, Sparkles, BookOpen, UserPlus, Star, Sliders, Lock, HelpCircle, Settings, MessageSquareText, Bell
+  Plus, Trash2, LogOut, Heart, Shield, Swords, User as UserIcon, Send, EyeOff, Eye, LayoutGrid, Scroll, Flame, RefreshCw, Sparkles, BookOpen, UserPlus, Star, Sliders, Lock, HelpCircle, Settings, MessageSquareText, Bell, X
 } from 'lucide-react';
 
 import { Character, CustomStatusType, ChatMessage, CharVersion, UserProfile } from './types';
@@ -831,260 +831,291 @@ export default function App() {
         </div>
       )}
 
-      {/* CORE CHARACTERS PORTAL TAB AND SIDEBARS */}
+      {/* CORE CHARACTERS PORTAL TAB AND FULL-WIDTH LAYOUT */}
       {currentTab === 'personagens' && (
-        <div className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 no-print">
+        <div className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6 no-print">
           
-          {/* LEFT SIDEBAR: ACTIVE SESSION COMBAT PANEL AND CHARACTERS GUIDE */}
-          <div className="lg:col-span-4 space-y-6">
-            
-            {/* Quick mesa additions */}
-            <div className="bg-[#080808] border border-white/10 rounded-none p-6 shadow-2xl space-y-4">
-              <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                <div className="flex flex-col">
-                  <h3 className="text-3xl font-black uppercase tracking-tighter leading-none text-white italic">
-                    Mesa
-                  </h3>
-                  <p className="text-[10px] uppercase tracking-widest text-orange-500 mt-1 font-bold">Combate ({mestreMesaRoster.length})</p>
+          {/* GM COMPACT MESA & CHARACTERS TOOLBAR (GM ONLY) */}
+          {isGM && (
+            <div className="bg-[#0a0a0a] border border-white/10 p-3 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center gap-2 px-2.5 py-1 bg-orange-500/10 border border-orange-500/30 text-orange-400">
+                  <Swords className="h-4 w-4" />
+                  <span className="text-xs font-black uppercase tracking-wider font-mono">
+                    Mesa ({mestreMesaRoster.length})
+                  </span>
                 </div>
-                {isGM && (
-                  <button
-                    onClick={() => setShowCreateCharForm(!showCreateCharForm)}
-                    className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-black uppercase tracking-widest transition-colors duration-150"
-                  >
-                    + Criar Novo
-                  </button>
-                )}
+                <span className="text-[10px] text-white/40 font-mono hidden sm:inline uppercase">
+                  Selecione para abrir a ficha:
+                </span>
               </div>
 
-              {/* Spawn Form Overlay inside widget */}
-              {showCreateCharForm && (
-                <form onSubmit={handleCreateNewCharacter} className="bg-black border border-orange-500/30 p-4 space-y-3 animate-in fade-in">
-                  <p className="text-[10px] text-orange-500 font-black uppercase tracking-widest italic">Modelar Nova Alma RPG</p>
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      placeholder="Nome do Personagem"
-                      value={newCharNome}
-                      onChange={e => setNewCharNome(e.target.value)}
-                      className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs focus:outline-none focus:border-orange-500 font-sans"
-                      required
-                    />
-                    {isGM && (
-                      <input
-                        type="email"
-                        placeholder="Email Dono (Vazio = GM)"
-                        value={newCharEmail}
-                        onChange={e => setNewCharEmail(e.target.value)}
-                        className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
-                      />
-                    )}
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        placeholder="Clã"
-                        value={newCharCla}
-                        onChange={e => setNewCharCla(e.target.value)}
-                        className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs focus:outline-none focus:border-orange-500 font-sans"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Ocupação"
-                        value={newCharOcupacao}
-                        onChange={e => setNewCharOcupacao(e.target.value)}
-                        className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs focus:outline-none focus:border-orange-500 font-sans"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="number"
-                        placeholder="Nível"
-                        value={newCharNivel}
-                        onChange={e => setNewCharNivel(Number(e.target.value))}
-                        className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
-                        min="1"
-                      />
-                    </div>
-                    
-                    {/* Direct File Upload for Character Avatar */}
-                    <ImageUploadField
-                      label="Foto do Personagem (Upload do Computador)"
-                      value={newCharImg}
-                      onChange={setNewCharImg}
-                      helperText="Envie a foto do herói direto do seu dispositivo"
-                    />
-                  </div>
+              {/* Characters Chips Horizontal Scroll */}
+              <div className="flex items-center gap-2 overflow-x-auto custom-scroll w-full md:w-auto py-1">
+                {characters.map(c => {
+                  const isActiveOnBoard = c.ativo_na_mesa;
+                  const isSelected = selectedCharId === c.id;
 
-                  <div className="flex justify-end gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => setShowCreateCharForm(false)}
-                      className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-[10px] font-black uppercase tracking-widest transition-all"
+                  return (
+                    <div
+                      key={c.id}
+                      className={`flex items-center gap-2 p-1.5 border transition-all shrink-0 ${
+                        isSelected
+                          ? 'bg-orange-500/15 border-orange-500 text-white shadow-lg'
+                          : 'bg-black/60 border-white/10 hover:border-white/20 text-white/70'
+                      }`}
                     >
-                      Voltar
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-black uppercase tracking-widest transition-colors"
-                    >
-                      Concluir
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {/* Characters Guide List inside sidebar */}
-              <div className="space-y-4 max-h-[380px] overflow-y-auto custom-scroll pr-1">
-                
-                {/* Renders player's own characters first */}
-                {!isGM && myCharactersList.length > 0 && (
-                  <div className="space-y-2">
-                    <span className="block text-[9px] text-[#ffffff]/30 font-black uppercase tracking-widest mb-2">Minhas Fichas</span>
-                    {myCharactersList.map(c => {
-                      const isActiveOnBoard = c.ativo_na_mesa;
-                      const isSelected = selectedCharId === c.id;
-                      return (
-                        <div
-                          key={c.id}
-                          className={`p-3 border text-left transition duration-150 flex items-center justify-between ${
-                            isSelected 
-                              ? 'bg-white/10 border-orange-500/60 shadow-lg' 
-                              : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
-                          }`}
-                        >
-                          <button
-                            onClick={() => setSelectedCharId(c.id)}
-                            className="flex items-center gap-2.5 flex-1 text-left select-none min-w-0"
-                          >
-                            <img src={c.img_saudavel} alt={c.nome} className="w-8 h-8 rounded-none object-cover border border-white/10 shrink-0" />
-                            <div className="min-w-0">
-                              <span className="font-extrabold text-xs text-white truncate block uppercase tracking-tight">{c.nome}</span>
-                              <span className="text-[9px] text-orange-500 font-mono tracking-widest uppercase block">Nível {c.nivel}</span>
-                            </div>
-                          </button>
-                          
-                          <button
-                            onClick={() => handleToggleCombatOnBoard(c)}
-                            className={`text-[9px] font-black uppercase tracking-widest py-1.5 px-3 border transition-all shrink-0 ${
-                              isActiveOnBoard
-                                ? 'bg-orange-500/10 border-orange-500/40 text-orange-400'
-                                : 'bg-white/5 border-white/10 text-white/40 hover:text-white hover:bg-white/10'
-                            }`}
-                          >
-                            {isActiveOnBoard ? 'Mesa' : 'Conectar'}
-                          </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCharId(c.id)}
+                        className="flex items-center gap-2 text-left"
+                      >
+                        <img
+                          src={c.img_saudavel}
+                          alt={c.nome}
+                          className="w-7 h-7 object-cover border border-white/10 shrink-0"
+                        />
+                        <div className="min-w-0 pr-1">
+                          <span className="text-xs font-extrabold uppercase truncate block max-w-[100px] leading-tight">
+                            {c.nome}
+                          </span>
+                          <span className="text-[9px] text-orange-400 font-mono block">
+                            Nv.{c.nivel} {c.email_dono ? `• ${c.email_dono.split('@')[0]}` : ''}
+                          </span>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+                      </button>
 
-                {/* Renders GM full controls or spectator view */}
-                {isGM ? (
-                  <div className="space-y-2">
-                    <span className="block text-[9px] text-white/30 font-black uppercase tracking-widest mb-2">Heróis & Guildas Registrados</span>
-                    {characters.map(c => {
-                      const isActiveOnBoard = c.ativo_na_mesa;
-                      const isSelected = selectedCharId === c.id;
-                      return (
-                        <div
-                          key={c.id}
-                          className={`p-3 border transition duration-150 flex items-center justify-between gap-1.5 ${
-                            isSelected 
-                              ? 'bg-white/10 border-orange-500/40' 
-                              : 'bg-white/5 border-white/10 hover:border-white/20'
-                          }`}
+                      <div className="flex items-center gap-1 shrink-0 border-l border-white/10 pl-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setupQuickStatsEditor(c)}
+                          className="p-1 hover:bg-white/10 text-white/50 hover:text-orange-400 transition"
+                          title="Ajustar Atributos Rápidos"
                         >
-                          <button
-                            style={{ width: '60%' }}
-                            onClick={() => setSelectedCharId(c.id)}
-                            className="flex items-center gap-2.5 text-left min-w-0"
-                          >
-                            <img src={c.img_saudavel} alt={c.nome} className="w-8 h-8 rounded-none object-cover border border-white/10 shrink-0" />
-                            <div className="min-w-0">
-                              <span className="font-extrabold text-xs text-white truncate block uppercase tracking-tight">{c.nome}</span>
-                              <span className="text-[9px] text-[#ffffff]/40 truncate block font-mono">{c.email_dono}</span>
-                            </div>
-                          </button>
-
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              onClick={() => setupQuickStatsEditor(c)}
-                              className="p-1.5 hover:bg-white/10 text-white/60 hover:text-white transition-colors"
-                              title="Ajustar Stats do Jogador"
-                            >
-                              <Sliders className="h-4.5 w-4.5" />
-                            </button>
-                            <button
-                              onClick={() => handleToggleCombatOnBoard(c)}
-                              className={`text-[9px] font-black uppercase tracking-widest py-1.5 px-3 border transition-colors ${
-                                isActiveOnBoard
-                                    ? 'bg-orange-500 text-white border-orange-500'
-                                  : 'bg-white/5 border-white/10 text-white/40 hover:text-white hover:bg-white/15'
-                              }`}
-                            >
-                              {isActiveOnBoard ? 'Mesa' : '+ Mesa'}
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  myCharactersList.length === 0 && (
-                    <div className="p-5 border border-dashed border-white/10 text-center text-white/40 italic text-xs leading-relaxed bg-black/30">
-                      Nenhum herói sintonizado a esta conta.<br />
-                      <span className="text-[10px] text-orange-400 font-extrabold uppercase tracking-widest block mt-1.5">Apresente seu E-mail ao Mestre:</span>
-                      <span className="text-[9px] text-white/60 font-mono select-all block bg-[#050505] border border-white/5 py-1.5 px-2 mt-2 tracking-wide font-normal">{currentUser.email}</span>
+                          <Sliders className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleCombatOnBoard(c)}
+                          className={`text-[8px] font-mono font-bold uppercase px-1.5 py-0.5 border transition ${
+                            isActiveOnBoard
+                              ? 'bg-orange-500 text-white border-orange-500'
+                              : 'bg-white/5 border-white/10 text-white/40 hover:text-white'
+                          }`}
+                          title={isActiveOnBoard ? 'Presente na Mesa de Combate' : 'Colocar na Mesa'}
+                        >
+                          {isActiveOnBoard ? 'Mesa' : '+'}
+                        </button>
+                      </div>
                     </div>
-                  )
-                )}
+                  );
+                })}
+              </div>
 
-                {characters.length === 0 && (
-                  <p className="text-xs text-white/40 italic py-4 text-center">Nenhum aventureiro em Telumak.</p>
-                )}
-
+              {/* Create Character Button */}
+              <div className="shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateCharForm(true)}
+                  className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-[11px] font-black uppercase tracking-wider transition flex items-center gap-1.5 shadow"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Nova Ficha</span>
+                </button>
               </div>
             </div>
+          )}
 
-            {/* QUICK STAT ADJUSTER SHEET MODAL FOR GM */}
-            {editingStatsCharId && isGM && (
-              <div className="bg-[#080808] border border-orange-500/40 p-6 space-y-4 shadow-2xl relative">
+          {/* PLAYER COMPACT SWITCHER (IF MULTIPLE CHARACTERS OWNED) */}
+          {!isGM && myCharactersList.length > 1 && (
+            <div className="bg-[#0a0a0a] border border-white/10 p-2.5 flex items-center gap-2 overflow-x-auto custom-scroll">
+              <span className="text-[10px] text-white/50 font-mono uppercase font-bold shrink-0">Minhas Fichas:</span>
+              {myCharactersList.map(c => {
+                const isSelected = selectedCharId === c.id;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setSelectedCharId(c.id)}
+                    className={`flex items-center gap-2 px-3 py-1 border text-xs font-bold uppercase transition ${
+                      isSelected
+                        ? 'bg-orange-500 text-white border-orange-500'
+                        : 'bg-white/5 hover:bg-white/10 text-white/70 border-white/10'
+                    }`}
+                  >
+                    <img src={c.img_saudavel} alt={c.nome} className="w-5 h-5 object-cover" />
+                    <span>{c.nome} (Nv.{c.nivel})</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* PLAYER ZERO CHARACTERS NOTICE */}
+          {!isGM && myCharactersList.length === 0 && (
+            <div className="p-6 border border-dashed border-white/15 bg-black/60 text-center space-y-2">
+              <BookOpen className="h-8 w-8 text-orange-500/60 mx-auto" />
+              <h3 className="text-sm font-black text-white uppercase tracking-wider">
+                Nenhum personagem vinculado a esta conta
+              </h3>
+              <p className="text-xs text-white/60 font-sans max-w-md mx-auto">
+                Solicite ao Mestre (GM) para vincular sua ficha a este e-mail através da aba <strong>Config GM &gt; Fichas & Permissões</strong>.
+              </p>
+              <div className="inline-block bg-[#050505] border border-white/10 px-3 py-1.5 text-xs text-orange-400 font-mono select-all mt-2">
+                {currentUser.email}
+              </div>
+            </div>
+          )}
+
+          {/* MODAL: CREATE NEW CHARACTER FOR GM */}
+          {showCreateCharForm && isGM && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+              <form onSubmit={handleCreateNewCharacter} className="bg-[#0c0c0c] border border-orange-500/40 p-6 space-y-4 shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto custom-scroll">
+                <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                  <h4 className="text-xs font-black uppercase tracking-widest text-orange-500 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    <span>Criar Nova Ficha de Personagem</span>
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateCharForm(false)}
+                    className="text-white/40 hover:text-white"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[10px] text-white/60 font-bold uppercase mb-1">Nome do Personagem *</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Kaelen das Sombras"
+                      value={newCharNome}
+                      onChange={e => setNewCharNome(e.target.value)}
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs focus:outline-none focus:border-orange-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-white/60 font-bold uppercase mb-1">Email do Jogador Dono (Opcional)</label>
+                    <input
+                      type="email"
+                      placeholder="jogador@email.com (Vazio = Sem Dono)"
+                      value={newCharEmail}
+                      onChange={e => setNewCharEmail(e.target.value)}
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] text-white/60 font-bold uppercase mb-1">Clã</label>
+                      <input
+                        type="text"
+                        placeholder="Ex: Corvos Negros"
+                        value={newCharCla}
+                        onChange={e => setNewCharCla(e.target.value)}
+                        className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs focus:outline-none focus:border-orange-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-white/60 font-bold uppercase mb-1">Ocupação</label>
+                      <input
+                        type="text"
+                        placeholder="Ex: Arcanista"
+                        value={newCharOcupacao}
+                        onChange={e => setNewCharOcupacao(e.target.value)}
+                        className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs focus:outline-none focus:border-orange-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-white/60 font-bold uppercase mb-1">Nível Inicial</label>
+                    <input
+                      type="number"
+                      placeholder="1"
+                      value={newCharNivel}
+                      onChange={e => setNewCharNivel(Number(e.target.value))}
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                      min="1"
+                    />
+                  </div>
+                  
+                  {/* Direct File Upload for Character Avatar */}
+                  <ImageUploadField
+                    label="Foto / Avatar do Personagem (Upload do Computador)"
+                    value={newCharImg}
+                    onChange={setNewCharImg}
+                    helperText="Envie a foto do herói direto do seu dispositivo com suporte a ajuste/zoom"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateCharForm(false)}
+                    className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-xs font-bold uppercase tracking-wider transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-black uppercase tracking-wider transition-colors shadow"
+                  >
+                    Criar Ficha
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* MODAL: QUICK STAT ADJUSTER FOR GM */}
+          {editingStatsCharId && isGM && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+              <div className="bg-[#080808] border border-orange-500/40 p-6 space-y-4 shadow-2xl relative max-w-md w-full">
                 <div className="flex justify-between items-center border-b border-white/10 pb-2">
-                  <h4 className="text-sm font-black uppercase tracking-widest text-orange-500 italic">Atributos do Mestre</h4>
-                  <button onClick={() => setEditingStatsCharId(null)} className="text-white/40 hover:text-white transition-all text-xs font-black uppercase tracking-wider">Fechar</button>
+                  <h4 className="text-xs font-black uppercase tracking-widest text-orange-500 flex items-center gap-2">
+                    <Sliders className="h-4 w-4" />
+                    <span>Ajuste Rápido de Atributos (Mestre)</span>
+                  </h4>
+                  <button onClick={() => setEditingStatsCharId(null)} className="text-white/40 hover:text-white">
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
                 
                 <div className="grid grid-cols-3 gap-2">
                   <div>
-                    <label className="block text-[9px] text-[#ffffff]/50 font-black uppercase tracking-widest mb-1">Hp Max</label>
+                    <label className="block text-[9px] text-white/50 font-black uppercase mb-1">HP Máx</label>
                     <input type="number" value={editHpMax} onChange={e => setEditHpMax(Number(e.target.value))} className="w-full bg-[#050505] text-white border border-white/10 px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-orange-500" />
                   </div>
                   <div>
-                    <label className="block text-[9px] text-[#ffffff]/50 font-black uppercase tracking-widest mb-1">Éter Max</label>
+                    <label className="block text-[9px] text-white/50 font-black uppercase mb-1">Éter Máx</label>
                     <input type="number" value={editEtherMax} onChange={e => setEditEtherMax(Number(e.target.value))} className="w-full bg-[#050505] text-white border border-white/10 px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-orange-500" />
                   </div>
                   <div>
-                    <label className="block text-[9px] text-[#ffffff]/50 font-black uppercase tracking-widest mb-1">Dest Max</label>
+                    <label className="block text-[9px] text-white/50 font-black uppercase mb-1">Destino Máx</label>
                     <input type="number" value={editDestinoMax} onChange={e => setEditDestinoMax(Number(e.target.value))} className="w-full bg-[#050505] text-white border border-white/10 px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-orange-500" />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-5 gap-1.5 text-center">
                   <div>
-                    <label className="block text-[9px] text-[#ffffff]/40 font-black uppercase mb-1">FIS</label>
+                    <label className="block text-[9px] text-white/40 font-black uppercase mb-1">FIS</label>
                     <input type="number" value={editFis} onChange={e => setEditFis(Number(e.target.value))} className="w-full text-center bg-[#050505] text-white border border-white/10 px-1 py-1.5 text-xs font-mono focus:outline-none focus:border-orange-500" />
                   </div>
                   <div>
-                    <label className="block text-[9px] text-[#ffffff]/40 font-black uppercase mb-1">DES</label>
+                    <label className="block text-[9px] text-white/40 font-black uppercase mb-1">DES</label>
                     <input type="number" value={editDes} onChange={e => setEditDes(Number(e.target.value))} className="w-full text-center bg-[#050505] text-white border border-white/10 px-1 py-1.5 text-xs font-mono focus:outline-none focus:border-orange-500" />
                   </div>
                   <div>
-                    <label className="block text-[9px] text-[#ffffff]/40 font-black uppercase mb-1">COG</label>
+                    <label className="block text-[9px] text-white/40 font-black uppercase mb-1">COG</label>
                     <input type="number" value={editCog} onChange={e => setEditCog(Number(e.target.value))} className="w-full text-center bg-[#050505] text-white border border-white/10 px-1 py-1.5 text-xs font-mono focus:outline-none focus:border-orange-500" />
                   </div>
                   <div>
-                    <label className="block text-[9px] text-[#ffffff]/40 font-black uppercase mb-1">CAR</label>
+                    <label className="block text-[9px] text-white/40 font-black uppercase mb-1">CAR</label>
                     <input type="number" value={editCar} onChange={e => setEditCar(Number(e.target.value))} className="w-full text-center bg-[#050505] text-white border border-white/10 px-1 py-1.5 text-xs font-mono focus:outline-none focus:border-orange-500" />
                   </div>
                   <div>
@@ -1094,51 +1125,45 @@ export default function App() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-[9px] text-[#ffffff]/50 font-black uppercase tracking-widest">E-mail do Jogador Dono (Acesso)</label>
+                  <label className="block text-[9px] text-white/50 font-black uppercase tracking-widest">E-mail do Jogador Dono</label>
                   <input 
                     type="text" 
                     value={editEmailDono} 
                     onChange={e => setEditEmailDono(e.target.value)} 
                     placeholder="email-do-jogador@telumak.com" 
-                    className="w-full bg-[#050505] text-white border border-white/10 px-3 py-1.5 text-xs focus:outline-none focus:border-orange-500 rounded-none placeholder-white/10" 
+                    className="w-full bg-[#050505] text-white border border-white/10 px-3 py-1.5 text-xs font-mono focus:outline-none focus:border-orange-500" 
                   />
-                  <p className="text-[8px] text-white/30 font-semibold leading-normal">
-                    Associe esta ficha ao e-mail do respectivo jogador para torná-la visível apenas a ele na mesa.
-                  </p>
                 </div>
 
                 <div className="pt-3 border-t border-white/10 flex justify-end gap-2">
-                  <button onClick={() => setEditingStatsCharId(null)} className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/70 text-xs font-bold uppercase tracking-wider">Sair</button>
-                  <button onClick={handleSaveQuickStats} className="px-5 py-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-black uppercase tracking-widest transition-colors duration-150 shadow-md">Salvar</button>
+                  <button onClick={() => setEditingStatsCharId(null)} className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/70 text-xs font-bold uppercase tracking-wider">Cancelar</button>
+                  <button onClick={handleSaveQuickStats} className="px-5 py-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-black uppercase tracking-widest transition-colors shadow">Salvar</button>
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-          </div>
+          {/* MAIN FULL-WIDTH CHARACTER SHEET VIEW */}
+          {currentSelectedCharacter ? (
+            <CharacterSheet
+              character={currentSelectedCharacter}
+              isGM={isGM}
+              isOwner={currentSelectedCharacter.email_dono === currentUser.email}
+              statuses={statuses}
+              versions={activeCharVersionsList}
+            />
+          ) : (
+            <div className="bg-[#080808] border border-white/10 p-10 text-center shadow-2xl flex flex-col items-center justify-center min-h-[300px]">
+              <BookOpen className="h-12 w-12 text-white/20 mb-3" />
+              <h3 className="text-2xl font-black uppercase tracking-tighter leading-none text-white italic">Grimório Vazio</h3>
+              <p className="text-xs text-white/50 max-w-xs leading-relaxed mt-1">
+                Selecione uma ficha de aventureiro na barra superior para analisar detalhes e exportar seu PDF.
+              </p>
+            </div>
+          )}
 
-          {/* CENTRE PANEL: DETAILS AND HERO SHEET EXPORTER */}
-          <div className="lg:col-span-8 space-y-6">
-            
-            {currentSelectedCharacter ? (
-              <CharacterSheet
-                character={currentSelectedCharacter}
-                isGM={isGM}
-                isOwner={currentSelectedCharacter.email_dono === currentUser.email}
-                statuses={statuses}
-                versions={activeCharVersionsList}
-              />
-            ) : (
-              <div className="bg-[#080808] border border-white/10 p-10 text-center shadow-2xl flex flex-col items-center justify-center min-h-[300px]">
-                <BookOpen className="h-12 w-12 text-white/20 mb-3" />
-                <h3 className="text-2xl font-black uppercase tracking-tighter leading-none text-white italic">Grimório Vazio</h3>
-                <p className="text-xs text-white/50 max-w-xs leading-relaxed mt-1">
-                  Selecione uma ficha de aventureiro na barra lateral para analisar detalhes e exportar seu PDF.
-                </p>
-              </div>
-            )}
-
-            {/* TACTICAL GAME CHAT PLATFORM WITH DICE ROLLS */}
-            <div className="bg-[#0a0a0a] border border-white/10 shadow-2xl flex flex-col h-[540px]">
+          {/* TACTICAL GAME CHAT PLATFORM WITH DICE ROLLS */}
+          <div className="bg-[#0a0a0a] border border-white/10 shadow-2xl flex flex-col h-[540px]">
               
               {/* Chat Title panel */}
               <div className="bg-black/90 p-4 border-b border-white/10 flex items-center justify-between">
@@ -1269,8 +1294,6 @@ export default function App() {
               </form>
 
             </div>
-
-          </div>
 
         </div>
       )}

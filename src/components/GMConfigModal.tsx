@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Character, DiscordChannelConfig } from '../types';
-import { Sliders, X, MessageSquare, Hash, User, Shield, Check, RefreshCw, Sparkles, HelpCircle, Server, Bot } from 'lucide-react';
+import { Character, DiscordChannelConfig, UserProfile } from '../types';
+import { 
+  Sliders, X, MessageSquare, Hash, User, Shield, Check, RefreshCw, 
+  Sparkles, HelpCircle, Server, Bot, Search, UserCheck, UserX, 
+  Link as LinkIcon, Unlink, Crown, ShieldAlert, Users, Scroll
+} from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../utils/errors';
 import { DiscordBotGuideModal } from './DiscordBotGuideModal';
 
@@ -25,6 +29,13 @@ export function GMConfigModal({ isOpen, onClose, characters }: GMConfigModalProp
   const [isFetchingGuild, setIsFetchingGuild] = useState(false);
   const [showGuideModal, setShowGuideModal] = useState(false);
 
+  // Accounts and Permissions State
+  const [usersList, setUsersList] = useState<UserProfile[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [accountSearch, setAccountSearch] = useState('');
+  const [accountActionMessage, setAccountActionMessage] = useState<string | null>(null);
+  const [charLinkSelection, setCharLinkSelection] = useState<{ [uid: string]: string }>({});
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -44,6 +55,29 @@ export function GMConfigModal({ isOpen, onClose, characters }: GMConfigModalProp
     };
 
     loadConfig();
+
+    // Subscribe to all registered users
+    setLoadingUsers(true);
+    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+      const users: UserProfile[] = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data() as UserProfile;
+        users.push({
+          uid: docSnap.id,
+          email: data.email || '',
+          displayName: data.displayName || 'Usuário Sem Nome',
+          photoURL: data.photoURL || null,
+          role: data.role || 'PLAYER'
+        });
+      });
+      setUsersList(users);
+      setLoadingUsers(false);
+    }, (err) => {
+      console.warn("Erro ao buscar usuários:", err);
+      setLoadingUsers(false);
+    });
+
+    return () => unsubUsers();
   }, [isOpen]);
 
   const fetchGuildInfo = async (targetGuildId?: string, targetChanId?: string) => {
@@ -125,11 +159,59 @@ export function GMConfigModal({ isOpen, onClose, characters }: GMConfigModalProp
     }
   };
 
+  // User Accounts & Role Management Actions
+  const handleToggleUserRole = async (u: UserProfile) => {
+    const newRole: 'GM' | 'PLAYER' = u.role === 'GM' ? 'PLAYER' : 'GM';
+    try {
+      await updateDoc(doc(db, 'users', u.uid), {
+        role: newRole
+      });
+      setAccountActionMessage(`✓ Permissão de "${u.displayName || u.email}" alterada para ${newRole}!`);
+      setTimeout(() => setAccountActionMessage(null), 3500);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${u.uid}`);
+    }
+  };
+
+  const handleLinkCharToUser = async (userEmail: string, charId: string) => {
+    if (!charId) return;
+    try {
+      await updateDoc(doc(db, 'characters', charId), {
+        email_dono: userEmail
+      });
+      setAccountActionMessage(`✓ Ficha vinculada com sucesso à conta ${userEmail}!`);
+      setTimeout(() => setAccountActionMessage(null), 3500);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `characters/${charId}`);
+    }
+  };
+
+  const handleUnlinkChar = async (charId: string) => {
+    try {
+      await updateDoc(doc(db, 'characters', charId), {
+        email_dono: ''
+      });
+      setAccountActionMessage(`✓ Ficha desvinculada!`);
+      setTimeout(() => setAccountActionMessage(null), 3500);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `characters/${charId}`);
+    }
+  };
+
+  const filteredUsers = usersList.filter(u => {
+    const q = accountSearch.toLowerCase();
+    return (
+      (u.displayName && u.displayName.toLowerCase().includes(q)) ||
+      (u.email && u.email.toLowerCase().includes(q)) ||
+      (u.role && u.role.toLowerCase().includes(q))
+    );
+  });
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in select-none">
-      <div className="bg-[#0c0c0c] border border-white/15 w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-[#0c0c0c] border border-white/15 w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-white/10 bg-black">
@@ -142,7 +224,7 @@ export function GMConfigModal({ isOpen, onClose, characters }: GMConfigModalProp
                 Painel de Configurações do Mestre (GM)
               </h2>
               <p className="text-[10px] text-white/50 font-mono">
-                Gerencie canais do Discord, espelhamento do Notebook e parâmetros do sistema
+                Gerenciamento de contas, permissões, vínculos de fichas e integração com o Discord
               </p>
             </div>
           </div>
@@ -158,6 +240,17 @@ export function GMConfigModal({ isOpen, onClose, characters }: GMConfigModalProp
         <div className="flex border-b border-white/10 bg-black/50 justify-between items-center pr-4">
           <div className="flex">
             <button
+              onClick={() => setActiveTab('geral')}
+              className={`px-5 py-3 text-xs font-black uppercase tracking-widest transition flex items-center gap-2 border-b-2 ${
+                activeTab === 'geral'
+                  ? 'border-orange-500 text-orange-500 bg-white/[0.02]'
+                  : 'border-transparent text-white/40 hover:text-white'
+              }`}
+            >
+              <Users className="h-3.5 w-3.5" />
+              Fichas, Contas & Permissões
+            </button>
+            <button
               onClick={() => setActiveTab('discord')}
               className={`px-5 py-3 text-xs font-black uppercase tracking-widest transition flex items-center gap-2 border-b-2 ${
                 activeTab === 'discord'
@@ -168,31 +261,273 @@ export function GMConfigModal({ isOpen, onClose, characters }: GMConfigModalProp
               <MessageSquare className="h-3.5 w-3.5" />
               Integração Discord & Notebook
             </button>
-            <button
-              onClick={() => setActiveTab('geral')}
-              className={`px-5 py-3 text-xs font-black uppercase tracking-widest transition flex items-center gap-2 border-b-2 ${
-                activeTab === 'geral'
-                  ? 'border-orange-500 text-orange-500 bg-white/[0.02]'
-                  : 'border-transparent text-white/40 hover:text-white'
-              }`}
-            >
-              <Shield className="h-3.5 w-3.5" />
-              Fichas & Permissões
-            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setShowGuideModal(true)}
-            className="px-3 py-1.5 bg-[#5865f2]/20 hover:bg-[#5865f2]/30 text-[#5865f2] border border-[#5865f2]/40 rounded text-xs font-black uppercase tracking-wider transition flex items-center gap-1.5"
-          >
-            <Bot className="h-3.5 w-3.5" />
-            <span>Guia / Tutorial do Bot</span>
-          </button>
+          {activeTab === 'discord' && (
+            <button
+              type="button"
+              onClick={() => setShowGuideModal(true)}
+              className="px-3 py-1.5 bg-[#5865f2]/20 hover:bg-[#5865f2]/30 text-[#5865f2] border border-[#5865f2]/40 rounded text-xs font-black uppercase tracking-wider transition flex items-center gap-1.5"
+            >
+              <Bot className="h-3.5 w-3.5" />
+              <span>Guia / Tutorial do Bot</span>
+            </button>
+          )}
         </div>
 
         {/* Content */}
         <div className="p-6 overflow-y-auto space-y-6 flex-1 custom-scroll">
+          
+          {/* TAB 1: ACCOUNTS, CHARACTERS LINKING & PERMISSIONS */}
+          {activeTab === 'geral' && (
+            <div className="space-y-6">
+
+              {/* Status Alert Message */}
+              {accountActionMessage && (
+                <div className="p-3 bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 text-xs font-mono flex items-center gap-2 animate-in fade-in">
+                  <Check className="h-4 w-4 shrink-0 text-emerald-400" />
+                  <span>{accountActionMessage}</span>
+                </div>
+              )}
+
+              {/* Top Summary Bar */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-black/60 border border-white/10 p-3 flex items-center gap-3">
+                  <div className="p-2 bg-white/5 border border-white/10 text-orange-500">
+                    <Users className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-white/40 uppercase font-mono block">Total de Contas</span>
+                    <span className="text-lg font-black text-white font-mono">{usersList.length}</span>
+                  </div>
+                </div>
+
+                <div className="bg-black/60 border border-white/10 p-3 flex items-center gap-3">
+                  <div className="p-2 bg-orange-500/10 border border-orange-500/30 text-orange-400">
+                    <Crown className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-white/40 uppercase font-mono block">Mestres (GMs)</span>
+                    <span className="text-lg font-black text-orange-400 font-mono">
+                      {usersList.filter(u => u.role === 'GM').length}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-black/60 border border-white/10 p-3 flex items-center gap-3">
+                  <div className="p-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+                    <Scroll className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-white/40 uppercase font-mono block">Fichas Criadas</span>
+                    <span className="text-lg font-black text-cyan-400 font-mono">{characters.length}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Accounts Search & List */}
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                  <div>
+                    <h3 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-orange-500" />
+                      Contas Criadas & Vínculos de Fichas
+                    </h3>
+                    <p className="text-[10px] text-white/50 font-mono mt-0.5">
+                      Defina quem é Mestre ou Jogador e vincule personagens às contas dos jogadores
+                    </p>
+                  </div>
+
+                  <div className="relative w-full sm:w-64">
+                    <Search className="h-3.5 w-3.5 text-white/40 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Buscar por nome, email..."
+                      value={accountSearch}
+                      onChange={e => setAccountSearch(e.target.value)}
+                      className="w-full bg-black border border-white/10 pl-9 pr-3 py-1.5 text-xs text-white placeholder-white/30 focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                </div>
+
+                {loadingUsers ? (
+                  <div className="p-8 text-center text-white/40 flex items-center justify-center gap-2 font-mono text-xs">
+                    <RefreshCw className="h-4 w-4 animate-spin text-orange-500" />
+                    Carregando contas cadastradas...
+                  </div>
+                ) : filteredUsers.length === 0 ? (
+                  <div className="p-6 border border-white/10 bg-black/40 text-center text-white/40 italic text-xs font-mono">
+                    Nenhuma conta encontrada com o termo "{accountSearch}".
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredUsers.map(u => {
+                      const userChars = characters.filter(c => c.email_dono && c.email_dono.trim().toLowerCase() === u.email.trim().toLowerCase());
+                      const isUserGM = u.role === 'GM';
+                      const selectedChar = charLinkSelection[u.uid] || '';
+
+                      return (
+                        <div
+                          key={u.uid}
+                          className="bg-[#080808] border border-white/10 hover:border-white/20 p-4 transition-all space-y-3"
+                        >
+                          {/* User Header Info & Role Toggle */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-10 h-10 bg-black border border-white/15 overflow-hidden shrink-0">
+                                <img
+                                  src={u.photoURL || 'https://via.placeholder.com/60?text=User'}
+                                  alt={u.displayName}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-extrabold text-xs text-white uppercase tracking-tight truncate">
+                                    {u.displayName || 'Sem Nome'}
+                                  </span>
+                                  <span className={`text-[9px] font-mono font-bold px-2 py-0.5 border ${
+                                    isUserGM 
+                                      ? 'bg-orange-500/20 text-orange-400 border-orange-500/40' 
+                                      : 'bg-white/5 text-white/50 border-white/10'
+                                  }`}>
+                                    {isUserGM ? 'MESTRE (GM)' : 'JOGADOR'}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-white/40 font-mono truncate mt-0.5 select-all">
+                                  {u.email}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Role Switcher Button */}
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleUserRole(u)}
+                                className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wider border transition-all flex items-center gap-1.5 ${
+                                  isUserGM
+                                    ? 'bg-orange-500 text-white border-orange-500 hover:bg-orange-600'
+                                    : 'bg-white/5 hover:bg-white/10 text-white/70 border-white/15 hover:border-white/30'
+                                }`}
+                                title={isUserGM ? 'Rebaixar para Jogador comum' : 'Promover a Mestre (GM)'}
+                              >
+                                {isUserGM ? <Crown className="h-3 w-3" /> : <Shield className="h-3 w-3" />}
+                                <span>{isUserGM ? 'Tornar Jogador' : 'Tornar GM'}</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Linked Characters and Link Action */}
+                          <div className="pt-3 border-t border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                            
+                            {/* Linked Characters Chips */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[10px] text-white/40 uppercase font-mono font-bold">Fichas Vinculadas:</span>
+                              {userChars.length === 0 ? (
+                                <span className="text-[10px] text-white/30 italic font-mono">Nenhuma ficha vinculada</span>
+                              ) : (
+                                userChars.map(c => (
+                                  <div
+                                    key={c.id}
+                                    className="bg-black border border-orange-500/30 px-2.5 py-1 flex items-center gap-2 group"
+                                  >
+                                    <img src={c.img_saudavel} alt={c.nome} className="w-4 h-4 object-cover" />
+                                    <span className="text-[10px] font-bold text-white uppercase">{c.nome}</span>
+                                    <span className="text-[9px] text-orange-400 font-mono">Nv.{c.nivel}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUnlinkChar(c.id)}
+                                      className="text-white/30 hover:text-rose-400 transition"
+                                      title={`Desvincular ficha ${c.nome} desta conta`}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+
+                            {/* Dropdown to Link New Character */}
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <select
+                                value={selectedChar}
+                                onChange={(e) => setCharLinkSelection(prev => ({ ...prev, [u.uid]: e.target.value }))}
+                                className="bg-black border border-white/10 px-2.5 py-1 text-[10px] text-white font-mono focus:outline-none focus:border-orange-500"
+                              >
+                                <option value="">+ Vincular Ficha...</option>
+                                {characters.map(c => (
+                                  <option key={c.id} value={c.id}>
+                                    {c.nome} (Nv.{c.nivel}) {c.email_dono ? `[Atual: ${c.email_dono}]` : '[Sem Dono]'}
+                                  </option>
+                                ))}
+                              </select>
+
+                              <button
+                                type="button"
+                                disabled={!selectedChar}
+                                onClick={() => {
+                                  if (selectedChar) {
+                                    handleLinkCharToUser(u.email, selectedChar);
+                                    setCharLinkSelection(prev => ({ ...prev, [u.uid]: '' }));
+                                  }
+                                }}
+                                className="px-2.5 py-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-30 text-white text-[10px] font-black uppercase tracking-wider transition flex items-center gap-1"
+                              >
+                                <LinkIcon className="h-2.5 w-2.5" />
+                                <span>Vincular</span>
+                              </button>
+                            </div>
+
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Character-centric Quick Overview */}
+              <div className="space-y-3 pt-4 border-t border-white/10">
+                <h4 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-2">
+                  <Scroll className="h-4 w-4 text-orange-500" />
+                  Visão Geral de Todas as Fichas & Donos:
+                </h4>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {characters.map(c => (
+                    <div key={c.id} className="bg-black border border-white/10 p-2.5 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <img src={c.img_saudavel} alt={c.nome} className="w-7 h-7 object-cover border border-white/10 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-xs font-black text-white uppercase truncate">{c.nome}</p>
+                          <p className="text-[9px] text-white/40 font-mono truncate">
+                            {c.email_dono ? `Dono: ${c.email_dono}` : 'Sem dono atribuído'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        {c.email_dono && (
+                          <button
+                            type="button"
+                            onClick={() => handleUnlinkChar(c.id)}
+                            className="p-1 bg-white/5 hover:bg-rose-500/20 text-white/40 hover:text-rose-400 border border-white/10 text-[9px] font-mono uppercase"
+                            title="Desvincular dono"
+                          >
+                            <Unlink className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* TAB 2: DISCORD INTEGRATION */}
           {activeTab === 'discord' && (
             <div className="space-y-6">
               
@@ -348,22 +683,6 @@ export function GMConfigModal({ isOpen, onClose, characters }: GMConfigModalProp
             </div>
           )}
 
-          {activeTab === 'geral' && (
-            <div className="space-y-4">
-              <div className="bg-[#141414] border border-white/10 p-4 space-y-3">
-                <h4 className="text-xs font-black uppercase tracking-wider text-orange-500">
-                  Regras de Permissão da Mesa:
-                </h4>
-                <ul className="text-xs text-white/70 space-y-2 font-sans list-disc list-inside">
-                  <li><strong>Apenas o Mestre (GM)</strong> tem permissão para alterar valores da ficha (atributos, HP, magia, modificadores, textos e transformações).</li>
-                  <li><strong>Os Jogadores</strong> têm acesso exclusivamente de visualização à sua própria ficha e à arena.</li>
-                  <li><strong>Painel de Jogador:</strong> Os jogadores têm um painel próprio ("Meu Perfil") onde alteram nome de exibição, senha, método de login e avatar.</li>
-                  <li><strong>Alerta de Sincronização:</strong> O aplicativo verifica a cada 30 segundos se o Mestre alterou a ficha do jogador, exibindo um botão flutuante para atualização imediata na tela dele.</li>
-                  <li><strong>Arena Tática:</strong> Apenas o Mestre pode mover peões, definir o tamanho em SQM (1x1, 2x2, etc.), spawnar tokens e trocar o mapa de fundo.</li>
-                </ul>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Footer */}
@@ -384,14 +703,16 @@ export function GMConfigModal({ isOpen, onClose, characters }: GMConfigModalProp
             >
               Fechar
             </button>
-            <button
-              type="button"
-              onClick={handleSaveConfig}
-              disabled={saving}
-              className="px-6 py-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs uppercase tracking-widest transition flex items-center gap-2 shadow-lg disabled:opacity-50"
-            >
-              {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : 'Salvar Alterações'}
-            </button>
+            {activeTab === 'discord' && (
+              <button
+                type="button"
+                onClick={handleSaveConfig}
+                disabled={saving}
+                className="px-6 py-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs uppercase tracking-widest transition flex items-center gap-2 shadow-lg disabled:opacity-50"
+              >
+                {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : 'Salvar Alterações'}
+              </button>
+            )}
           </div>
         </div>
 
@@ -407,4 +728,5 @@ export function GMConfigModal({ isOpen, onClose, characters }: GMConfigModalProp
     </div>
   );
 }
+
 
