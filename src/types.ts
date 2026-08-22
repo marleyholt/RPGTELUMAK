@@ -177,5 +177,8 @@ export interface DiscordNotebookMessage {
   content: string;
   attachments?: string[];
   isFromDiscord?: boolean;
+  pinned?: boolean;
+  pinnedBy?: string;
+  pinnedAt?: any;
   createdAt: any;
 }

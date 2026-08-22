@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, serverTimestamp, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Character, DiscordChannelConfig, DiscordNotebookMessage, UserProfile } from '../types';
 import { 
   Send, Image as ImageIcon, Sparkles, Hash, User, Bold, Italic, Underline, 
   Strikethrough, EyeOff, Quote, Code, RefreshCw, Paperclip, X, AlertCircle,
-  Dices, Server, Maximize2, Minimize2, Check, Crop
+  Dices, Server, Maximize2, Minimize2, Check, Crop, Pin, PinOff, Search,
+  Copy, Trash2, ArrowDown, MessageSquareQuote, Bookmark
 } from 'lucide-react';
 import { processImageFile } from '../utils/imageUpload';
 import { ImageCropModal } from './ImageCropModal';
@@ -29,8 +30,16 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
   const [showCropModal, setShowCropModal] = useState(false);
   const [pendingCropImage, setPendingCropImage] = useState<string | null>(null);
   const [isExpandedEditor, setIsExpandedEditor] = useState(false);
+
+  // Search and Filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterPinnedOnly, setFilterPinnedOnly] = useState(false);
+  const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const [isPinning, setIsPinning] = useState<string | null>(null);
   
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatScrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -50,12 +59,10 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
     if (!currentUserProfile) return;
 
     if (isGM) {
-      // If GM hasn't chosen a player, default to first player or campaign default
       if (selectedTargetKey) {
         const mapped = channelConfig.playerChannels?.[selectedTargetKey] || '';
         setActiveChannelId(mapped || channelConfig.defaultChannelId || '');
       } else {
-        // Default to first character or defaultChannelId
         if (characters.length > 0) {
           const firstKey = characters[0].email_dono || characters[0].id;
           setSelectedTargetKey(firstKey);
@@ -66,7 +73,6 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
         }
       }
     } else {
-      // Player: find their mapped channel
       const myEmail = currentUserProfile.email;
       const myChar = characters.find(c => c.email_dono === myEmail);
       const myKey = myEmail || myChar?.id || '';
@@ -94,13 +100,101 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
         msgs.push({ id: d.id, ...d.data() } as DiscordNotebookMessage);
       });
       setMessages(msgs);
-      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+      
+      // Auto-scroll on initial load or if near bottom
+      setTimeout(() => {
+        if (!filterPinnedOnly && !searchQuery.trim()) {
+          chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
     }, (err) => {
       console.warn("Snapshot discord_notebook_messages:", err);
     });
 
     return unsub;
   }, [activeChannelId]);
+
+  // Track scroll position to show "Scroll to Bottom" button
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    const isScrolledUp = target.scrollHeight - target.scrollTop - target.clientHeight > 150;
+    setShowScrollBottom(isScrolledUp);
+  };
+
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Filter messages based on search query and pinned toggle
+  const filteredMessages = useMemo(() => {
+    return messages.filter(msg => {
+      // Pinned filter
+      if (filterPinnedOnly && !msg.pinned) {
+        return false;
+      }
+      // Search query filter
+      if (searchQuery.trim()) {
+        const queryLower = searchQuery.toLowerCase().trim();
+        const contentMatch = (msg.content || '').toLowerCase().includes(queryLower);
+        const authorMatch = (msg.authorName || '').toLowerCase().includes(queryLower);
+        if (!contentMatch && !authorMatch) return false;
+      }
+      return true;
+    });
+  }, [messages, filterPinnedOnly, searchQuery]);
+
+  const pinnedCount = useMemo(() => {
+    return messages.filter(m => m.pinned).length;
+  }, [messages]);
+
+  // Toggle message pin status in Firestore
+  const handleTogglePin = async (msg: DiscordNotebookMessage) => {
+    if (!msg.id || isPinning === msg.id) return;
+    setIsPinning(msg.id);
+
+    try {
+      const currentPinned = !!msg.pinned;
+      const userName = currentUserProfile?.displayName || (isGM ? 'GM' : 'Jogador');
+
+      await updateDoc(doc(db, 'discord_notebook_messages', msg.id), {
+        pinned: !currentPinned,
+        pinnedBy: !currentPinned ? userName : null,
+        pinnedAt: !currentPinned ? serverTimestamp() : null
+      });
+    } catch (err) {
+      console.error("Erro ao fixar/desafixar mensagem:", err);
+    } finally {
+      setIsPinning(null);
+    }
+  };
+
+  // Delete message
+  const handleDeleteMessage = async (msg: DiscordNotebookMessage) => {
+    if (!msg.id) return;
+    const confirmDelete = window.confirm("Deseja realmente apagar esta anotação do Notebook?");
+    if (!confirmDelete) return;
+
+    try {
+      await deleteDoc(doc(db, 'discord_notebook_messages', msg.id));
+    } catch (err) {
+      console.error("Erro ao apagar mensagem:", err);
+      alert("Não foi possível apagar a mensagem.");
+    }
+  };
+
+  // Copy message content to clipboard
+  const handleCopyMessage = (msg: DiscordNotebookMessage) => {
+    navigator.clipboard.writeText(msg.content || '');
+    setCopiedMsgId(msg.id);
+    setTimeout(() => setCopiedMsgId(null), 2000);
+  };
+
+  // Quote message into the active editor
+  const handleQuoteMessage = (msg: DiscordNotebookMessage) => {
+    const quoteText = `\n> **${msg.authorName}:** ${msg.content.replace(/\n/g, '\n> ')}\n\n`;
+    setInputText(prev => prev + quoteText);
+    textareaRef.current?.focus();
+  };
 
   // Handle image upload from computer with Crop/Zoom modal
   const handleAttachImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -197,9 +291,11 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
         await addDoc(collection(db, 'discord_notebook_messages'), {
           channelId: activeChannelId,
           authorName: senderName,
+          authorEmail: currentUserProfile?.email || null,
           content: contentToSend,
           attachments: imageToSend ? [imageToSend] : undefined,
           isFromDiscord: false,
+          pinned: false,
           createdAt: serverTimestamp()
         });
       }
@@ -216,11 +312,31 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
     return c.includes('rollem') || c.includes('🎲') || c.includes('total:') || c.includes('d10') || c.includes('d20') || c.includes('resultado') || c.includes('crítico') || c.includes('>>');
   }).slice(-12).reverse();
 
+  // Highlight search occurrences inside a string
+  const highlightSearch = (text: string, keyPrefix: string): React.ReactNode => {
+    if (!searchQuery.trim()) return text;
+    
+    const term = searchQuery.trim();
+    const regex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const parts = text.split(regex);
+
+    if (parts.length <= 1) return text;
+
+    return parts.map((part, i) => 
+      regex.test(part) ? (
+        <mark key={`${keyPrefix}-hl-${i}`} className="bg-amber-400/30 text-amber-200 font-bold px-0.5 rounded border-b border-amber-400">
+          {part}
+        </mark>
+      ) : (
+        part
+      )
+    );
+  };
+
   // Render Discord-formatted text safely
   const renderDiscordMarkdown = (text: string, msgId: string) => {
     if (!text) return null;
 
-    // Helper to process line-by-line and block formats
     const lines = text.split('\n');
     return lines.map((line, lineIdx) => {
       // Headers
@@ -261,7 +377,6 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
 
   // Parse inline elements (bold, italic, underline, strikethrough, spoiler, inline code, mentions)
   const parseInlineMarkdown = (lineText: string, msgId: string, lineIdx: number): React.ReactNode => {
-    // Regex tokens
     const parts: React.ReactNode[] = [];
     let remaining = lineText;
     let keyCounter = 0;
@@ -272,7 +387,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
       if (codeMatch) {
         parts.push(
           <code key={`${msgId}-${lineIdx}-${keyCounter++}`} className="bg-[#1e1f22] text-[#e0e1e5] px-1.5 py-0.5 rounded font-mono text-[11px] border border-white/5">
-            {codeMatch[1]}
+            {highlightSearch(codeMatch[1], `${msgId}-${lineIdx}-${keyCounter}`)}
           </code>
         );
         remaining = remaining.substring(codeMatch[0].length);
@@ -305,7 +420,11 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
       // Bold + Italic: ***text***
       const boldItalicMatch = remaining.match(/^\*\*\*([^*]+)\*\*\*/);
       if (boldItalicMatch) {
-        parts.push(<strong key={`${msgId}-${lineIdx}-${keyCounter++}`} className="font-extrabold italic text-white">{boldItalicMatch[1]}</strong>);
+        parts.push(
+          <strong key={`${msgId}-${lineIdx}-${keyCounter++}`} className="font-extrabold italic text-white">
+            {highlightSearch(boldItalicMatch[1], `${msgId}-${lineIdx}-${keyCounter}`)}
+          </strong>
+        );
         remaining = remaining.substring(boldItalicMatch[0].length);
         continue;
       }
@@ -313,7 +432,11 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
       // Bold: **text**
       const boldMatch = remaining.match(/^\*\*([^*]+)\*\*/);
       if (boldMatch) {
-        parts.push(<strong key={`${msgId}-${lineIdx}-${keyCounter++}`} className="font-black text-white">{boldMatch[1]}</strong>);
+        parts.push(
+          <strong key={`${msgId}-${lineIdx}-${keyCounter++}`} className="font-black text-white">
+            {highlightSearch(boldMatch[1], `${msgId}-${lineIdx}-${keyCounter}`)}
+          </strong>
+        );
         remaining = remaining.substring(boldMatch[0].length);
         continue;
       }
@@ -321,7 +444,11 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
       // Underline: __text__
       const underlineMatch = remaining.match(/^__([^_]+)__/);
       if (underlineMatch) {
-        parts.push(<span key={`${msgId}-${lineIdx}-${keyCounter++}`} className="underline decoration-orange-500 decoration-1 underline-offset-2">{underlineMatch[1]}</span>);
+        parts.push(
+          <span key={`${msgId}-${lineIdx}-${keyCounter++}`} className="underline decoration-orange-500 decoration-1 underline-offset-2">
+            {highlightSearch(underlineMatch[1], `${msgId}-${lineIdx}-${keyCounter}`)}
+          </span>
+        );
         remaining = remaining.substring(underlineMatch[0].length);
         continue;
       }
@@ -329,7 +456,11 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
       // Italic: *text* or _text_
       const italicMatch = remaining.match(/^(\*|_)([^*_]+)\1/);
       if (italicMatch) {
-        parts.push(<em key={`${msgId}-${lineIdx}-${keyCounter++}`} className="italic text-white/90">{italicMatch[2]}</em>);
+        parts.push(
+          <em key={`${msgId}-${lineIdx}-${keyCounter++}`} className="italic text-white/90">
+            {highlightSearch(italicMatch[2], `${msgId}-${lineIdx}-${keyCounter}`)}
+          </em>
+        );
         remaining = remaining.substring(italicMatch[0].length);
         continue;
       }
@@ -337,7 +468,11 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
       // Strikethrough: ~~text~~
       const strikeMatch = remaining.match(/^~~([^~]+)~~/);
       if (strikeMatch) {
-        parts.push(<del key={`${msgId}-${lineIdx}-${keyCounter++}`} className="line-through text-white/50">{strikeMatch[1]}</del>);
+        parts.push(
+          <del key={`${msgId}-${lineIdx}-${keyCounter++}`} className="line-through text-white/50">
+            {highlightSearch(strikeMatch[1], `${msgId}-${lineIdx}-${keyCounter}`)}
+          </del>
+        );
         remaining = remaining.substring(strikeMatch[0].length);
         continue;
       }
@@ -354,8 +489,9 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
         continue;
       }
 
-      // If no markdown match at start, take the next plain character
-      parts.push(remaining[0]);
+      // Next plain character
+      const nextChar = remaining[0];
+      parts.push(highlightSearch(nextChar, `${msgId}-${lineIdx}-${keyCounter++}`));
       remaining = remaining.substring(1);
     }
 
@@ -367,70 +503,155 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
     : (characters.find(c => c.email_dono === currentUserProfile?.email)?.nome || 'Meu Notebook');
 
   return (
-    <div className="flex flex-col h-[78vh] bg-[#313338] border border-[#232428] shadow-2xl rounded-none overflow-hidden text-[#dbdee1] font-sans">
+    <div className="flex flex-col h-[80vh] bg-[#313338] border border-[#232428] shadow-2xl rounded-none overflow-hidden text-[#dbdee1] font-sans">
       
       {/* Discord Header Bar */}
-      <div className="bg-[#2b2d31] border-b border-[#1f2023] px-5 py-3.5 flex flex-wrap items-center justify-between gap-4 shrink-0 shadow-md">
-        <div className="flex items-center gap-3">
-          <div className="p-1.5 bg-[#5865f2]/10 rounded border border-[#5865f2]/30 text-[#5865f2]">
-            <Hash className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-sm font-black uppercase tracking-tight text-white flex items-center gap-1.5">
-                <span>NOTEBOOK DISCORD:</span>
-                <span className="text-orange-400 font-mono">{activeTargetName}</span>
-              </h3>
-              
-              {channelConfig.guildName && (
-                <span className="bg-white/10 text-white/90 text-[10px] font-mono px-2 py-0.5 rounded border border-white/15 flex items-center gap-1">
-                  <Server className="h-3 w-3 text-orange-400" />
-                  <span>{channelConfig.guildName}</span>
-                </span>
-              )}
-
-              <span className="bg-[#5865f2] text-white text-[9px] font-black uppercase px-1.5 py-0.5 rounded font-mono">
-                LIVE DISCORD
-              </span>
+      <div className="bg-[#2b2d31] border-b border-[#1f2023] px-4 py-3 shrink-0 shadow-md flex flex-col gap-2.5">
+        
+        {/* Top Row: Channel Info & GM Target Selector */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 bg-[#5865f2]/10 rounded border border-[#5865f2]/30 text-[#5865f2]">
+              <Hash className="h-5 w-5" />
             </div>
-            <p className="text-[10px] text-[#949ba4] font-mono flex items-center gap-2">
-              <span>Canal ID: {activeChannelId || 'Não configurado'}</span>
-              {activeChannelId && <span className="text-emerald-400 font-bold">• Sincronizado</span>}
-            </p>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-sm font-black uppercase tracking-tight text-white flex items-center gap-1.5">
+                  <span>NOTEBOOK DISCORD:</span>
+                  <span className="text-orange-400 font-mono">{activeTargetName}</span>
+                </h3>
+                
+                {channelConfig.guildName && (
+                  <span className="bg-white/10 text-white/90 text-[10px] font-mono px-2 py-0.5 rounded border border-white/15 flex items-center gap-1">
+                    <Server className="h-3 w-3 text-orange-400" />
+                    <span>{channelConfig.guildName}</span>
+                  </span>
+                )}
+
+                <span className="bg-[#5865f2] text-white text-[9px] font-black uppercase px-1.5 py-0.5 rounded font-mono">
+                  LIVE DISCORD
+                </span>
+              </div>
+              <p className="text-[10px] text-[#949ba4] font-mono flex items-center gap-2">
+                <span>Canal ID: {activeChannelId || 'Não configurado'}</span>
+                {activeChannelId && <span className="text-emerald-400 font-bold">• Sincronizado</span>}
+                <span className="text-white/40">|</span>
+                <span>{messages.length} anotações</span>
+                {pinnedCount > 0 && (
+                  <span className="text-amber-400 font-bold flex items-center gap-0.5">
+                    • {pinnedCount} fixada{pinnedCount > 1 ? 's' : ''}
+                  </span>
+                )}
+              </p>
+            </div>
           </div>
+
+          {/* GM Player Channel Selector */}
+          {isGM && (
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-white/70 font-bold uppercase tracking-wider hidden sm:inline">
+                Ver Notebook de:
+              </span>
+              <select
+                value={selectedTargetKey}
+                onChange={(e) => setSelectedTargetKey(e.target.value)}
+                className="bg-[#1e1f22] border border-[#3f4147] text-white text-xs font-bold px-3 py-1.5 rounded focus:outline-none focus:border-[#5865f2] uppercase tracking-wider w-60 sm:w-72 shadow-sm truncate"
+              >
+                {characters.map(c => {
+                  const key = c.email_dono || c.id;
+                  const hasChan = !!channelConfig.playerChannels?.[key];
+                  return (
+                    <option key={c.id} value={key} className="bg-[#2b2d31] text-white py-1">
+                      {c.nome} {c.cla ? `[${c.cla}]` : ''} {hasChan ? '⚡ (Discord Vinculado)' : '(Sem Canal)'}
+                    </option>
+                  );
+                })}
+                {characters.length === 0 && (
+                  <option value="">Canal Padrão da Mesa</option>
+                )}
+              </select>
+            </div>
+          )}
         </div>
 
-        {/* GM Player Channel Selector - Made Wider with enhanced UI */}
-        {isGM && (
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-white/70 font-bold uppercase tracking-wider hidden sm:inline">
-              Ver Notebook de:
-            </span>
-            <select
-              value={selectedTargetKey}
-              onChange={(e) => setSelectedTargetKey(e.target.value)}
-              className="bg-[#1e1f22] border border-[#3f4147] text-white text-xs font-bold px-3 py-2 rounded focus:outline-none focus:border-[#5865f2] uppercase tracking-wider w-64 sm:w-80 min-w-[260px] shadow-sm truncate"
-            >
-              {characters.map(c => {
-                const key = c.email_dono || c.id;
-                const hasChan = !!channelConfig.playerChannels?.[key];
-                return (
-                  <option key={c.id} value={key} className="bg-[#2b2d31] text-white py-1">
-                    {c.nome} {c.cla ? `[${c.cla}]` : ''} {hasChan ? '⚡ (Discord Vinculado)' : '(Sem Canal)'}
-                  </option>
-                );
-              })}
-              {characters.length === 0 && (
-                <option value="">Canal Padrão da Mesa</option>
-              )}
-            </select>
+        {/* Second Row: Search Bar & Pinned Filter Toggle */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/5">
+          
+          {/* Search Box */}
+          <div className="relative flex-1 min-w-[200px] max-w-md">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/40" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar nas anotações, rolagens ou autor..."
+              className="w-full bg-[#1e1f22] border border-[#3f4147] focus:border-[#5865f2] text-xs text-white placeholder-white/40 rounded-full pl-8 pr-7 py-1.5 focus:outline-none transition"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-white/40 hover:text-white transition"
+                title="Limpar busca"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
-        )}
+
+          {/* Filter Pills */}
+          <div className="flex items-center gap-2">
+            
+            {/* Pinned Messages Filter Button */}
+            <button
+              type="button"
+              onClick={() => setFilterPinnedOnly(!filterPinnedOnly)}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition shadow-sm border ${
+                filterPinnedOnly
+                  ? 'bg-amber-500 text-black border-amber-400 font-black shadow-amber-500/20'
+                  : 'bg-[#1e1f22] hover:bg-[#35373c] text-amber-400/90 border-amber-500/30 hover:border-amber-500/60'
+              }`}
+              title={filterPinnedOnly ? "Exibindo apenas mensagens fixadas (clique para ver todas)" : "Filtrar e exibir apenas mensagens fixadas"}
+            >
+              <Pin className={`h-3.5 w-3.5 ${filterPinnedOnly ? 'fill-current' : ''}`} />
+              <span>Fixadas</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                filterPinnedOnly ? 'bg-black/30 text-white' : 'bg-amber-500/20 text-amber-300'
+              }`}>
+                {pinnedCount}
+              </span>
+            </button>
+
+            {/* Clear all active filters indicator */}
+            {(searchQuery.trim() || filterPinnedOnly) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setFilterPinnedOnly(false);
+                }}
+                className="text-[10px] text-white/50 hover:text-white underline font-mono px-1 py-0.5"
+              >
+                Limpar Filtros
+              </button>
+            )}
+
+            {/* Active search match count */}
+            {searchQuery.trim() && (
+              <span className="text-[11px] text-orange-400 font-mono font-bold bg-orange-500/10 border border-orange-500/20 px-2 py-0.5 rounded">
+                {filteredMessages.length} resultado{filteredMessages.length === 1 ? '' : 's'}
+              </span>
+            )}
+
+          </div>
+
+        </div>
+
       </div>
 
       {/* Warning if no Channel ID is configured */}
       {!activeChannelId && (
-        <div className="bg-[#f0b232]/10 border-b border-[#f0b232]/30 px-4 py-2.5 flex items-center gap-2 text-xs text-[#f0b232]">
+        <div className="bg-[#f0b232]/10 border-b border-[#f0b232]/30 px-4 py-2 flex items-center gap-2 text-xs text-[#f0b232]">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span>
             {isGM 
@@ -441,7 +662,11 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
       )}
 
       {/* Messages Stream (Discord Mirror Layout) */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scroll bg-[#313338]">
+      <div 
+        ref={chatScrollContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-4 space-y-3 custom-scroll bg-[#313338] relative"
+      >
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-3 opacity-60">
             <div className="w-14 h-14 rounded-full bg-[#2b2d31] border border-white/10 flex items-center justify-center text-[#5865f2]">
@@ -454,42 +679,86 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
               </p>
             </div>
           </div>
+        ) : filteredMessages.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-3">
+            <div className="w-12 h-12 rounded-full bg-black/40 border border-white/10 flex items-center justify-center text-amber-400">
+              {filterPinnedOnly ? <Pin className="h-6 w-6" /> : <Search className="h-6 w-6" />}
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white uppercase tracking-wider">
+                {filterPinnedOnly ? 'Nenhuma Anotação Fixada' : 'Nenhum Resultado Encontrado'}
+              </p>
+              <p className="text-xs text-[#949ba4] max-w-sm mt-1">
+                {filterPinnedOnly 
+                  ? 'Você pode fixar anotações importantes passando o mouse sobre qualquer mensagem e clicando no ícone de alfinete (📌).'
+                  : `Não foram encontradas mensagens com o termo "${searchQuery}".`}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterPinnedOnly(false);
+                  setSearchQuery('');
+                }}
+                className="mt-3 px-3 py-1.5 bg-[#5865f2] hover:bg-[#4752c4] text-white text-xs font-bold uppercase rounded transition"
+              >
+                Ver Todas as Anotações
+              </button>
+            </div>
+          </div>
         ) : (
-          messages.map((msg, idx) => {
+          filteredMessages.map((msg, idx) => {
             const isBot = msg.authorName.includes('[Discord]') || msg.authorName.includes('BOT') || msg.isFromDiscord;
             const avatarUrl = msg.authorAvatar || 'https://cdn.discordapp.com/embed/avatars/0.png';
+            const isPinned = !!msg.pinned;
+            const isOwner = currentUserProfile?.email && msg.authorEmail === currentUserProfile.email;
+            const canDelete = isGM || isOwner;
             
             // Format timestamp
             let timeStr = 'Agora';
+            let fullDateStr = '';
             if (msg.createdAt) {
               const d = msg.createdAt.toDate ? msg.createdAt.toDate() : new Date(msg.createdAt);
               if (!isNaN(d.getTime())) {
                 timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                fullDateStr = d.toLocaleDateString([], { day: '2-digit', month: '2-digit', year: 'numeric' });
               }
             }
 
             return (
               <div 
                 key={msg.id || idx}
-                className="group flex items-start gap-3.5 hover:bg-[#2e3035] -mx-4 px-4 py-1.5 transition rounded-none"
+                className={`group relative flex items-start gap-3.5 -mx-4 px-4 py-2 transition rounded-none ${
+                  isPinned 
+                    ? 'bg-amber-500/[0.06] border-l-4 border-amber-500 hover:bg-amber-500/[0.09]' 
+                    : 'hover:bg-[#2e3035] border-l-4 border-transparent'
+                }`}
               >
                 {/* Avatar */}
-                <div className="w-10 h-10 rounded-full bg-[#1e1f22] overflow-hidden shrink-0 mt-0.5 shadow">
+                <div className="w-10 h-10 rounded-full bg-[#1e1f22] overflow-hidden shrink-0 mt-0.5 shadow border border-white/5">
                   <img src={avatarUrl} alt={msg.authorName} className="w-full h-full object-cover" />
                 </div>
 
                 {/* Message Body */}
                 <div className="flex-1 min-w-0">
+                  
+                  {/* Pinned Badge if message is pinned */}
+                  {isPinned && (
+                    <div className="flex items-center gap-1.5 text-[10px] text-amber-400 font-bold mb-1">
+                      <Pin className="h-3 w-3 fill-current" />
+                      <span>Mensagem Fixada {msg.pinnedBy ? `por ${msg.pinnedBy}` : ''}</span>
+                    </div>
+                  )}
+
                   <div className="flex items-baseline gap-2">
                     <span className="font-bold text-[13px] text-white hover:underline cursor-pointer">
-                      {msg.authorName}
+                      {highlightSearch(msg.authorName, `author-${msg.id}`)}
                     </span>
                     {isBot && (
                       <span className="bg-[#5865f2] text-white text-[9px] font-black uppercase px-1 py-0.2 rounded font-mono">
                         DISCORD
                       </span>
                     )}
-                    <span className="text-[10px] text-[#949ba4] font-mono">
+                    <span className="text-[10px] text-[#949ba4] font-mono" title={fullDateStr}>
                       {timeStr}
                     </span>
                   </div>
@@ -510,11 +779,76 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
                     </div>
                   )}
                 </div>
+
+                {/* Quick Action Floating Bar (Hover on desktop / always available) */}
+                <div className="absolute right-3 top-2 opacity-0 group-hover:opacity-100 transition-opacity bg-[#2b2d31] border border-[#3f4147] rounded shadow-md flex items-center p-0.5 z-10">
+                  
+                  {/* Pin / Unpin Button */}
+                  <button
+                    type="button"
+                    onClick={() => handleTogglePin(msg)}
+                    className={`p-1.5 rounded transition ${
+                      isPinned 
+                        ? 'text-amber-400 bg-amber-500/20 hover:bg-amber-500/30' 
+                        : 'text-white/60 hover:text-amber-400 hover:bg-[#35373c]'
+                    }`}
+                    title={isPinned ? "Desafixar mensagem" : "Fixar mensagem no topo"}
+                  >
+                    {isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+                  </button>
+
+                  {/* Quote Button */}
+                  <button
+                    type="button"
+                    onClick={() => handleQuoteMessage(msg)}
+                    className="p-1.5 text-white/60 hover:text-white hover:bg-[#35373c] rounded transition"
+                    title="Citar esta anotação no editor"
+                  >
+                    <MessageSquareQuote className="h-3.5 w-3.5" />
+                  </button>
+
+                  {/* Copy Button */}
+                  <button
+                    type="button"
+                    onClick={() => handleCopyMessage(msg)}
+                    className="p-1.5 text-white/60 hover:text-white hover:bg-[#35373c] rounded transition"
+                    title="Copiar texto da mensagem"
+                  >
+                    {copiedMsgId === msg.id ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                  </button>
+
+                  {/* Delete Button (if authorized) */}
+                  {canDelete && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteMessage(msg)}
+                      className="p-1.5 text-white/40 hover:text-rose-400 hover:bg-rose-500/10 rounded transition"
+                      title="Apagar anotação"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+
+                </div>
+
               </div>
             );
           })
         )}
         <div ref={chatEndRef} />
+
+        {/* Scroll to Bottom Floating Button */}
+        {showScrollBottom && (
+          <button
+            type="button"
+            onClick={scrollToBottom}
+            className="sticky bottom-2 left-1/2 -translate-x-1/2 bg-[#5865f2] hover:bg-[#4752c4] text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-xl flex items-center gap-1.5 transition-all z-20 border border-white/20"
+          >
+            <ArrowDown className="h-3.5 w-3.5" />
+            <span>Mais Recentes</span>
+          </button>
+        )}
+
       </div>
 
       {/* Input Formatting Toolbar & Resizable Box */}
@@ -810,4 +1144,3 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
     </div>
   );
 }
-

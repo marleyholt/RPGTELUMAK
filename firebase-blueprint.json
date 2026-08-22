@@ -132,6 +132,26 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["titulo", "conteudo", "autor_uid", "autor_email", "tipo"]
+    },
+    "DiscordNotebookMessage": {
+      "title": "DiscordNotebookMessage",
+      "description": "Discord live channel synced notebook message with pinning and rich formatting support.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "channelId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorEmail": { "type": "string" },
+        "authorAvatar": { "type": "string" },
+        "content": { "type": "string" },
+        "attachments": { "type": "array" },
+        "isFromDiscord": { "type": "boolean" },
+        "pinned": { "type": "boolean" },
+        "pinnedBy": { "type": "string" },
+        "pinnedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["channelId", "authorName", "content"]
     }
   },
   "firestore": {
@@ -162,6 +182,10 @@
     "/campaign_notes/{noteId}": {
       "schema": "CampaignNote",
       "description": "Durable structured campaign notes for GM prep, public log, or private notes."
+    },
+    "/discord_notebook_messages/{msgId}": {
+      "schema": "DiscordNotebookMessage",
+      "description": "Discord notebook messages synchronized with the game session."
     }
   }
 }

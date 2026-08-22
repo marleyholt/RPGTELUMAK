@@ -52,7 +52,12 @@ service cloud.firestore {
         request.resource.data.authorName != null ||
         request.auth.token.email == "discord-bot@system.local"
       );
-      allow update, delete: if isGM() || request.auth.token.email == "discord-bot@system.local";
+      allow update: if isSignedIn() && (
+        isGM() || 
+        request.auth.token.email == "discord-bot@system.local" ||
+        request.resource.data.diff(resource.data).affectedKeys().hasAny(['pinned', 'pinnedBy', 'pinnedAt'])
+      );
+      allow delete: if isGM() || request.auth.token.email == "discord-bot@system.local" || (isSignedIn() && resource.data.authorEmail == request.auth.token.email);
     }
 
     // --- CHARACTERS ---
