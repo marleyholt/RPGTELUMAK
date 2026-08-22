@@ -142,13 +142,21 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
     }
   };
 
-  const handleCellClick = async (x: number, y: number) => {
-    // Only GM can move pieces on the board
-    if (!isGM) return;
+  const myActiveTableChars = characters.filter(c => c.email_dono === currentUserEmail && c.ativo_na_mesa && !c.arquivado);
+  const activeTableCharacters = characters.filter(c => c.ativo_na_mesa && !c.arquivado);
 
+  const canControlToken = (tk: ArenaToken) => {
+    if (isGM) return true;
+    if (tk.type === 'PLAYER' && tk.charId) {
+      return myActiveTableChars.some(c => c.id === tk.charId);
+    }
+    return false;
+  };
+
+  const handleCellClick = async (x: number, y: number) => {
     if (selectedTokenId) {
       const token = tokens.find(t => t.id === selectedTokenId);
-      if (!token) {
+      if (!token || !canControlToken(token)) {
         setSelectedTokenId(null);
         return;
       }
@@ -171,25 +179,27 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
   for (let y = 0; y < gridHeight; y++) {
     for (let x = 0; x < gridWidth; x++) {
       const cellTokens = tokens.filter(t => t.x === x && t.y === y);
+      const isGridInteractive = isGM || !!selectedTokenId;
 
       cells.push(
         <div
           key={`${x}-${y}`}
-          onClick={() => isGM && handleCellClick(x, y)}
+          onClick={() => isGridInteractive && handleCellClick(x, y)}
           className={`border border-white/10 aspect-square relative flex items-center justify-center transition-all duration-150 ${
-            isGM ? 'cursor-pointer hover:bg-orange-500/15' : 'cursor-default'
+            isGridInteractive ? 'cursor-pointer hover:bg-orange-500/15' : 'cursor-default'
           }`}
         >
           {cellTokens.map(tk => {
             const isSelected = selectedTokenId === tk.id;
             const sqm = tk.sqm || 1;
             const borderCol = tk.type === 'PLAYER' ? 'border-cyan-400' : tk.type === 'NPC' ? 'border-rose-500' : 'border-amber-400';
+            const userCanControl = canControlToken(tk);
 
             return (
               <div
                 key={tk.id}
                 onClick={(e) => {
-                  if (!isGM) return;
+                  if (!userCanControl) return;
                   e.stopPropagation();
                   setSelectedTokenId(isSelected ? null : tk.id);
                 }}
@@ -200,9 +210,9 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
                   minHeight: `${sqm * 100}%`,
                 }}
                 className={`absolute top-0 left-0 z-20 transition-all select-none flex items-center justify-center p-0.5 ${
-                  isGM ? 'cursor-pointer hover:scale-105' : 'cursor-default'
+                  userCanControl ? 'cursor-pointer hover:scale-105' : 'cursor-default'
                 } ${isSelected ? 'scale-105 ring-2 ring-orange-500 z-30' : ''}`}
-                title={`${tk.name} (${tk.type}) - ${sqm}x${sqm} SQM`}
+                title={`${tk.name} (${tk.type}) - ${sqm}x${sqm} SQM ${userCanControl ? '(Clique para mover)' : ''}`}
               >
                 <div className="relative w-full h-full">
                   <img
@@ -358,8 +368,8 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
                   className="w-full bg-[#050505] border border-white/10 px-3 py-2.5 text-white text-xs focus:border-orange-500 focus:outline-none uppercase tracking-wider"
                   required
                 >
-                  <option value="" className="text-black">-- Selecionar da Ficha --</option>
-                  {characters.map(c => (
+                  <option value="" className="text-black">-- Selecionar da Ficha (Apenas na Mesa) --</option>
+                  {activeTableCharacters.map(c => (
                     <option key={c.id} value={c.id} className="text-black">{c.nome} {c.email_dono ? `(${c.email_dono})` : ''}</option>
                   ))}
                 </select>

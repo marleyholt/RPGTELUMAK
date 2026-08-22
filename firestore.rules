@@ -93,10 +93,14 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isGM();
 
-      // Tokens Subcollection (GM ONLY can move, create, delete)
+      // Tokens Subcollection (GM can create/delete; Players and GM can move positions)
       match /tokens/{tokenId} {
         allow read: if isSignedIn();
-        allow write: if isGM();
+        allow create, delete: if isGM();
+        allow update: if isSignedIn() && (
+          isGM() || 
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['x', 'y'])
+        );
       }
     }
 
