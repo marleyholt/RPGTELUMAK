@@ -546,9 +546,10 @@ export default function App() {
   };
 
   const isGM = userProfile?.role === 'GM';
-  const myCharactersList = characters.filter(c => c.email_dono === currentUser?.email);
-  const mestreMesaRoster = characters.filter(c => c.ativo_na_mesa);
-  const currentSelectedCharacter = characters.find(c => c.id === selectedCharId) || (myCharactersList.length > 0 ? myCharactersList[0] : null);
+  const activeCharacters = characters.filter(c => !c.arquivado);
+  const myCharactersList = activeCharacters.filter(c => c.email_dono === currentUser?.email);
+  const mestreMesaRoster = activeCharacters.filter(c => c.ativo_na_mesa);
+  const currentSelectedCharacter = activeCharacters.find(c => c.id === selectedCharId) || (myCharactersList.length > 0 ? myCharactersList[0] : (isGM && activeCharacters.length > 0 ? activeCharacters[0] : null));
   const activeCharVersionsList = currentSelectedCharacter ? versionsMap[currentSelectedCharacter.id] || [] : [];
 
   if (authLoading) {
@@ -868,7 +869,7 @@ export default function App() {
 
               {/* Characters Chips Horizontal Scroll */}
               <div className="flex items-center gap-2 overflow-x-auto custom-scroll w-full md:w-auto py-1">
-                {characters.map(c => {
+                {activeCharacters.map(c => {
                   const isActiveOnBoard = c.ativo_na_mesa;
                   const isSelected = selectedCharId === c.id;
 
@@ -1155,6 +1156,10 @@ export default function App() {
               isOwner={currentSelectedCharacter.email_dono === currentUser.email}
               statuses={statuses}
               versions={activeCharVersionsList}
+              onCharacterArchived={() => {
+                const remaining = activeCharacters.filter(c => c.id !== currentSelectedCharacter.id);
+                setSelectedCharId(remaining.length > 0 ? remaining[0].id : null);
+              }}
             />
           ) : (
             <div className="bg-[#080808] border border-white/10 p-10 text-center shadow-2xl flex flex-col items-center justify-center min-h-[300px]">

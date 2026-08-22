@@ -5,10 +5,13 @@ import { Character, CustomStatusType, CharVersion } from '../types';
 import { handleFirestoreError, OperationType } from '../utils/errors';
 import { SheetVersions } from './SheetVersions';
 import { ImageUploadField } from './ImageUploadField';
+import { PrintableSankoteiSheet } from './PrintableSankoteiSheet';
+import { DeleteCharacterModal } from './DeleteCharacterModal';
 import { 
   Heart, Zap, Star, Shield, Crosshair, Activity, Dumbbell, 
   Printer, Edit, Plus, Minus, Flame, Sparkles, Swords, 
-  BookOpen, Backpack, Eye, Check, X, User, Image as ImageIcon
+  BookOpen, Backpack, Eye, Check, X, User, Image as ImageIcon,
+  Trash2, RotateCcw
 } from 'lucide-react';
 
 interface CharacterSheetProps {
@@ -17,22 +20,34 @@ interface CharacterSheetProps {
   isOwner: boolean;
   statuses: CustomStatusType[];
   versions: CharVersion[];
+  onCharacterArchived?: () => void;
 }
 
-export function CharacterSheet({ character, isGM, isOwner, statuses, versions }: CharacterSheetProps) {
+export function CharacterSheet({ character, isGM, isOwner, statuses, versions, onCharacterArchived }: CharacterSheetProps) {
   const [activeTab, setActiveTab] = useState<'ataques' | 'dons' | 'equip' | 'defesa' | 'versoes'>('ataques');
   const [isEditingTexts, setIsEditingTexts] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Avatar Images for 3 health states
   const [eImgSaudavel, setEImgSaudavel] = useState(character.img_saudavel || '');
   const [eImgFerido, setEImgFerido] = useState(character.img_ferido || '');
   const [eImgMuitoFerido, setEImgMuitoFerido] = useState(character.img_muito_ferido || '');
 
-  // Identity editing
+  // Identity editing & Sankötei extras
   const [eNome, setENome] = useState(character.nome || '');
   const [eCla, setECla] = useState(character.cla || '');
   const [eOcupacao, setEOcupacao] = useState(character.ocupacao || '');
+  const [ePosicaoSocial, setEPosicaoSocial] = useState(character.posicao_social || '');
+  const [eCidadania, setECidadania] = useState(character.cidadania || 'Rëno');
+  const [eSeguimento, setESeguimento] = useState(character.seguimento || 'Conquistador');
+  const [eNivelamentoAlma, setENivelamentoAlma] = useState(character.nivelamento_alma || '');
   const [eNivel, setENivel] = useState(character.nivel || 1);
+
+  // Finanças editing
+  const [eRyoDourado, setERyoDourado] = useState(character.ryo_dourado ?? 20);
+  const [eRyoPrateado, setERyoPrateado] = useState(character.ryo_prateado ?? 0);
+  const [eRyoBronze, setERyoBronze] = useState(character.ryo_bronze ?? 0);
 
   // Vitals Max editing
   const [eHpMax, setEHpMax] = useState(character.hp_max || 100);
@@ -45,12 +60,26 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
   const [eCognicao, setECognicao] = useState(character.cognicao || 10);
   const [eCarisma, setECarisma] = useState(character.carisma || 10);
   const [ePrimordio, setEPrimordio] = useState(character.primordio || 0);
+  const [ePrimordioDetalhe, setEPrimordioDetalhe] = useState(character.primordio_detalhe || '');
 
-  // Combat Tools Modifiers editing
+  // Combat Tools Modifiers & Usages editing
   const [eFerramentaFisico, setEFerramentaFisico] = useState(character.ferramenta_fisico || 0);
+  const [eFerramentaFisicoMax, setEFerramentaFisicoMax] = useState(character.ferramenta_fisico_max ?? 2);
+  const [eFerramentaFisicoAtual, setEFerramentaFisicoAtual] = useState(character.ferramenta_fisico_atual ?? character.ferramenta_fisico_max ?? 2);
+  const [eFerramentaFisicoSecMax, setEFerramentaFisicoSecMax] = useState(character.ferramenta_fisico_sec_max ?? 3);
+  const [eFerramentaFisicoSecAtual, setEFerramentaFisicoSecAtual] = useState(character.ferramenta_fisico_sec_atual ?? character.ferramenta_fisico_sec_max ?? 3);
+
   const [eFerramentaDestreza, setEFerramentaDestreza] = useState(character.ferramenta_destreza || 0);
+  const [eFerramentaDestrezaMax, setEFerramentaDestrezaMax] = useState(character.ferramenta_destreza_max ?? 0);
+  const [eFerramentaDestrezaAtual, setEFerramentaDestrezaAtual] = useState(character.ferramenta_destreza_atual ?? character.ferramenta_destreza_max ?? 0);
+
   const [eFerramentaCognicao, setEFerramentaCognicao] = useState(character.ferramenta_cognicao || 0);
+  const [eFerramentaCognicaoMax, setEFerramentaCognicaoMax] = useState(character.ferramenta_cognicao_max ?? 0);
+  const [eFerramentaCognicaoAtual, setEFerramentaCognicaoAtual] = useState(character.ferramenta_cognicao_atual ?? character.ferramenta_cognicao_max ?? 0);
+
   const [eFerramentaCarisma, setEFerramentaCarisma] = useState(character.ferramenta_carisma || 0);
+  const [eFerramentaCarismaMax, setEFerramentaCarismaMax] = useState(character.ferramenta_carisma_max ?? 1);
+  const [eFerramentaCarismaAtual, setEFerramentaCarismaAtual] = useState(character.ferramenta_carisma_atual ?? character.ferramenta_carisma_max ?? 1);
 
   // Text inputs form editing
   const [eAtaques, setEAtaques] = useState(character.html_ataques || '');
@@ -59,9 +88,10 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
   const [eDefesa, setEDefesa] = useState(character.html_defesa || '');
 
   // Markers editing (GM only)
-  const [eAlcance, setEAlcance] = useState(character.alcance_max || '10 Metros');
-  const [eMovimento, setEMovimento] = useState(character.movimento_max || '15 Metros por Ação');
-  const [eFortitude, setEFortitude] = useState(character.fortitude_max || '150 Kg');
+  const [eAlcance, setEAlcance] = useState(character.alcance_max || '03 (6) | 15 (30) metros');
+  const [eMovimento, setEMovimento] = useState(character.movimento_max || '03 | 15 metros');
+  const [eFortitude, setEFortitude] = useState(character.fortitude_max || '29+4 | 33 equipados');
+  const [eTecnicas, setETecnicas] = useState(character.tecnicas_max || '02 | 00 equipada');
 
   // If a transformation is active, override specific stats with version stats
   const activeVersion = character.versao_ativa_id && character.versao_ativa_id !== 'base'
@@ -134,6 +164,44 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
     }
   };
 
+  const handleUpdateToolCounter = async (
+    field: 'ferramenta_fisico_atual' | 'ferramenta_fisico_sec_atual' | 'ferramenta_destreza_atual' | 'ferramenta_cognicao_atual' | 'ferramenta_carisma_atual',
+    delta: number,
+    maxVal: number
+  ) => {
+    const docPath = `characters/${character.id}`;
+    let current = character[field];
+    if (current === undefined || current === null) {
+      current = maxVal;
+    }
+    let newVal = current + delta;
+    if (newVal < 0) newVal = 0;
+    if (newVal > maxVal) newVal = maxVal;
+
+    try {
+      await updateDoc(doc(db, 'characters', character.id), {
+        [field]: newVal
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, docPath);
+    }
+  };
+
+  const handleRestoreAllTools = async () => {
+    const docPath = `characters/${character.id}`;
+    try {
+      await updateDoc(doc(db, 'characters', character.id), {
+        ferramenta_fisico_atual: character.ferramenta_fisico_max ?? 2,
+        ferramenta_fisico_sec_atual: character.ferramenta_fisico_sec_max ?? 3,
+        ferramenta_destreza_atual: character.ferramenta_destreza_max ?? 0,
+        ferramenta_cognicao_atual: character.ferramenta_cognicao_max ?? 0,
+        ferramenta_carisma_atual: character.ferramenta_carisma_max ?? 1,
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, docPath);
+    }
+  };
+
   const handleSaveTextBlocks = async () => {
     const docPath = `characters/${character.id}`;
     try {
@@ -141,7 +209,14 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
         nome: eNome.trim() || character.nome,
         cla: eCla.trim(),
         ocupacao: eOcupacao.trim(),
+        posicao_social: ePosicaoSocial.trim(),
+        cidadania: eCidadania.trim(),
+        seguimento: eSeguimento.trim(),
+        nivelamento_alma: eNivelamentoAlma.trim(),
         nivel: Number(eNivel) || 1,
+        ryo_dourado: Number(eRyoDourado) || 0,
+        ryo_prateado: Number(eRyoPrateado) || 0,
+        ryo_bronze: Number(eRyoBronze) || 0,
         hp_max: Number(eHpMax) || 1,
         ether_max: Number(eEtherMax) || 0,
         destino_max: Number(eDestinoMax) || 0,
@@ -150,10 +225,21 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
         cognicao: Number(eCognicao) || 0,
         carisma: Number(eCarisma) || 0,
         primordio: Number(ePrimordio) || 0,
+        primordio_detalhe: ePrimordioDetalhe.trim(),
         ferramenta_fisico: Number(eFerramentaFisico) || 0,
+        ferramenta_fisico_max: Number(eFerramentaFisicoMax) || 0,
+        ferramenta_fisico_atual: Number(eFerramentaFisicoAtual) || 0,
+        ferramenta_fisico_sec_max: Number(eFerramentaFisicoSecMax) || 0,
+        ferramenta_fisico_sec_atual: Number(eFerramentaFisicoSecAtual) || 0,
         ferramenta_destreza: Number(eFerramentaDestreza) || 0,
+        ferramenta_destreza_max: Number(eFerramentaDestrezaMax) || 0,
+        ferramenta_destreza_atual: Number(eFerramentaDestrezaAtual) || 0,
         ferramenta_cognicao: Number(eFerramentaCognicao) || 0,
+        ferramenta_cognicao_max: Number(eFerramentaCognicaoMax) || 0,
+        ferramenta_cognicao_atual: Number(eFerramentaCognicaoAtual) || 0,
         ferramenta_carisma: Number(eFerramentaCarisma) || 0,
+        ferramenta_carisma_max: Number(eFerramentaCarismaMax) || 0,
+        ferramenta_carisma_atual: Number(eFerramentaCarismaAtual) || 0,
         img_saudavel: eImgSaudavel || '',
         img_ferido: eImgFerido || '',
         img_muito_ferido: eImgMuitoFerido || '',
@@ -163,7 +249,8 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
         html_defesa: eDefesa,
         alcance_max: eAlcance,
         movimento_max: eMovimento,
-        fortitude_max: eFortitude
+        fortitude_max: eFortitude,
+        tecnicas_max: eTecnicas
       });
       setIsEditingTexts(false);
     } catch (err) {
@@ -175,7 +262,14 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
     setENome(character.nome || '');
     setECla(character.cla || '');
     setEOcupacao(character.ocupacao || '');
+    setEPosicaoSocial(character.posicao_social || '');
+    setECidadania(character.cidadania || 'Rëno');
+    setESeguimento(character.seguimento || 'Conquistador');
+    setENivelamentoAlma(character.nivelamento_alma || '');
     setENivel(character.nivel || 1);
+    setERyoDourado(character.ryo_dourado ?? 20);
+    setERyoPrateado(character.ryo_prateado ?? 0);
+    setERyoBronze(character.ryo_bronze ?? 0);
     setEHpMax(character.hp_max || 100);
     setEEtherMax(character.ether_max || 100);
     setEDestinoMax(character.destino_max || 5);
@@ -184,10 +278,21 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
     setECognicao(character.cognicao || 10);
     setECarisma(character.carisma || 10);
     setEPrimordio(character.primordio || 0);
+    setEPrimordioDetalhe(character.primordio_detalhe || '');
     setEFerramentaFisico(character.ferramenta_fisico || 0);
+    setEFerramentaFisicoMax(character.ferramenta_fisico_max ?? 2);
+    setEFerramentaFisicoAtual(character.ferramenta_fisico_atual ?? character.ferramenta_fisico_max ?? 2);
+    setEFerramentaFisicoSecMax(character.ferramenta_fisico_sec_max ?? 3);
+    setEFerramentaFisicoSecAtual(character.ferramenta_fisico_sec_atual ?? character.ferramenta_fisico_sec_max ?? 3);
     setEFerramentaDestreza(character.ferramenta_destreza || 0);
+    setEFerramentaDestrezaMax(character.ferramenta_destreza_max ?? 0);
+    setEFerramentaDestrezaAtual(character.ferramenta_destreza_atual ?? character.ferramenta_destreza_max ?? 0);
     setEFerramentaCognicao(character.ferramenta_cognicao || 0);
+    setEFerramentaCognicaoMax(character.ferramenta_cognicao_max ?? 0);
+    setEFerramentaCognicaoAtual(character.ferramenta_cognicao_atual ?? character.ferramenta_cognicao_max ?? 0);
     setEFerramentaCarisma(character.ferramenta_carisma || 0);
+    setEFerramentaCarismaMax(character.ferramenta_carisma_max ?? 1);
+    setEFerramentaCarismaAtual(character.ferramenta_carisma_atual ?? character.ferramenta_carisma_max ?? 1);
     setEImgSaudavel(character.img_saudavel || '');
     setEImgFerido(character.img_ferido || '');
     setEImgMuitoFerido(character.img_muito_ferido || '');
@@ -195,14 +300,30 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
     setEDons(character.html_dons || '');
     setEEquipamentos(character.html_equipamentos || '');
     setEDefesa(character.html_defesa || '');
-    setEAlcance(character.alcance_max || '10 Metros');
-    setEMovimento(character.movimento_max || '15 Metros por Ação');
-    setEFortitude(character.fortitude_max || '150 Kg');
+    setEAlcance(character.alcance_max || '03 (6) | 15 (30) metros');
+    setEMovimento(character.movimento_max || '03 | 15 metros');
+    setEFortitude(character.fortitude_max || '29+4 | 33 equipados');
+    setETecnicas(character.tecnicas_max || '02 | 00 equipada');
     setIsEditingTexts(true);
   };
 
+  const handleArchiveCharacter = async () => {
+    const docPath = `characters/${character.id}`;
+    try {
+      await updateDoc(doc(db, 'characters', character.id), {
+        arquivado: true,
+        arquivadoEm: new Date().toISOString()
+      });
+      if (onCharacterArchived) {
+        onCharacterArchived();
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, docPath);
+    }
+  };
+
   const handleExportPdf = () => {
-    window.print();
+    setShowPrintModal(true);
   };
 
   const activeStatusIcons = (character.status_ativos || []).map(id => statuses.find(s => s.id === id)).filter(Boolean) as CustomStatusType[];
@@ -299,20 +420,32 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
               <button
                 onClick={handleExportPdf}
                 className="w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white font-bold text-xs py-2.5 px-4 border border-white/10 transition uppercase tracking-wider"
-                title="Salvar como PDF / Imprimir Ficha"
+                title="Salvar como PDF / Imprimir Ficha no Padrão Sankötei"
               >
                 <Printer className="h-3.5 w-3.5 text-orange-400" />
-                <span>Exportar Ficha em PDF</span>
+                <span>Exportar Ficha em PDF (Sankötei)</span>
               </button>
 
               {isGM && !isEditingTexts && (
-                <button
-                  onClick={startEditTexts}
-                  className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs py-2.5 px-4 transition uppercase tracking-wider shadow-lg"
-                >
-                  <Edit className="h-3.5 w-3.5" />
-                  <span>Editar Ficha, Atributos & Marcadores</span>
-                </button>
+                <>
+                  <button
+                    onClick={startEditTexts}
+                    className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs py-2.5 px-4 transition uppercase tracking-wider shadow-lg"
+                  >
+                    <Edit className="h-3.5 w-3.5" />
+                    <span>Editar Ficha, Atributos & Marcadores</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteModal(true)}
+                    className="w-full flex items-center justify-center gap-2 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 font-bold text-[11px] py-2 px-3 border border-rose-500/30 transition uppercase font-mono tracking-wider"
+                    title="Mover ficha para a lixeira do GM com segurança"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-rose-400" />
+                    <span>Excluir Ficha (Mover para Lixeira)</span>
+                  </button>
+                </>
               )}
             </div>
 
@@ -600,37 +733,232 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
 
           </div>
 
-          {/* 2.4 COMBAT TOOLS (Ferramentas de Combate) */}
-          <div className="space-y-3">
-            <p className="text-[10px] text-white/50 uppercase font-black tracking-widest flex items-center gap-1.5">
-              <Swords className="h-3.5 w-3.5 text-orange-500" />
-              <span>Ferramentas de Combate:</span>
-            </p>
+          {/* 2.4 COMBAT TOOLS (Ferramentas de Combate & Contadores de Uso) */}
+          <div className="space-y-3 bg-[#080808] border border-orange-500/30 p-4 shadow-xl">
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] text-orange-400 uppercase font-black tracking-widest flex items-center gap-1.5">
+                <Swords className="h-4 w-4 text-orange-500" />
+                <span>Ferramentas de Combate & Contadores de Uso</span>
+              </p>
+              {isGM && (
+                <button
+                  type="button"
+                  onClick={handleRestoreAllTools}
+                  className="flex items-center gap-1 text-[10px] bg-orange-950/40 hover:bg-orange-900/60 text-orange-300 border border-orange-500/30 px-2.5 py-1 font-mono uppercase font-bold transition"
+                  title="Restaurar todos os contadores de ferramentas para o valor máximo"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  <span>Restaurar Usos</span>
+                </button>
+              )}
+            </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               
-              <div className="bg-black border border-white/10 p-3 text-center">
-                <p className="text-[8px] text-white/50 uppercase font-bold tracking-tight">RESISTIR | ESMAGAR</p>
-                <p className="text-[9px] text-orange-400 font-mono mt-0.5">Físico</p>
-                <p className="text-lg font-black text-white font-mono mt-1">+{character.ferramenta_fisico}</p>
+              {/* FÍSICO */}
+              <div className="bg-black border border-white/10 p-3 space-y-2">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-[8px] text-white/50 uppercase font-bold tracking-tight">RESISTIR | ESMAGAR</p>
+                    <p className="text-[10px] text-orange-400 font-mono font-bold">Físico</p>
+                  </div>
+                  <span className="text-sm font-black text-white font-mono bg-white/5 px-2 py-0.5 border border-white/10">
+                    +{character.ferramenta_fisico || 0}
+                  </span>
+                </div>
+
+                {/* Primary Tool Counter */}
+                <div className="bg-[#0b0b0b] p-1.5 border border-white/5 flex items-center justify-between">
+                  <span className="text-[9px] font-mono text-white/50 uppercase">Uso Padrão:</span>
+                  <div className="flex items-center gap-1.5">
+                    {isGM && (
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateToolCounter('ferramenta_fisico_atual', -1, character.ferramenta_fisico_max ?? 2)}
+                        className="p-1 bg-white/5 hover:bg-white/10 text-white border border-white/10"
+                        title="Gastar 1 uso"
+                      >
+                        <Minus className="h-2.5 w-2.5" />
+                      </button>
+                    )}
+                    <span className="font-mono font-bold text-xs text-orange-400">
+                      {character.ferramenta_fisico_atual ?? character.ferramenta_fisico_max ?? 2}
+                      <span className="text-white/40 font-normal">/{character.ferramenta_fisico_max ?? 2}</span>
+                    </span>
+                    {isGM && (
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateToolCounter('ferramenta_fisico_atual', 1, character.ferramenta_fisico_max ?? 2)}
+                        className="p-1 bg-white/5 hover:bg-white/10 text-white border border-white/10"
+                        title="Recuperar 1 uso"
+                      >
+                        <Plus className="h-2.5 w-2.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Secondary Tool Counter (if max > 0) */}
+                {(character.ferramenta_fisico_sec_max ?? 3) > 0 && (
+                  <div className="bg-[#0b0b0b] p-1.5 border border-white/5 flex items-center justify-between">
+                    <span className="text-[9px] font-mono text-white/50 uppercase">2º Uso:</span>
+                    <div className="flex items-center gap-1.5">
+                      {isGM && (
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateToolCounter('ferramenta_fisico_sec_atual', -1, character.ferramenta_fisico_sec_max ?? 3)}
+                          className="p-1 bg-white/5 hover:bg-white/10 text-white border border-white/10"
+                          title="Gastar 1 uso"
+                        >
+                          <Minus className="h-2.5 w-2.5" />
+                        </button>
+                      )}
+                      <span className="font-mono font-bold text-xs text-orange-400">
+                        {character.ferramenta_fisico_sec_atual ?? character.ferramenta_fisico_sec_max ?? 3}
+                        <span className="text-white/40 font-normal">/{character.ferramenta_fisico_sec_max ?? 3}</span>
+                      </span>
+                      {isGM && (
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateToolCounter('ferramenta_fisico_sec_atual', 1, character.ferramenta_fisico_sec_max ?? 3)}
+                          className="p-1 bg-white/5 hover:bg-white/10 text-white border border-white/10"
+                          title="Recuperar 1 uso"
+                        >
+                          <Plus className="h-2.5 w-2.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="bg-black border border-white/10 p-3 text-center">
-                <p className="text-[8px] text-white/50 uppercase font-bold tracking-tight">EVADIR | ABDICAR</p>
-                <p className="text-[9px] text-orange-400 font-mono mt-0.5">Destreza</p>
-                <p className="text-lg font-black text-white font-mono mt-1">+{character.ferramenta_destreza}</p>
+              {/* DESTREZA */}
+              <div className="bg-black border border-white/10 p-3 space-y-2">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-[8px] text-white/50 uppercase font-bold tracking-tight">EVADIR | ABDICAR</p>
+                    <p className="text-[10px] text-orange-400 font-mono font-bold">Destreza</p>
+                  </div>
+                  <span className="text-sm font-black text-white font-mono bg-white/5 px-2 py-0.5 border border-white/10">
+                    +{character.ferramenta_destreza || 0}
+                  </span>
+                </div>
+
+                <div className="bg-[#0b0b0b] p-1.5 border border-white/5 flex items-center justify-between">
+                  <span className="text-[9px] font-mono text-white/50 uppercase">Usos:</span>
+                  <div className="flex items-center gap-1.5">
+                    {isGM && (
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateToolCounter('ferramenta_destreza_atual', -1, character.ferramenta_destreza_max ?? 0)}
+                        className="p-1 bg-white/5 hover:bg-white/10 text-white border border-white/10"
+                        title="Gastar 1 uso"
+                      >
+                        <Minus className="h-2.5 w-2.5" />
+                      </button>
+                    )}
+                    <span className="font-mono font-bold text-xs text-orange-400">
+                      {character.ferramenta_destreza_atual ?? character.ferramenta_destreza_max ?? 0}
+                      <span className="text-white/40 font-normal">/{character.ferramenta_destreza_max ?? 0}</span>
+                    </span>
+                    {isGM && (
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateToolCounter('ferramenta_destreza_atual', 1, character.ferramenta_destreza_max ?? 0)}
+                        className="p-1 bg-white/5 hover:bg-white/10 text-white border border-white/10"
+                        title="Recuperar 1 uso"
+                      >
+                        <Plus className="h-2.5 w-2.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              <div className="bg-black border border-white/10 p-3 text-center">
-                <p className="text-[8px] text-white/50 uppercase font-bold tracking-tight">PREVER | CONCENTRAR</p>
-                <p className="text-[9px] text-orange-400 font-mono mt-0.5">Cognição</p>
-                <p className="text-lg font-black text-white font-mono mt-1">+{character.ferramenta_cognicao}</p>
+              {/* COGNIÇÃO */}
+              <div className="bg-black border border-white/10 p-3 space-y-2">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-[8px] text-white/50 uppercase font-bold tracking-tight">PREVER | CONCENTRAR</p>
+                    <p className="text-[10px] text-orange-400 font-mono font-bold">Cognição</p>
+                  </div>
+                  <span className="text-sm font-black text-white font-mono bg-white/5 px-2 py-0.5 border border-white/10">
+                    +{character.ferramenta_cognicao || 0}
+                  </span>
+                </div>
+
+                <div className="bg-[#0b0b0b] p-1.5 border border-white/5 flex items-center justify-between">
+                  <span className="text-[9px] font-mono text-white/50 uppercase">Usos:</span>
+                  <div className="flex items-center gap-1.5">
+                    {isGM && (
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateToolCounter('ferramenta_cognicao_atual', -1, character.ferramenta_cognicao_max ?? 0)}
+                        className="p-1 bg-white/5 hover:bg-white/10 text-white border border-white/10"
+                        title="Gastar 1 uso"
+                      >
+                        <Minus className="h-2.5 w-2.5" />
+                      </button>
+                    )}
+                    <span className="font-mono font-bold text-xs text-orange-400">
+                      {character.ferramenta_cognicao_atual ?? character.ferramenta_cognicao_max ?? 0}
+                      <span className="text-white/40 font-normal">/{character.ferramenta_cognicao_max ?? 0}</span>
+                    </span>
+                    {isGM && (
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateToolCounter('ferramenta_cognicao_atual', 1, character.ferramenta_cognicao_max ?? 0)}
+                        className="p-1 bg-white/5 hover:bg-white/10 text-white border border-white/10"
+                        title="Recuperar 1 uso"
+                      >
+                        <Plus className="h-2.5 w-2.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              <div className="bg-black border border-white/10 p-3 text-center">
-                <p className="text-[8px] text-white/50 uppercase font-bold tracking-tight">RECUPERAR | INTIMIDAR</p>
-                <p className="text-[9px] text-orange-400 font-mono mt-0.5">Carisma</p>
-                <p className="text-lg font-black text-white font-mono mt-1">+{character.ferramenta_carisma}</p>
+              {/* CARISMA */}
+              <div className="bg-black border border-white/10 p-3 space-y-2">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-[8px] text-white/50 uppercase font-bold tracking-tight">RECUPERAR | INTIMIDAR</p>
+                    <p className="text-[10px] text-orange-400 font-mono font-bold">Carisma</p>
+                  </div>
+                  <span className="text-sm font-black text-white font-mono bg-white/5 px-2 py-0.5 border border-white/10">
+                    +{character.ferramenta_carisma || 0}
+                  </span>
+                </div>
+
+                <div className="bg-[#0b0b0b] p-1.5 border border-white/5 flex items-center justify-between">
+                  <span className="text-[9px] font-mono text-white/50 uppercase">Usos:</span>
+                  <div className="flex items-center gap-1.5">
+                    {isGM && (
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateToolCounter('ferramenta_carisma_atual', -1, character.ferramenta_carisma_max ?? 1)}
+                        className="p-1 bg-white/5 hover:bg-white/10 text-white border border-white/10"
+                        title="Gastar 1 uso"
+                      >
+                        <Minus className="h-2.5 w-2.5" />
+                      </button>
+                    )}
+                    <span className="font-mono font-bold text-xs text-orange-400">
+                      {character.ferramenta_carisma_atual ?? character.ferramenta_carisma_max ?? 1}
+                      <span className="text-white/40 font-normal">/{character.ferramenta_carisma_max ?? 1}</span>
+                    </span>
+                    {isGM && (
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateToolCounter('ferramenta_carisma_atual', 1, character.ferramenta_carisma_max ?? 1)}
+                        className="p-1 bg-white/5 hover:bg-white/10 text-white border border-white/10"
+                        title="Recuperar 1 uso"
+                      >
+                        <Plus className="h-2.5 w-2.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
 
             </div>
@@ -653,10 +981,10 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
                 </button>
               </div>
 
-              {/* Section 1: Identity & Level */}
+              {/* Section 1: Identity, Level & Finances */}
               <div className="space-y-2">
                 <span className="text-[10px] font-mono uppercase font-bold text-orange-400 block tracking-wider">
-                  1. Identidade & Nível
+                  1. Identidade Sankötei, Nível & Finanças
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-black p-3 border border-white/10">
                   <div>
@@ -694,7 +1022,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
                   </div>
                   <div>
                     <label className="block text-[9px] text-white/50 font-bold uppercase tracking-wider mb-1">
-                      Ocupação
+                      Ocupação / Posição Social
                     </label>
                     <input
                       type="text"
@@ -702,6 +1030,77 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
                       onChange={(e) => setEOcupacao(e.target.value)}
                       className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] text-white/50 font-bold uppercase tracking-wider mb-1">
+                      Cidadania / Naturalidade
+                    </label>
+                    <input
+                      type="text"
+                      value={eCidadania}
+                      onChange={(e) => setECidadania(e.target.value)}
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] text-white/50 font-bold uppercase tracking-wider mb-1">
+                      Seguimento
+                    </label>
+                    <input
+                      type="text"
+                      value={eSeguimento}
+                      onChange={(e) => setESeguimento(e.target.value)}
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[9px] text-white/50 font-bold uppercase tracking-wider mb-1">
+                      Nivelamento & Alma
+                    </label>
+                    <input
+                      type="text"
+                      value={eNivelamentoAlma}
+                      onChange={(e) => setENivelamentoAlma(e.target.value)}
+                      placeholder="Ex: 05 (68). Alma: Reihao (17) 2x"
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  
+                  {/* Finanças */}
+                  <div className="sm:col-span-4 grid grid-cols-3 gap-2 pt-2 border-t border-white/5">
+                    <div>
+                      <label className="block text-[8px] text-amber-400 font-mono uppercase mb-1">
+                        Ryo Dourado
+                      </label>
+                      <input
+                        type="number"
+                        value={eRyoDourado}
+                        onChange={(e) => setERyoDourado(Number(e.target.value))}
+                        className="w-full bg-[#050505] border border-amber-500/30 px-2.5 py-1 text-amber-400 text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[8px] text-slate-300 font-mono uppercase mb-1">
+                        Ryo Prateado
+                      </label>
+                      <input
+                        type="number"
+                        value={eRyoPrateado}
+                        onChange={(e) => setERyoPrateado(Number(e.target.value))}
+                        className="w-full bg-[#050505] border border-slate-400/30 px-2.5 py-1 text-slate-300 text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[8px] text-amber-700 font-mono uppercase mb-1">
+                        Ryo Bronze
+                      </label>
+                      <input
+                        type="number"
+                        value={eRyoBronze}
+                        onChange={(e) => setERyoBronze(Number(e.target.value))}
+                        className="w-full bg-[#050505] border border-amber-700/30 px-2.5 py-1 text-amber-600 text-xs font-mono"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -889,7 +1288,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
                       className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
                     />
                   </div>
-                  <div className="col-span-2 sm:col-span-1 bg-violet-950/20 border border-violet-500/30 p-1.5">
+                  <div className="col-span-2 sm:col-span-1 bg-violet-950/20 border border-violet-500/30 p-1.5 space-y-1">
                     <label className="block text-[9px] text-violet-300 font-bold uppercase tracking-wider mb-1">
                       Primórdio (PRI)
                     </label>
@@ -899,69 +1298,189 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
                       onChange={(e) => setEPrimordio(Number(e.target.value))}
                       className="w-full bg-[#050505] border border-violet-500/40 px-3 py-1 text-violet-300 text-xs font-mono font-bold focus:outline-none focus:border-violet-400"
                     />
+                    <input
+                      type="text"
+                      value={ePrimordioDetalhe}
+                      onChange={(e) => setEPrimordioDetalhe(e.target.value)}
+                      placeholder="(45+20+5+5)"
+                      className="w-full bg-[#050505] border border-violet-500/20 px-2 py-0.5 text-violet-300/80 text-[10px] font-mono"
+                    />
                   </div>
                 </div>
               </div>
 
-              {/* Section 5: Combat Tools Modifiers */}
+              {/* Section 5: Combat Tools Modifiers & Max Usages */}
               <div className="space-y-2">
                 <span className="text-[10px] font-mono uppercase font-bold text-orange-400 block tracking-wider">
-                  5. Modificadores das Ferramentas de Combate
+                  5. Ferramentas de Combate (Modificadores & Contadores de Uso Máximos)
                 </span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-black p-3 border border-white/10">
-                  <div>
-                    <label className="block text-[8px] text-white/50 font-bold uppercase tracking-tight mb-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-black p-3 border border-white/10">
+                  
+                  {/* Físico */}
+                  <div className="space-y-1.5 p-2 bg-[#090909] border border-white/5">
+                    <label className="block text-[8px] text-white/70 font-bold uppercase tracking-tight">
                       Resistir | Esmagar (FIS)
                     </label>
-                    <input
-                      type="number"
-                      value={eFerramentaFisico}
-                      onChange={(e) => setEFerramentaFisico(Number(e.target.value))}
-                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-orange-400 text-xs font-mono focus:outline-none focus:border-orange-500"
-                    />
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] text-white/40 font-mono w-10">Bônus:</span>
+                      <input
+                        type="number"
+                        value={eFerramentaFisico}
+                        onChange={(e) => setEFerramentaFisico(Number(e.target.value))}
+                        className="w-full bg-[#050505] border border-white/10 px-2 py-1 text-orange-400 text-xs font-mono"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] text-white/40 font-mono w-10">Uso 1:</span>
+                      <input
+                        type="number"
+                        value={eFerramentaFisicoAtual}
+                        onChange={(e) => setEFerramentaFisicoAtual(Number(e.target.value))}
+                        placeholder="Atual"
+                        title="Uso Atual"
+                        className="w-1/2 bg-[#050505] border border-white/10 px-2 py-1 text-white text-xs font-mono"
+                      />
+                      <span className="text-white/40">/</span>
+                      <input
+                        type="number"
+                        value={eFerramentaFisicoMax}
+                        onChange={(e) => setEFerramentaFisicoMax(Number(e.target.value))}
+                        placeholder="Máx"
+                        title="Uso Máximo"
+                        className="w-1/2 bg-[#050505] border border-white/10 px-2 py-1 text-white text-xs font-mono"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] text-white/40 font-mono w-10">Uso 2:</span>
+                      <input
+                        type="number"
+                        value={eFerramentaFisicoSecAtual}
+                        onChange={(e) => setEFerramentaFisicoSecAtual(Number(e.target.value))}
+                        placeholder="Atual 2"
+                        className="w-1/2 bg-[#050505] border border-white/10 px-2 py-1 text-white text-xs font-mono"
+                      />
+                      <span className="text-white/40">/</span>
+                      <input
+                        type="number"
+                        value={eFerramentaFisicoSecMax}
+                        onChange={(e) => setEFerramentaFisicoSecMax(Number(e.target.value))}
+                        placeholder="Máx 2"
+                        className="w-1/2 bg-[#050505] border border-white/10 px-2 py-1 text-white text-xs font-mono"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-[8px] text-white/50 font-bold uppercase tracking-tight mb-1">
+
+                  {/* Destreza */}
+                  <div className="space-y-1.5 p-2 bg-[#090909] border border-white/5">
+                    <label className="block text-[8px] text-white/70 font-bold uppercase tracking-tight">
                       Evadir | Abdicar (DES)
                     </label>
-                    <input
-                      type="number"
-                      value={eFerramentaDestreza}
-                      onChange={(e) => setEFerramentaDestreza(Number(e.target.value))}
-                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-orange-400 text-xs font-mono focus:outline-none focus:border-orange-500"
-                    />
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] text-white/40 font-mono w-10">Bônus:</span>
+                      <input
+                        type="number"
+                        value={eFerramentaDestreza}
+                        onChange={(e) => setEFerramentaDestreza(Number(e.target.value))}
+                        className="w-full bg-[#050505] border border-white/10 px-2 py-1 text-orange-400 text-xs font-mono"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] text-white/40 font-mono w-10">Usos:</span>
+                      <input
+                        type="number"
+                        value={eFerramentaDestrezaAtual}
+                        onChange={(e) => setEFerramentaDestrezaAtual(Number(e.target.value))}
+                        placeholder="Atual"
+                        className="w-1/2 bg-[#050505] border border-white/10 px-2 py-1 text-white text-xs font-mono"
+                      />
+                      <span className="text-white/40">/</span>
+                      <input
+                        type="number"
+                        value={eFerramentaDestrezaMax}
+                        onChange={(e) => setEFerramentaDestrezaMax(Number(e.target.value))}
+                        placeholder="Máx"
+                        className="w-1/2 bg-[#050505] border border-white/10 px-2 py-1 text-white text-xs font-mono"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-[8px] text-white/50 font-bold uppercase tracking-tight mb-1">
+
+                  {/* Cognição */}
+                  <div className="space-y-1.5 p-2 bg-[#090909] border border-white/5">
+                    <label className="block text-[8px] text-white/70 font-bold uppercase tracking-tight">
                       Prever | Concentrar (COG)
                     </label>
-                    <input
-                      type="number"
-                      value={eFerramentaCognicao}
-                      onChange={(e) => setEFerramentaCognicao(Number(e.target.value))}
-                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-orange-400 text-xs font-mono focus:outline-none focus:border-orange-500"
-                    />
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] text-white/40 font-mono w-10">Bônus:</span>
+                      <input
+                        type="number"
+                        value={eFerramentaCognicao}
+                        onChange={(e) => setEFerramentaCognicao(Number(e.target.value))}
+                        className="w-full bg-[#050505] border border-white/10 px-2 py-1 text-orange-400 text-xs font-mono"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] text-white/40 font-mono w-10">Usos:</span>
+                      <input
+                        type="number"
+                        value={eFerramentaCognicaoAtual}
+                        onChange={(e) => setEFerramentaCognicaoAtual(Number(e.target.value))}
+                        placeholder="Atual"
+                        className="w-1/2 bg-[#050505] border border-white/10 px-2 py-1 text-white text-xs font-mono"
+                      />
+                      <span className="text-white/40">/</span>
+                      <input
+                        type="number"
+                        value={eFerramentaCognicaoMax}
+                        onChange={(e) => setEFerramentaCognicaoMax(Number(e.target.value))}
+                        placeholder="Máx"
+                        className="w-1/2 bg-[#050505] border border-white/10 px-2 py-1 text-white text-xs font-mono"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-[8px] text-white/50 font-bold uppercase tracking-tight mb-1">
+
+                  {/* Carisma */}
+                  <div className="space-y-1.5 p-2 bg-[#090909] border border-white/5">
+                    <label className="block text-[8px] text-white/70 font-bold uppercase tracking-tight">
                       Recuperar | Intimidar (CAR)
                     </label>
-                    <input
-                      type="number"
-                      value={eFerramentaCarisma}
-                      onChange={(e) => setEFerramentaCarisma(Number(e.target.value))}
-                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-orange-400 text-xs font-mono focus:outline-none focus:border-orange-500"
-                    />
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] text-white/40 font-mono w-10">Bônus:</span>
+                      <input
+                        type="number"
+                        value={eFerramentaCarisma}
+                        onChange={(e) => setEFerramentaCarisma(Number(e.target.value))}
+                        className="w-full bg-[#050505] border border-white/10 px-2 py-1 text-orange-400 text-xs font-mono"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] text-white/40 font-mono w-10">Usos:</span>
+                      <input
+                        type="number"
+                        value={eFerramentaCarismaAtual}
+                        onChange={(e) => setEFerramentaCarismaAtual(Number(e.target.value))}
+                        placeholder="Atual"
+                        className="w-1/2 bg-[#050505] border border-white/10 px-2 py-1 text-white text-xs font-mono"
+                      />
+                      <span className="text-white/40">/</span>
+                      <input
+                        type="number"
+                        value={eFerramentaCarismaMax}
+                        onChange={(e) => setEFerramentaCarismaMax(Number(e.target.value))}
+                        placeholder="Máx"
+                        className="w-1/2 bg-[#050505] border border-white/10 px-2 py-1 text-white text-xs font-mono"
+                      />
+                    </div>
                   </div>
+
                 </div>
               </div>
 
               {/* Section 6: Marcadores de Campo */}
               <div className="space-y-2">
                 <span className="text-[10px] font-mono uppercase font-bold text-orange-400 block tracking-wider">
-                  6. Marcadores de Campo
+                  6. Marcadores de Campo Sankötei
                 </span>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-black p-3 border border-white/10">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-black p-3 border border-white/10">
                   <div>
                     <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">
                       Alcance Máximo
@@ -970,7 +1489,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
                       type="text"
                       value={eAlcance}
                       onChange={(e) => setEAlcance(e.target.value)}
-                      placeholder="Ex: 10 Metros"
+                      placeholder="03 (6) | 15 (30) metros"
                       className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
                     />
                   </div>
@@ -982,7 +1501,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
                       type="text"
                       value={eMovimento}
                       onChange={(e) => setEMovimento(e.target.value)}
-                      placeholder="Ex: 15 Metros por Ação"
+                      placeholder="03 | 15 metros"
                       className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
                     />
                   </div>
@@ -994,7 +1513,19 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
                       type="text"
                       value={eFortitude}
                       onChange={(e) => setEFortitude(e.target.value)}
-                      placeholder="Ex: 150 Kg"
+                      placeholder="29+4 | 33 equipados"
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">
+                      Técnicas
+                    </label>
+                    <input
+                      type="text"
+                      value={eTecnicas}
+                      onChange={(e) => setETecnicas(e.target.value)}
+                      placeholder="02 | 00 equipada"
                       className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
                     />
                   </div>
@@ -1201,6 +1732,24 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
         </div>
 
       </div>
+
+      {/* Delete Character Confirmation Modal */}
+      {showDeleteModal && (
+        <DeleteCharacterModal
+          isOpen={showDeleteModal}
+          character={character}
+          onClose={() => setShowDeleteModal(false)}
+          onConfirmArchive={handleArchiveCharacter}
+        />
+      )}
+
+      {/* Printable Sankötei Sheet for PDF Export */}
+      {showPrintModal && (
+        <PrintableSankoteiSheet
+          character={character}
+          onClose={() => setShowPrintModal(false)}
+        />
+      )}
 
     </div>
   );

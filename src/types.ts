@@ -12,6 +12,16 @@ export interface Character {
   nome: string;
   cla?: string; // Clan
   ocupacao?: string; // Occupation
+  posicao_social?: string; // e.g. "Deus Rei"
+  cidadania?: string; // e.g. "Rëno"
+  seguimento?: string; // e.g. "Conquistador"
+  nivelamento_alma?: string; // e.g. "9 (116). Alma: Reihao (25) 2x"
+  
+  // Finanças
+  ryo_dourado?: number;
+  ryo_prateado?: number;
+  ryo_bronze?: number;
+
   nivel: number;
   hp_atual: number;
   hp_max: number;
@@ -20,13 +30,20 @@ export interface Character {
   destino_atual: number;
   destino_max: number;
   
+  // Consumed counters
+  hp_consumidos?: number;
+  ether_consumidos?: number;
+  destino_consumidos?: number;
+
   // Markers / Marcadores
   alcance_atual?: number;
-  alcance_max?: string | number; // e.g. "10" or "10 Metros"
+  alcance_max?: string | number; // e.g. "03 (6) | 15 (30) metros"
   movimento_atual?: number;
-  movimento_max?: string | number; // e.g. "15" or "15 Metros por Ação"
+  movimento_max?: string | number; // e.g. "03 | 15 metros"
   fortitude_atual?: number;
-  fortitude_max?: string | number; // e.g. "150" or "150 Kg"
+  fortitude_max?: string | number; // e.g. "29+4 | 33 equipados"
+  tecnicas_atual?: number;
+  tecnicas_max?: string | number; // e.g. "02 | 00 equipada"
 
   // Base Attributes
   fisico: number;
@@ -34,12 +51,26 @@ export interface Character {
   cognicao: number;
   carisma: number;
   primordio: number;
+  primordio_detalhe?: string; // e.g. "(45+20+5+5)"
 
-  // Combat modifiers / Ferramentas de combate
-  ferramenta_fisico: number;
+  // Combat modifiers & Tool counters / Ferramentas de combate
+  ferramenta_fisico: number; // Modifier (e.g. +0)
+  ferramenta_fisico_atual?: number; // Usos atuais (e.g. 2)
+  ferramenta_fisico_max?: number; // Usos max (e.g. 2)
+  ferramenta_fisico_sec_atual?: number; // Segundo contador (e.g. 3)
+  ferramenta_fisico_sec_max?: number; // Segundo contador max (e.g. 3)
+
   ferramenta_destreza: number;
+  ferramenta_destreza_atual?: number;
+  ferramenta_destreza_max?: number;
+
   ferramenta_cognicao: number;
+  ferramenta_cognicao_atual?: number;
+  ferramenta_cognicao_max?: number;
+
   ferramenta_carisma: number;
+  ferramenta_carisma_atual?: number;
+  ferramenta_carisma_max?: number;
 
   // Asset image states
   img_saudavel?: string;
@@ -55,9 +86,11 @@ export interface Character {
   // Status effects applied to player
   status_ativos?: string[]; // Array of status IDs
 
-  // Combat simulation state
+  // Combat simulation state & Security Archive
   ativo_na_mesa?: boolean;
   versao_ativa_id?: string; //points to some alternative form id, if blank means Base
+  arquivado?: boolean; // Soft-delete / Lixeira
+  arquivadoEm?: any;
 }
 
 export interface CharVersion {
