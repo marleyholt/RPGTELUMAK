@@ -4,10 +4,11 @@ import { db } from '../firebase';
 import { Character, CustomStatusType, CharVersion } from '../types';
 import { handleFirestoreError, OperationType } from '../utils/errors';
 import { SheetVersions } from './SheetVersions';
+import { ImageUploadField } from './ImageUploadField';
 import { 
   Heart, Zap, Star, Shield, Crosshair, Activity, Dumbbell, 
   Printer, Edit, Plus, Minus, Flame, Sparkles, Swords, 
-  BookOpen, Backpack, Eye, Check, X, User
+  BookOpen, Backpack, Eye, Check, X, User, Image as ImageIcon
 } from 'lucide-react';
 
 interface CharacterSheetProps {
@@ -21,6 +22,35 @@ interface CharacterSheetProps {
 export function CharacterSheet({ character, isGM, isOwner, statuses, versions }: CharacterSheetProps) {
   const [activeTab, setActiveTab] = useState<'ataques' | 'dons' | 'equip' | 'defesa' | 'versoes'>('ataques');
   const [isEditingTexts, setIsEditingTexts] = useState(false);
+
+  // Avatar Images for 3 health states
+  const [eImgSaudavel, setEImgSaudavel] = useState(character.img_saudavel || '');
+  const [eImgFerido, setEImgFerido] = useState(character.img_ferido || '');
+  const [eImgMuitoFerido, setEImgMuitoFerido] = useState(character.img_muito_ferido || '');
+
+  // Identity editing
+  const [eNome, setENome] = useState(character.nome || '');
+  const [eCla, setECla] = useState(character.cla || '');
+  const [eOcupacao, setEOcupacao] = useState(character.ocupacao || '');
+  const [eNivel, setENivel] = useState(character.nivel || 1);
+
+  // Vitals Max editing
+  const [eHpMax, setEHpMax] = useState(character.hp_max || 100);
+  const [eEtherMax, setEEtherMax] = useState(character.ether_max || 100);
+  const [eDestinoMax, setEDestinoMax] = useState(character.destino_max || 5);
+
+  // Primary Attributes editing
+  const [eFisico, setEFisico] = useState(character.fisico || 10);
+  const [eDestreza, setEDestreza] = useState(character.destreza || 10);
+  const [eCognicao, setECognicao] = useState(character.cognicao || 10);
+  const [eCarisma, setECarisma] = useState(character.carisma || 10);
+  const [ePrimordio, setEPrimordio] = useState(character.primordio || 0);
+
+  // Combat Tools Modifiers editing
+  const [eFerramentaFisico, setEFerramentaFisico] = useState(character.ferramenta_fisico || 0);
+  const [eFerramentaDestreza, setEFerramentaDestreza] = useState(character.ferramenta_destreza || 0);
+  const [eFerramentaCognicao, setEFerramentaCognicao] = useState(character.ferramenta_cognicao || 0);
+  const [eFerramentaCarisma, setEFerramentaCarisma] = useState(character.ferramenta_carisma || 0);
 
   // Text inputs form editing
   const [eAtaques, setEAtaques] = useState(character.html_ataques || '');
@@ -64,21 +94,24 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
   const rHtmlDefesa = activeVersion?.html_defesa || character.html_defesa;
 
   // HP dependent dynamic artwork
+  // 51% to 100%: Saudável
+  // 26% to 50%: Ferido
+  // <= 25%: Muito Ferido (Crítico)
   const hpPct = Math.min(100, Math.max(0, (character.hp_atual / (rHpMax || 1)) * 100));
   const etherPct = Math.min(100, Math.max(0, (character.ether_atual / (rEtherMax || 1)) * 100));
   const destinoPct = Math.min(100, Math.max(0, (character.destino_atual / (rDestinoMax || 1)) * 100));
 
   let activeAvatarUrl = rImgSaudavel || 'https://via.placeholder.com/340x578?text=Sem+Avatar';
-  let healthStatusLabel = 'Saudável';
+  let healthStatusLabel = 'Saudável (51% - 100%)';
   let healthStatusColor = 'text-emerald-400 border-emerald-500/30 bg-emerald-950/20';
 
-  if (hpPct < 25) {
-    activeAvatarUrl = rImgMuitoFerido || rImgFerido || activeAvatarUrl;
-    healthStatusLabel = 'Estado Crítico';
+  if (hpPct <= 25) {
+    activeAvatarUrl = rImgMuitoFerido || rImgFerido || rImgSaudavel || activeAvatarUrl;
+    healthStatusLabel = 'Muito Ferido (≤ 25%)';
     healthStatusColor = 'text-rose-500 border-rose-500/40 bg-rose-950/40 animate-pulse';
-  } else if (hpPct < 50) {
-    activeAvatarUrl = rImgFerido || activeAvatarUrl;
-    healthStatusLabel = 'Ferido';
+  } else if (hpPct <= 50) {
+    activeAvatarUrl = rImgFerido || rImgSaudavel || activeAvatarUrl;
+    healthStatusLabel = 'Ferido (26% - 50%)';
     healthStatusColor = 'text-amber-400 border-amber-500/30 bg-amber-950/20';
   }
 
@@ -105,6 +138,25 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
     const docPath = `characters/${character.id}`;
     try {
       await updateDoc(doc(db, 'characters', character.id), {
+        nome: eNome.trim() || character.nome,
+        cla: eCla.trim(),
+        ocupacao: eOcupacao.trim(),
+        nivel: Number(eNivel) || 1,
+        hp_max: Number(eHpMax) || 1,
+        ether_max: Number(eEtherMax) || 0,
+        destino_max: Number(eDestinoMax) || 0,
+        fisico: Number(eFisico) || 0,
+        destreza: Number(eDestreza) || 0,
+        cognicao: Number(eCognicao) || 0,
+        carisma: Number(eCarisma) || 0,
+        primordio: Number(ePrimordio) || 0,
+        ferramenta_fisico: Number(eFerramentaFisico) || 0,
+        ferramenta_destreza: Number(eFerramentaDestreza) || 0,
+        ferramenta_cognicao: Number(eFerramentaCognicao) || 0,
+        ferramenta_carisma: Number(eFerramentaCarisma) || 0,
+        img_saudavel: eImgSaudavel || '',
+        img_ferido: eImgFerido || '',
+        img_muito_ferido: eImgMuitoFerido || '',
         html_ataques: eAtaques,
         html_dons: eDons,
         html_equipamentos: eEquipamentos,
@@ -120,6 +172,25 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
   };
 
   const startEditTexts = () => {
+    setENome(character.nome || '');
+    setECla(character.cla || '');
+    setEOcupacao(character.ocupacao || '');
+    setENivel(character.nivel || 1);
+    setEHpMax(character.hp_max || 100);
+    setEEtherMax(character.ether_max || 100);
+    setEDestinoMax(character.destino_max || 5);
+    setEFisico(character.fisico || 10);
+    setEDestreza(character.destreza || 10);
+    setECognicao(character.cognicao || 10);
+    setECarisma(character.carisma || 10);
+    setEPrimordio(character.primordio || 0);
+    setEFerramentaFisico(character.ferramenta_fisico || 0);
+    setEFerramentaDestreza(character.ferramenta_destreza || 0);
+    setEFerramentaCognicao(character.ferramenta_cognicao || 0);
+    setEFerramentaCarisma(character.ferramenta_carisma || 0);
+    setEImgSaudavel(character.img_saudavel || '');
+    setEImgFerido(character.img_ferido || '');
+    setEImgMuitoFerido(character.img_muito_ferido || '');
     setEAtaques(character.html_ataques || '');
     setEDons(character.html_dons || '');
     setEEquipamentos(character.html_equipamentos || '');
@@ -240,7 +311,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
                   className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs py-2.5 px-4 transition uppercase tracking-wider shadow-lg"
                 >
                   <Edit className="h-3.5 w-3.5" />
-                  <span>Editar Textos & Marcadores</span>
+                  <span>Editar Ficha, Atributos & Marcadores</span>
                 </button>
               )}
             </div>
@@ -565,13 +636,13 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
             </div>
           </div>
 
-          {/* 2.5 TEXT EDITING MODAL (WHEN GM CLICKS EDIT) */}
+          {/* 2.5 COMPLETE SHEET & ATTRIBUTES EDITING MODAL (WHEN GM CLICKS EDIT) */}
           {isEditingTexts && isGM && (
-            <div className="bg-[#0c0c0c] border-2 border-orange-500/80 p-5 space-y-4 shadow-2xl">
+            <div className="bg-[#0c0c0c] border-2 border-orange-500/80 p-5 space-y-5 shadow-2xl animate-in fade-in">
               <div className="flex items-center justify-between border-b border-white/10 pb-3">
                 <h3 className="text-xs font-black text-orange-400 uppercase tracking-widest flex items-center gap-2">
                   <Edit className="h-4 w-4" />
-                  <span>Editor de Conteúdo & Marcadores (Mestre GM)</span>
+                  <span>Editor de Ficha, Atributos Máximos & Marcadores (Mestre GM)</span>
                 </h3>
                 <button
                   type="button"
@@ -582,94 +653,407 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions }:
                 </button>
               </div>
 
-              {/* Edit Marcadores values */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-black p-3 border border-white/10">
-                <div>
-                  <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">
-                    Alcance Máximo
-                  </label>
-                  <input
-                    type="text"
-                    value={eAlcance}
-                    onChange={(e) => setEAlcance(e.target.value)}
-                    placeholder="Ex: 10 Metros"
-                    className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">
-                    Movimento Máximo
-                  </label>
-                  <input
-                    type="text"
-                    value={eMovimento}
-                    onChange={(e) => setEMovimento(e.target.value)}
-                    placeholder="Ex: 15 Metros por Ação"
-                    className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">
-                    Fortitude Máxima
-                  </label>
-                  <input
-                    type="text"
-                    value={eFortitude}
-                    onChange={(e) => setEFortitude(e.target.value)}
-                    placeholder="Ex: 150 Kg"
-                    className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
-                  />
+              {/* Section 1: Identity & Level */}
+              <div className="space-y-2">
+                <span className="text-[10px] font-mono uppercase font-bold text-orange-400 block tracking-wider">
+                  1. Identidade & Nível
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-black p-3 border border-white/10">
+                  <div>
+                    <label className="block text-[9px] text-white/50 font-bold uppercase tracking-wider mb-1">
+                      Nome do Herói
+                    </label>
+                    <input
+                      type="text"
+                      value={eNome}
+                      onChange={(e) => setENome(e.target.value)}
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-bold focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] text-white/50 font-bold uppercase tracking-wider mb-1">
+                      Nível
+                    </label>
+                    <input
+                      type="number"
+                      value={eNivel}
+                      onChange={(e) => setENivel(Number(e.target.value))}
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] text-white/50 font-bold uppercase tracking-wider mb-1">
+                      Clã
+                    </label>
+                    <input
+                      type="text"
+                      value={eCla}
+                      onChange={(e) => setECla(e.target.value)}
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] text-white/50 font-bold uppercase tracking-wider mb-1">
+                      Ocupação
+                    </label>
+                    <input
+                      type="text"
+                      value={eOcupacao}
+                      onChange={(e) => setEOcupacao(e.target.value)}
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Edit 4 Text Blocks */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">
-                    Ataques e Técnicas (Suporta HTML: &lt;strong&gt;, &lt;b&gt;, etc.)
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={eAtaques}
-                    onChange={(e) => setEAtaques(e.target.value)}
-                    className="w-full bg-black border border-white/10 p-3 text-xs text-white font-mono focus:outline-none focus:border-orange-500"
-                  />
+              {/* Section 2: Dynamic Health Avatars (Saudável, Ferido, Muito Ferido) */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono uppercase font-bold text-orange-400 flex items-center gap-1.5 tracking-wider">
+                    <ImageIcon className="h-3.5 w-3.5 text-orange-400" />
+                    <span>2. Avatares Dinâmicos por Estado de Saúde (GM)</span>
+                  </span>
+                  <span className="text-[9px] text-white/40 font-mono">
+                    A arte muda na ficha automaticamente de acordo com o HP do herói
+                  </span>
                 </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-black p-4 border border-white/10">
+                  
+                  {/* 1. Saudável (51% a 100%) */}
+                  <div className="space-y-2 border border-emerald-500/20 bg-emerald-950/10 p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+                        <span className="h-2 w-2 rounded-full bg-emerald-400 inline-block"></span>
+                        Saudável
+                      </span>
+                      <span className="text-[9px] font-mono text-emerald-400/80 bg-emerald-950/40 px-1.5 py-0.5 border border-emerald-500/30">
+                        51% a 100% HP
+                      </span>
+                    </div>
+                    <p className="text-[9px] text-white/50 leading-tight">
+                      Aparência padrão do herói em perfeitas condições.
+                    </p>
+                    <ImageUploadField
+                      label="Avatar Saudável (51% - 100%)"
+                      value={eImgSaudavel}
+                      onChange={(dataUrl) => setEImgSaudavel(dataUrl)}
+                      aspectRatio="portrait"
+                      maxWidth={600}
+                      maxHeight={900}
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">
-                    Dons e Habilidades Mágicas
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={eDons}
-                    onChange={(e) => setEDons(e.target.value)}
-                    className="w-full bg-black border border-white/10 p-3 text-xs text-white font-mono focus:outline-none focus:border-orange-500"
-                  />
+                  {/* 2. Ferido (26% a 50%) */}
+                  <div className="space-y-2 border border-amber-500/20 bg-amber-950/10 p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black text-amber-400 uppercase tracking-wider flex items-center gap-1">
+                        <span className="h-2 w-2 rounded-full bg-amber-400 inline-block"></span>
+                        Ferido
+                      </span>
+                      <span className="text-[9px] font-mono text-amber-400/80 bg-amber-950/40 px-1.5 py-0.5 border border-amber-500/30">
+                        26% a 50% HP
+                      </span>
+                    </div>
+                    <p className="text-[9px] text-white/50 leading-tight">
+                      Aparência com ferimentos, cansaço ou postura de guarda.
+                    </p>
+                    <ImageUploadField
+                      label="Avatar Ferido (26% - 50%)"
+                      value={eImgFerido}
+                      onChange={(dataUrl) => setEImgFerido(dataUrl)}
+                      aspectRatio="portrait"
+                      maxWidth={600}
+                      maxHeight={900}
+                    />
+                  </div>
+
+                  {/* 3. Muito Ferido (Abaixo de 25%) */}
+                  <div className="space-y-2 border border-rose-500/30 bg-rose-950/10 p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black text-rose-400 uppercase tracking-wider flex items-center gap-1">
+                        <span className="h-2 w-2 rounded-full bg-rose-500 inline-block animate-pulse"></span>
+                        Muito Ferido
+                      </span>
+                      <span className="text-[9px] font-mono text-rose-400/80 bg-rose-950/40 px-1.5 py-0.5 border border-rose-500/30">
+                        ≤ 25% HP
+                      </span>
+                    </div>
+                    <p className="text-[9px] text-white/50 leading-tight">
+                      Aparência em estado crítico ou sangrando severamente.
+                    </p>
+                    <ImageUploadField
+                      label="Avatar Muito Ferido (≤ 25%)"
+                      value={eImgMuitoFerido}
+                      onChange={(dataUrl) => setEImgMuitoFerido(dataUrl)}
+                      aspectRatio="portrait"
+                      maxWidth={600}
+                      maxHeight={900}
+                    />
+                  </div>
+
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">
-                    Equipamento e Itens
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={eEquipamentos}
-                    onChange={(e) => setEEquipamentos(e.target.value)}
-                    className="w-full bg-black border border-white/10 p-3 text-xs text-white font-mono focus:outline-none focus:border-orange-500"
-                  />
+              {/* Section 3: Vitals Max Values */}
+              <div className="space-y-2">
+                <span className="text-[10px] font-mono uppercase font-bold text-rose-400 block tracking-wider">
+                  3. Valores Máximos dos Vitais
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-black p-3 border border-white/10">
+                  <div>
+                    <label className="block text-[9px] text-white/50 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <Heart className="h-3 w-3 text-rose-500" />
+                      HP Máximo (Saúde)
+                    </label>
+                    <input
+                      type="number"
+                      value={eHpMax}
+                      onChange={(e) => setEHpMax(Number(e.target.value))}
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-rose-400 font-bold text-xs font-mono focus:outline-none focus:border-rose-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] text-white/50 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <Zap className="h-3 w-3 text-cyan-400" />
+                      Éter Máximo (Energia)
+                    </label>
+                    <input
+                      type="number"
+                      value={eEtherMax}
+                      onChange={(e) => setEEtherMax(Number(e.target.value))}
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-cyan-400 font-bold text-xs font-mono focus:outline-none focus:border-cyan-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] text-white/50 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <Star className="h-3 w-3 text-amber-400" />
+                      Destino Máximo (Poder)
+                    </label>
+                    <input
+                      type="number"
+                      value={eDestinoMax}
+                      onChange={(e) => setEDestinoMax(Number(e.target.value))}
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-amber-400 font-bold text-xs font-mono focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">
-                    Defesa e Armaduras
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={eDefesa}
-                    onChange={(e) => setEDefesa(e.target.value)}
-                    className="w-full bg-black border border-white/10 p-3 text-xs text-white font-mono focus:outline-none focus:border-orange-500"
-                  />
+              {/* Section 4: Primary Attributes & Primordio */}
+              <div className="space-y-2">
+                <span className="text-[10px] font-mono uppercase font-bold text-orange-400 block tracking-wider">
+                  4. Atributos Primários & Primórdio
+                </span>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 bg-black p-3 border border-white/10">
+                  <div>
+                    <label className="block text-[9px] text-white/50 font-bold uppercase tracking-wider mb-1">
+                      Físico (FIS)
+                    </label>
+                    <input
+                      type="number"
+                      value={eFisico}
+                      onChange={(e) => setEFisico(Number(e.target.value))}
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] text-white/50 font-bold uppercase tracking-wider mb-1">
+                      Destreza (DES)
+                    </label>
+                    <input
+                      type="number"
+                      value={eDestreza}
+                      onChange={(e) => setEDestreza(Number(e.target.value))}
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] text-white/50 font-bold uppercase tracking-wider mb-1">
+                      Cognição (COG)
+                    </label>
+                    <input
+                      type="number"
+                      value={eCognicao}
+                      onChange={(e) => setECognicao(Number(e.target.value))}
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] text-white/50 font-bold uppercase tracking-wider mb-1">
+                      Carisma (CAR)
+                    </label>
+                    <input
+                      type="number"
+                      value={eCarisma}
+                      onChange={(e) => setECarisma(Number(e.target.value))}
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div className="col-span-2 sm:col-span-1 bg-violet-950/20 border border-violet-500/30 p-1.5">
+                    <label className="block text-[9px] text-violet-300 font-bold uppercase tracking-wider mb-1">
+                      Primórdio (PRI)
+                    </label>
+                    <input
+                      type="number"
+                      value={ePrimordio}
+                      onChange={(e) => setEPrimordio(Number(e.target.value))}
+                      className="w-full bg-[#050505] border border-violet-500/40 px-3 py-1 text-violet-300 text-xs font-mono font-bold focus:outline-none focus:border-violet-400"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 5: Combat Tools Modifiers */}
+              <div className="space-y-2">
+                <span className="text-[10px] font-mono uppercase font-bold text-orange-400 block tracking-wider">
+                  5. Modificadores das Ferramentas de Combate
+                </span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-black p-3 border border-white/10">
+                  <div>
+                    <label className="block text-[8px] text-white/50 font-bold uppercase tracking-tight mb-1">
+                      Resistir | Esmagar (FIS)
+                    </label>
+                    <input
+                      type="number"
+                      value={eFerramentaFisico}
+                      onChange={(e) => setEFerramentaFisico(Number(e.target.value))}
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-orange-400 text-xs font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[8px] text-white/50 font-bold uppercase tracking-tight mb-1">
+                      Evadir | Abdicar (DES)
+                    </label>
+                    <input
+                      type="number"
+                      value={eFerramentaDestreza}
+                      onChange={(e) => setEFerramentaDestreza(Number(e.target.value))}
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-orange-400 text-xs font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[8px] text-white/50 font-bold uppercase tracking-tight mb-1">
+                      Prever | Concentrar (COG)
+                    </label>
+                    <input
+                      type="number"
+                      value={eFerramentaCognicao}
+                      onChange={(e) => setEFerramentaCognicao(Number(e.target.value))}
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-orange-400 text-xs font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[8px] text-white/50 font-bold uppercase tracking-tight mb-1">
+                      Recuperar | Intimidar (CAR)
+                    </label>
+                    <input
+                      type="number"
+                      value={eFerramentaCarisma}
+                      onChange={(e) => setEFerramentaCarisma(Number(e.target.value))}
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-orange-400 text-xs font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 6: Marcadores de Campo */}
+              <div className="space-y-2">
+                <span className="text-[10px] font-mono uppercase font-bold text-orange-400 block tracking-wider">
+                  6. Marcadores de Campo
+                </span>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-black p-3 border border-white/10">
+                  <div>
+                    <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">
+                      Alcance Máximo
+                    </label>
+                    <input
+                      type="text"
+                      value={eAlcance}
+                      onChange={(e) => setEAlcance(e.target.value)}
+                      placeholder="Ex: 10 Metros"
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">
+                      Movimento Máximo
+                    </label>
+                    <input
+                      type="text"
+                      value={eMovimento}
+                      onChange={(e) => setEMovimento(e.target.value)}
+                      placeholder="Ex: 15 Metros por Ação"
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">
+                      Fortitude Máxima
+                    </label>
+                    <input
+                      type="text"
+                      value={eFortitude}
+                      onChange={(e) => setEFortitude(e.target.value)}
+                      placeholder="Ex: 150 Kg"
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 7: 4 Text Blocks */}
+              <div className="space-y-2">
+                <span className="text-[10px] font-mono uppercase font-bold text-orange-400 block tracking-wider">
+                  7. Conteúdo e Habilidades (Suporta formatação HTML &lt;strong&gt;, &lt;b&gt;, etc.)
+                </span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">
+                      Ataques e Técnicas
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={eAtaques}
+                      onChange={(e) => setEAtaques(e.target.value)}
+                      className="w-full bg-black border border-white/10 p-3 text-xs text-white font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">
+                      Dons e Habilidades Mágicas
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={eDons}
+                      onChange={(e) => setEDons(e.target.value)}
+                      className="w-full bg-black border border-white/10 p-3 text-xs text-white font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">
+                      Equipamento e Itens
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={eEquipamentos}
+                      onChange={(e) => setEEquipamentos(e.target.value)}
+                      className="w-full bg-black border border-white/10 p-3 text-xs text-white font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">
+                      Defesa e Armaduras
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={eDefesa}
+                      onChange={(e) => setEDefesa(e.target.value)}
+                      className="w-full bg-black border border-white/10 p-3 text-xs text-white font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
                 </div>
               </div>
 

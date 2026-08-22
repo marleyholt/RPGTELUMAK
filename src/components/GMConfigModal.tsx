@@ -5,7 +5,7 @@ import { Character, DiscordChannelConfig, UserProfile } from '../types';
 import { 
   Sliders, X, MessageSquare, Hash, User, Shield, Check, RefreshCw, 
   Sparkles, HelpCircle, Server, Bot, Search, UserCheck, UserX, 
-  Link as LinkIcon, Unlink, Crown, ShieldAlert, Users, Scroll
+  Link as LinkIcon, Unlink, Crown, ShieldAlert, Users, Scroll, Plus
 } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../utils/errors';
 import { DiscordBotGuideModal } from './DiscordBotGuideModal';
@@ -14,9 +14,10 @@ interface GMConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
   characters: Character[];
+  onOpenCreateCharModal?: () => void;
 }
 
-export function GMConfigModal({ isOpen, onClose, characters }: GMConfigModalProps) {
+export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharModal }: GMConfigModalProps) {
   const [activeTab, setActiveTab] = useState<'discord' | 'geral'>('discord');
   const [defaultChannelId, setDefaultChannelId] = useState('');
   const [guildId, setGuildId] = useState('');
@@ -290,8 +291,8 @@ export function GMConfigModal({ isOpen, onClose, characters }: GMConfigModalProp
                 </div>
               )}
 
-              {/* Top Summary Bar */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Top Summary Bar & Character Creation */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div className="bg-black/60 border border-white/10 p-3 flex items-center gap-3">
                   <div className="p-2 bg-white/5 border border-white/10 text-orange-500">
                     <Users className="h-5 w-5" />
@@ -323,6 +324,20 @@ export function GMConfigModal({ isOpen, onClose, characters }: GMConfigModalProp
                     <span className="text-lg font-black text-cyan-400 font-mono">{characters.length}</span>
                   </div>
                 </div>
+
+                {onOpenCreateCharModal && (
+                  <button
+                    type="button"
+                    onClick={onOpenCreateCharModal}
+                    className="bg-orange-500 hover:bg-orange-600 text-white p-3 flex flex-col items-center justify-center gap-1 transition shadow-lg text-center group"
+                  >
+                    <div className="flex items-center gap-1.5 font-black text-xs uppercase tracking-wider">
+                      <Plus className="h-4 w-4 transition-transform group-hover:scale-125" />
+                      <span>Nova Ficha</span>
+                    </div>
+                    <span className="text-[9px] text-white/80 font-mono">Criar Personagem</span>
+                  </button>
+                )}
               </div>
 
               {/* Accounts Search & List */}

@@ -567,9 +567,17 @@ export default function App() {
       <div className="min-h-screen bg-[#050505] flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-[#0a0a0a] border border-white/10 p-8 shadow-2xl relative">
           
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-black italic tracking-tighter uppercase text-white mb-1">
-              TELUMAK <span className="text-orange-500">RPG</span>
+          <div className="text-center mb-8 flex flex-col items-center">
+            <div className="w-20 h-20 rounded-full border-2 border-orange-500/40 p-1 bg-black/80 shadow-2xl mb-3 flex items-center justify-center">
+              <img 
+                src="/telumak-logo.svg" 
+                alt="RPG Telumak" 
+                className="w-full h-full object-contain rounded-full"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-black italic tracking-tighter uppercase text-white mb-1">
+              RPG <span className="text-orange-500">TELUMAK</span>
             </h1>
             <p className="text-[10px] uppercase font-mono tracking-widest text-white/40">Sistema Digital de Mesa e Fichas</p>
           </div>
@@ -724,15 +732,25 @@ export default function App() {
           
           {/* Logo & Identity */}
           <div className="flex items-center gap-3">
-            <span className="text-3xl font-black tracking-tighter uppercase italic leading-none text-white">
-              TELUMAK <span className="text-orange-500">RPG</span>
-            </span>
-            <div className="h-6 w-px bg-white/10 hidden sm:block"></div>
-            <div className="text-center sm:text-left">
-              <span className="text-[10px] block text-white/40 font-bold uppercase tracking-widest leading-none">
-                {isGM ? '👑 Escudo do Mestre' : '🛡️ Portal do Jogador'}
+            <div className="w-10 h-10 rounded-full border border-orange-500/40 p-0.5 bg-black shrink-0 shadow-lg shadow-orange-500/10 flex items-center justify-center">
+              <img 
+                src="/telumak-logo.svg" 
+                alt="RPG Telumak Logo" 
+                className="w-full h-full object-contain rounded-full"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            <div>
+              <span className="text-2xl sm:text-3xl font-black tracking-tighter uppercase italic leading-none text-white flex items-center gap-1.5">
+                <span>RPG</span> <span className="text-orange-500">TELUMAK</span>
               </span>
-              <p className="text-[10px] font-mono text-orange-500 mt-1 uppercase tracking-wider">{currentUser?.email}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-[10px] text-white/50 font-bold uppercase tracking-widest leading-none">
+                  {isGM ? '👑 Escudo do Mestre' : '🛡️ Portal do Jogador'}
+                </span>
+                <span className="text-white/20 text-[10px]">•</span>
+                <span className="text-[10px] font-mono text-orange-400 uppercase tracking-wider leading-none">{currentUser?.email}</span>
+              </div>
             </div>
           </div>
 
@@ -777,20 +795,18 @@ export default function App() {
             {isGM ? (
               <button
                 onClick={() => setShowGMConfig(true)}
-                className="flex items-center gap-1.5 bg-[#151515] hover:bg-[#202020] text-orange-400 border border-orange-500/30 px-3 py-1.5 text-xs font-black uppercase tracking-wider transition shadow"
-                title="Configurações de Canais do Discord e Mesa"
+                className="p-2 bg-[#151515] hover:bg-[#202020] text-orange-400 border border-orange-500/30 text-xs font-black uppercase tracking-wider transition shadow flex items-center justify-center"
+                title="Configurações do Mestre (GM) & Criar Fichas"
               >
-                <Settings className="h-3.5 w-3.5" />
-                <span className="hidden md:inline">Config GM</span>
+                <Settings className="h-4 w-4" />
               </button>
             ) : (
               <button
                 onClick={() => setShowPlayerConfig(true)}
-                className="flex items-center gap-1.5 bg-[#151515] hover:bg-[#202020] text-orange-400 border border-orange-500/30 px-3 py-1.5 text-xs font-black uppercase tracking-wider transition shadow"
+                className="p-2 bg-[#151515] hover:bg-[#202020] text-orange-400 border border-orange-500/30 text-xs font-black uppercase tracking-wider transition shadow flex items-center justify-center"
                 title="Meu Perfil, Avatar e Segurança"
               >
-                <Settings className="h-3.5 w-3.5" />
-                <span className="hidden md:inline">Meu Perfil</span>
+                <Settings className="h-4 w-4" />
               </button>
             )}
 
@@ -910,18 +926,6 @@ export default function App() {
                     </div>
                   );
                 })}
-              </div>
-
-              {/* Create Character Button */}
-              <div className="shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateCharForm(true)}
-                  className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-[11px] font-black uppercase tracking-wider transition flex items-center gap-1.5 shadow"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Nova Ficha</span>
-                </button>
               </div>
             </div>
           )}
@@ -1317,12 +1321,16 @@ export default function App() {
         </div>
       )}
 
-      {/* GM CONFIG MODAL (Discord & Settings) */}
+      {/* GM CONFIG MODAL (Discord & Settings & Character Creation) */}
       {isGM && (
         <GMConfigModal
           isOpen={showGMConfig}
           onClose={() => setShowGMConfig(false)}
           characters={characters}
+          onOpenCreateCharModal={() => {
+            setShowGMConfig(false);
+            setShowCreateCharForm(true);
+          }}
         />
       )}
 
