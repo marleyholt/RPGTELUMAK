@@ -1,10 +1,10 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { Client, GatewayIntentBits } from 'discord.js';
+import { Client, GatewayIntentBits, AttachmentBuilder } from 'discord.js';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, serverTimestamp, getDoc, doc } from 'firebase/firestore';
 import fs from 'fs';
 
 // Helper para carregar a configuração do firebase
@@ -32,7 +32,8 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  // Accept larger payloads for base64 image uploads
+  app.use(express.json({ limit: '10mb' }));
 
   // Inicializa o Firebase no Backend
   let db: any = null;
@@ -57,7 +58,6 @@ async function startServer() {
         }
       }
 
-      // Usa a configuração que funciona pra Node
       db = getFirestore(firebaseApp);
     } catch (e) {
       console.error("Erro ao inicializar Firebase no Backend", e);
@@ -66,11 +66,11 @@ async function startServer() {
 
   // Inicializa o Discord Bot
   const token = process.env.DISCORD_BOT_TOKEN;
-  const channelId = process.env.DISCORD_CHANNEL_ID;
+  const defaultChannelId = process.env.DISCORD_CHANNEL_ID;
   
   let discordClient: Client | null = null;
   
-  if (token && channelId) {
+  if (token) {
     discordClient = new Client({
       intents: [
         GatewayIntentBits.Guilds,
@@ -83,27 +83,41 @@ async function startServer() {
       console.log(`Discord Bot logado como ${discordClient?.user?.tag}`);
     });
 
-    // Escutando mensagens do Discord
+    // Escutando mensagens do Discord de QUALQUER canal ao qual o bot tem acesso
     discordClient.on('messageCreate', async (message) => {
       // Ignorar mensagens do próprio bot
       if (message.author.bot) return;
-      
-      // Apenas mensagens do canal configurado
-      if (message.channelId !== channelId) return;
 
       if (db) {
         try {
-          const newMessage = {
-            remetente: `[Discord] ${message.author.username}`,
-            remetente_email: 'discord-bot@system.local',
-            destinatario: 'TODOS',
-            tipo: 'CHAT',
-            conteudo: message.content,
-            createdAt: serverTimestamp() // Importante usar o timestamp do server
-          };
+          const attachments = message.attachments.map(att => att.url);
           
-          await addDoc(collection(db, 'messages'), newMessage);
-          console.log("Mensagem do Discord enviada para o Firestore");
+          // 1. Salva na coleção do NOTEBOOK do Discord
+          const notebookDoc = {
+            channelId: message.channelId,
+            authorName: message.member?.displayName || message.author.username,
+            authorAvatar: message.author.displayAvatarURL(),
+            content: message.content || '',
+            attachments: attachments.length > 0 ? attachments : undefined,
+            isFromDiscord: true,
+            createdAt: serverTimestamp()
+          };
+          await addDoc(collection(db, 'discord_notebook_messages'), notebookDoc);
+
+          // 2. Se for o canal principal/padrão, salva também no chat rápido de jogo
+          if (defaultChannelId && message.channelId === defaultChannelId) {
+            const chatMsg = {
+              remetente: `[Discord] ${message.author.username}`,
+              remetente_email: 'discord-bot@system.local',
+              destinatario: 'TODOS',
+              tipo: 'CHAT',
+              conteudo: message.content,
+              createdAt: serverTimestamp()
+            };
+            await addDoc(collection(db, 'messages'), chatMsg);
+          }
+
+          console.log(`Mensagem do Discord no canal ${message.channelId} sincronizada com sucesso!`);
         } catch (err) {
           console.error("Erro ao salvar mensagem do Discord no Firestore:", err);
         }
@@ -114,28 +128,147 @@ async function startServer() {
       console.error("Erro ao logar o bot no Discord:", err);
     });
   } else {
-    console.warn("DISCORD_BOT_TOKEN e/ou DISCORD_CHANNEL_ID não configurados no .env");
+    console.warn("DISCORD_BOT_TOKEN não configurado no .env");
   }
 
-  // Rota para o frontend enviar mensagem para o Discord
-  app.post("/api/discord/send", async (req, res) => {
-    const { remetente, conteudo } = req.body;
-    
-    if (!discordClient || !discordClient.isReady() || !channelId) {
-      return res.status(500).json({ error: "Discord Bot não está pronto ou não configurado" });
+  // Rota para consultar dados do servidor / canais do Discord
+  app.get("/api/discord/server-info", async (req, res) => {
+    const { guildId, channelId } = req.query;
+
+    if (!discordClient || !discordClient.isReady()) {
+      return res.json({ 
+        online: false, 
+        guildName: null, 
+        message: "Discord Bot não está conectado ou token ausente" 
+      });
     }
 
     try {
-      const channel = await discordClient.channels.fetch(channelId);
+      let guild: any = null;
+      if (guildId && typeof guildId === 'string') {
+        guild = await discordClient.guilds.fetch(guildId).catch(() => null);
+      }
+      
+      if (!guild && channelId && typeof channelId === 'string') {
+        const chan = await discordClient.channels.fetch(channelId).catch(() => null);
+        if (chan && 'guild' in chan) {
+          guild = chan.guild;
+        }
+      }
+
+      if (!guild) {
+        guild = discordClient.guilds.cache.first();
+      }
+
+      if (guild) {
+        return res.json({
+          online: true,
+          guildId: guild.id,
+          guildName: guild.name,
+          guildIcon: guild.iconURL() || null,
+          memberCount: guild.memberCount
+        });
+      }
+
+      return res.json({ online: true, guildName: null, message: "Nenhum servidor encontrado no bot" });
+    } catch (e: any) {
+      return res.json({ online: false, error: e.message });
+    }
+  });
+
+  // Rota para o NOTEBOOK enviar mensagem para um canal específico do Discord
+  app.post("/api/discord/notebook/send", async (req, res) => {
+    const { channelId, remetente, conteudo, attachment } = req.body;
+    const targetChannelId = channelId || defaultChannelId;
+
+    if (!discordClient || !discordClient.isReady()) {
+      // Se o bot não estiver configurado/online, ainda salvamos localmente no Firestore
+      if (db && targetChannelId) {
+        await addDoc(collection(db, 'discord_notebook_messages'), {
+          channelId: targetChannelId,
+          authorName: remetente,
+          content: conteudo || '',
+          attachments: attachment ? [attachment] : undefined,
+          isFromDiscord: false,
+          createdAt: serverTimestamp()
+        });
+      }
+      return res.status(200).json({ success: true, offlineSaved: true });
+    }
+
+    try {
+      const channel = await discordClient.channels.fetch(targetChannelId);
+      if (channel && channel.isTextBased() && 'send' in channel) {
+        const sendOptions: any = {};
+        
+        let formattedText = `**[${remetente}]**\n${conteudo || ''}`;
+        sendOptions.content = formattedText;
+
+        // Se houver imagem base64 anexada, converte em arquivo do Discord
+        if (attachment && attachment.startsWith('data:image/')) {
+          const base64Data = attachment.split(',')[1];
+          const buffer = Buffer.from(base64Data, 'base64');
+          const ext = attachment.substring(attachment.indexOf('/') + 1, attachment.indexOf(';'));
+          const file = new AttachmentBuilder(buffer, { name: `upload_${Date.now()}.${ext || 'png'}` });
+          sendOptions.files = [file];
+        }
+
+        const sentMsg = await channel.send(sendOptions);
+
+        // Salva também no Firestore com as URLs de anexo do próprio Discord
+        if (db) {
+          const discordAttachments = sentMsg.attachments.map(a => a.url);
+          await addDoc(collection(db, 'discord_notebook_messages'), {
+            channelId: targetChannelId,
+            authorName: remetente,
+            content: conteudo || '',
+            attachments: discordAttachments.length > 0 ? discordAttachments : (attachment ? [attachment] : undefined),
+            isFromDiscord: false,
+            createdAt: serverTimestamp()
+          });
+        }
+
+        return res.json({ success: true });
+      } else {
+        return res.status(500).json({ error: "Canal do Discord inválido ou não suporta texto" });
+      }
+    } catch (err: any) {
+      console.error("Erro ao enviar mensagem pro Discord Notebook:", err);
+      // Fallback: salva no banco
+      if (db && targetChannelId) {
+        await addDoc(collection(db, 'discord_notebook_messages'), {
+          channelId: targetChannelId,
+          authorName: remetente,
+          content: conteudo || '',
+          attachments: attachment ? [attachment] : undefined,
+          isFromDiscord: false,
+          createdAt: serverTimestamp()
+        });
+      }
+      return res.status(200).json({ success: true, warning: err.message });
+    }
+  });
+
+  // Rota genérica de envio para o Game Chat
+  app.post("/api/discord/send", async (req, res) => {
+    const { remetente, conteudo, channelId } = req.body;
+    const targetChannelId = channelId || defaultChannelId;
+    
+    if (!discordClient || !discordClient.isReady() || !targetChannelId) {
+      return res.status(500).json({ error: "Discord Bot não está pronto ou ID do canal não configurado" });
+    }
+
+    try {
+      const channel = await discordClient.channels.fetch(targetChannelId);
       if (channel && channel.isTextBased() && 'send' in channel) {
         await channel.send(`**[RPG - ${remetente}]** ${conteudo}`);
         return res.json({ success: true });
       } else {
         return res.status(500).json({ error: "Canal do Discord inválido ou não suporta texto" });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erro ao enviar mensagem pro Discord", err);
-      return res.status(500).json({ error: "Falha ao enviar" });
+      return res.status(500).json({ error: err?.message || "Falha ao enviar" });
     }
   });
 

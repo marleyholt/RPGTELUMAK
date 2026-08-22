@@ -14,17 +14,18 @@ import {
 } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { 
-  Plus, Trash2, LogOut, Heart, Shield, Swords, User as UserIcon, Send, EyeOff, Eye, LayoutGrid, Scroll, Flame, PhoneCall, RefreshCw, Sparkles, BookOpen, UserPlus, Star, Sliders, Lock, HelpCircle
+  Plus, Trash2, LogOut, Heart, Shield, Swords, User as UserIcon, Send, EyeOff, Eye, LayoutGrid, Scroll, Flame, RefreshCw, Sparkles, BookOpen, UserPlus, Star, Sliders, Lock, HelpCircle, Settings, MessageSquareText, Bell
 } from 'lucide-react';
 
 import { Character, CustomStatusType, ChatMessage, CharVersion, UserProfile } from './types';
 import { handleFirestoreError, OperationType } from './utils/errors';
-import { AudioChat } from './components/AudioChat';
 import { DiceTray } from './components/DiceTray';
-import { StatusManager } from './components/StatusManager';
 import { CharacterSheet } from './components/CharacterSheet';
 import { BattleMap } from './components/BattleMap';
-import { CampaignNotes } from './components/CampaignNotes';
+import { DiscordNotebook } from './components/DiscordNotebook';
+import { GMConfigModal } from './components/GMConfigModal';
+import { PlayerConfigModal } from './components/PlayerConfigModal';
+import { ImageUploadField } from './components/ImageUploadField';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -38,8 +39,17 @@ export default function App() {
   const [versionsMap, setVersionsMap] = useState<{ [charId: string]: CharVersion[] }>({});
 
   // Navigation State
-  const [currentTab, setCurrentTab] = useState<'personagens' | 'arena' | 'audio_chat' | 'anotacoes'>('personagens');
+  const [currentTab, setCurrentTab] = useState<'personagens' | 'arena' | 'notebook'>('personagens');
   const [selectedCharId, setSelectedCharId] = useState<string | null>(null);
+
+  // GM & Player Config Modal State
+  const [showGMConfig, setShowGMConfig] = useState(false);
+  const [showPlayerConfig, setShowPlayerConfig] = useState(false);
+
+  // 30s Polling / Sheet Update Detection for Players
+  const [hasSheetUpdateAlert, setHasSheetUpdateAlert] = useState(false);
+  const [lastAckedCharSnapshot, setLastAckedCharSnapshot] = useState<string>('');
+  const lastCheckTimeRef = useRef<number>(Date.now());
 
   // Email/Password Authentication state variables
   const [authTab, setAuthTab] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
@@ -103,7 +113,6 @@ export default function App() {
             await setDoc(userRef, profile);
           } else {
             profile = userSnap.data() as UserProfile;
-            // Corrige se por acaso a conta do mestre principal estiver salva como PLAYER no banco devido a logins anteriores
             if (user.email === 'leaog.8@gmail.com' && profile.role !== 'GM') {
               profile.role = 'GM';
               await setDoc(userRef, { ...profile, role: 'GM' }, { merge: true });
@@ -257,6 +266,83 @@ export default function App() {
 
     return () => unsubs.forEach(fn => fn());
   }, [characters]);
+
+  // 30s Polling Check for Player Character Sheet Changes
+  useEffect(() => {
+    if (userProfile?.role === 'GM' || !currentUser) return;
+
+    const myChar = characters.find(c => c.email_dono === currentUser.email);
+    if (!myChar) return;
+
+    const currentCharString = JSON.stringify({
+      hp_atual: myChar.hp_atual,
+      hp_max: myChar.hp_max,
+      ether_atual: myChar.ether_atual,
+      ether_max: myChar.ether_max,
+      destino_atual: myChar.destino_atual,
+      destino_max: myChar.destino_max,
+      fisico: myChar.fisico,
+      destreza: myChar.destreza,
+      cognicao: myChar.cognicao,
+      carisma: myChar.carisma,
+      primordio: myChar.primordio,
+      nivel: myChar.nivel,
+      status_ativos: myChar.status_ativos,
+      html_ataques: myChar.html_ataques,
+      html_dons: myChar.html_dons,
+      html_equipamentos: myChar.html_equipamentos,
+      html_defesa: myChar.html_defesa,
+    });
+
+    // Initialize initial snapshot
+    if (!lastAckedCharSnapshot) {
+      setLastAckedCharSnapshot(currentCharString);
+      return;
+    }
+
+    // Check if changed
+    if (currentCharString !== lastAckedCharSnapshot) {
+      setHasSheetUpdateAlert(true);
+    }
+
+    // Set 30s interval for active polling alert
+    const interval = setInterval(() => {
+      if (currentCharString !== lastAckedCharSnapshot) {
+        setHasSheetUpdateAlert(true);
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [characters, currentUser, userProfile?.role, lastAckedCharSnapshot]);
+
+  const handleAcknowledgeSheetUpdate = () => {
+    const myChar = characters.find(c => c.email_dono === currentUser?.email);
+    if (myChar) {
+      const currentCharString = JSON.stringify({
+        hp_atual: myChar.hp_atual,
+        hp_max: myChar.hp_max,
+        ether_atual: myChar.ether_atual,
+        ether_max: myChar.ether_max,
+        destino_atual: myChar.destino_atual,
+        destino_max: myChar.destino_max,
+        fisico: myChar.fisico,
+        destreza: myChar.destreza,
+        cognicao: myChar.cognicao,
+        carisma: myChar.carisma,
+        primordio: myChar.primordio,
+        nivel: myChar.nivel,
+        status_ativos: myChar.status_ativos,
+        html_ataques: myChar.html_ataques,
+        html_dons: myChar.html_dons,
+        html_equipamentos: myChar.html_equipamentos,
+        html_defesa: myChar.html_defesa,
+      });
+      setLastAckedCharSnapshot(currentCharString);
+      setSelectedCharId(myChar.id);
+    }
+    setCurrentTab('personagens');
+    setHasSheetUpdateAlert(false);
+  };
 
   // User Actions
   const handleLogin = async () => {
@@ -459,41 +545,36 @@ export default function App() {
     }
   };
 
-  // Safe checks
   const isGM = userProfile?.role === 'GM';
   const myCharactersList = characters.filter(c => c.email_dono === currentUser?.email);
   const mestreMesaRoster = characters.filter(c => c.ativo_na_mesa);
-
-  // Active sheet resolving details
-  const currentSelectedCharacter = characters.find(c => c.id === selectedCharId);
-  const activeCharVersionsList = selectedCharId ? (versionsMap[selectedCharId] || []) : [];
+  const currentSelectedCharacter = characters.find(c => c.id === selectedCharId) || (myCharactersList.length > 0 ? myCharactersList[0] : null);
+  const activeCharVersionsList = currentSelectedCharacter ? versionsMap[currentSelectedCharacter.id] || [] : [];
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-white p-4">
-        <Scroll className="h-10 w-10 text-orange-500 animate-spin mb-4" />
-        <p className="text-xs font-black tracking-[0.3em] font-sans text-orange-500 uppercase italic animate-pulse">Sincronizando Grimório Digital...</p>
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center text-white">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-xs font-mono tracking-widest uppercase text-white/50">Sintonizando Grimório...</span>
+        </div>
       </div>
     );
   }
 
-  // LOGIN SCREEN PORTAL
   if (!currentUser) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center p-4 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1547891654-e66ed7edd96c?auto=format&fit=crop&w=1920&q=80')] bg-cover bg-center opacity-5 blur-sm"></div>
-        
-        <div className="bg-[#0a0a0a] border border-white/10 p-8 rounded-none w-full max-w-md shadow-2xl flex flex-col relative z-10">
-          <div className="self-center w-12 h-12 rounded-none bg-[#050505] border border-orange-500/40 flex items-center justify-center text-orange-500 shadow-lg mb-4 animate-pulse">
-            <Swords className="h-6 w-6" />
-          </div>
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-[#0a0a0a] border border-white/10 p-8 shadow-2xl relative">
           
-          <h1 className="text-center text-3xl font-black text-white tracking-tighter uppercase italic leading-none mb-1">TELUMAK <span className="text-orange-500">RPG</span></h1>
-          <p className="text-center text-[9px] text-white/40 font-mono uppercase tracking-widest mb-4">Portal de Aliança & Sessão Profissional</p>
-          <div className="h-px bg-white/10 w-full mb-5"></div>
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-black italic tracking-tighter uppercase text-white mb-1">
+              TELUMAK <span className="text-orange-500">RPG</span>
+            </h1>
+            <p className="text-[10px] uppercase font-mono tracking-widest text-white/40">Sistema Digital de Mesa e Fichas</p>
+          </div>
 
-          {/* Tab buttons */}
-          <div className="flex bg-[#050505] border border-white/5 p-1 mb-5">
+          <div className="flex border-b border-white/10 mb-6">
             <button
               onClick={() => { setAuthTab('LOGIN'); setAuthError(''); }}
               className={`flex-1 py-2 text-[10px] font-black uppercase tracking-wider transition ${
@@ -622,7 +703,6 @@ export default function App() {
             type="button"
             className="w-full bg-white text-black hover:bg-orange-500 hover:text-white font-black uppercase text-[10px] tracking-widest py-3 px-4 transition-colors duration-150 flex items-center justify-center gap-3 shadow active:scale-95 rounded-none"
           >
-            {/* Google Vector Icon */}
             <svg className="h-3.5 w-3.5 fill-current shrink-0" viewBox="0 0 24 24">
               <path d="M12.24 10.285V13.4h6.887C18.2 15.614 15.645 18 12.24 18c-3.86 0-7-3.14-7-7s3.14-7 7-7c1.7 0 3.3.6 4.5 1.6l2.4-2.4C17.3 1.5 14.9 1 12.24 1 6.137 1 1.24 5.9 1.24 12s4.897 11 11 11c5.93 0 10.518-4.14 10.518-10.5 0-.714-.07-1.41-.2-2.215H12.24z"/>
             </svg>
@@ -638,30 +718,32 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#050505] flex flex-col justify-between text-white font-sans overflow-x-hidden">
       
-      {/* GLOBAL NAVBAR - HIDDEN WHEN PRINTING */}
+      {/* GLOBAL NAVBAR */}
       <nav className="no-print bg-[#0a0a0a] border-b border-white/10 p-4 sticky top-0 z-40 shadow-xl">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row gap-4 items-center justify-between">
           
           {/* Logo & Identity */}
           <div className="flex items-center gap-3">
-            <span className="text-3xl font-black tracking-tighter uppercase italic leading-none text-white">TELUMAK <span className="text-orange-500">RPG</span></span>
+            <span className="text-3xl font-black tracking-tighter uppercase italic leading-none text-white">
+              TELUMAK <span className="text-orange-500">RPG</span>
+            </span>
             <div className="h-6 w-px bg-white/10 hidden sm:block"></div>
             <div className="text-center sm:text-left">
               <span className="text-[10px] block text-white/40 font-bold uppercase tracking-widest leading-none">
-                {isGM ? 'Escudo do Mestre' : 'Portal do Herói'}
+                {isGM ? '👑 Escudo do Mestre' : '🛡️ Portal do Jogador'}
               </span>
               <p className="text-[10px] font-mono text-orange-500 mt-1 uppercase tracking-wider">{currentUser?.email}</p>
             </div>
           </div>
 
-          {/* Quick Tabs Switches */}
+          {/* Quick Navigation Tabs Switches */}
           <div className="flex gap-1 select-none bg-black border border-white/10 p-1">
             <button
               onClick={() => {
                 setCurrentTab('personagens');
                 setShowCreateCharForm(false);
               }}
-              className={`flex items-center gap-1.5 px-6 py-2 text-xs font-black uppercase tracking-widest transition duration-150 ${
+              className={`flex items-center gap-1.5 px-5 py-2 text-xs font-black uppercase tracking-widest transition duration-150 ${
                 currentTab === 'personagens' ? 'bg-orange-500 text-white' : 'text-white/40 hover:text-white hover:bg-white/5'
               }`}
             >
@@ -671,17 +753,47 @@ export default function App() {
 
             <button
               onClick={() => setCurrentTab('arena')}
-              className={`flex items-center gap-1.5 px-6 py-2 text-xs font-black uppercase tracking-widest transition duration-150 ${
+              className={`flex items-center gap-1.5 px-5 py-2 text-xs font-black uppercase tracking-widest transition duration-150 ${
                 currentTab === 'arena' ? 'bg-orange-500 text-white' : 'text-white/40 hover:text-white hover:bg-white/5'
               }`}
             >
               <LayoutGrid className="h-3.5 w-3.5" />
               Arena Grid
             </button>
+
+            <button
+              onClick={() => setCurrentTab('notebook')}
+              className={`flex items-center gap-1.5 px-5 py-2 text-xs font-black uppercase tracking-widest transition duration-150 ${
+                currentTab === 'notebook' ? 'bg-orange-500 text-white' : 'text-white/40 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <MessageSquareText className="h-3.5 w-3.5" />
+              Notebook
+            </button>
           </div>
 
-          {/* User Signout Actions */}
+          {/* GM / Player Config & User Actions */}
           <div className="flex items-center gap-3">
+            {isGM ? (
+              <button
+                onClick={() => setShowGMConfig(true)}
+                className="flex items-center gap-1.5 bg-[#151515] hover:bg-[#202020] text-orange-400 border border-orange-500/30 px-3 py-1.5 text-xs font-black uppercase tracking-wider transition shadow"
+                title="Configurações de Canais do Discord e Mesa"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                <span className="hidden md:inline">Config GM</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowPlayerConfig(true)}
+                className="flex items-center gap-1.5 bg-[#151515] hover:bg-[#202020] text-orange-400 border border-orange-500/30 px-3 py-1.5 text-xs font-black uppercase tracking-wider transition shadow"
+                title="Meu Perfil, Avatar e Segurança"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                <span className="hidden md:inline">Meu Perfil</span>
+              </button>
+            )}
+
             <span className="text-[10px] bg-orange-500/10 font-bold tracking-widest text-orange-500 border border-orange-500/20 rounded px-2.5 py-1">
               {userProfile?.role || 'PLAYER'}
             </span>
@@ -697,12 +809,12 @@ export default function App() {
         </div>
       </nav>
 
-      {/* CAMPAIGN NOTES TAB */}
-      {currentTab === 'anotacoes' && (
+      {/* DISCORD NOTEBOOK TAB */}
+      {currentTab === 'notebook' && (
         <div className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 no-print">
-          <CampaignNotes
+          <DiscordNotebook
             isGM={isGM}
-            currentUser={currentUser}
+            currentUserProfile={userProfile}
             characters={characters}
           />
         </div>
@@ -747,7 +859,7 @@ export default function App() {
 
               {/* Spawn Form Overlay inside widget */}
               {showCreateCharForm && (
-                <form onSubmit={handleCreateNewCharacter} className="bg-black border border-orange-500/30 p-4 space-y-3">
+                <form onSubmit={handleCreateNewCharacter} className="bg-black border border-orange-500/30 p-4 space-y-3 animate-in fade-in">
                   <p className="text-[10px] text-orange-500 font-black uppercase tracking-widest italic">Modelar Nova Alma RPG</p>
                   <div className="space-y-2">
                     <input
@@ -793,12 +905,13 @@ export default function App() {
                         min="1"
                       />
                     </div>
-                    <input
-                      type="url"
-                      placeholder="URL do Avatar (Foguete)"
+                    
+                    {/* Direct File Upload for Character Avatar */}
+                    <ImageUploadField
+                      label="Foto do Personagem (Upload do Computador)"
                       value={newCharImg}
-                      onChange={e => setNewCharImg(e.target.value)}
-                      className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                      onChange={setNewCharImg}
+                      helperText="Envie a foto do herói direto do seu dispositivo"
                     />
                   </div>
 
@@ -890,7 +1003,7 @@ export default function App() {
                             <img src={c.img_saudavel} alt={c.nome} className="w-8 h-8 rounded-none object-cover border border-white/10 shrink-0" />
                             <div className="min-w-0">
                               <span className="font-extrabold text-xs text-white truncate block uppercase tracking-tight">{c.nome}</span>
-                              <span className="text-[9px] text-[#ffffff]/40 truncate block truncate font-mono">{c.email_dono}</span>
+                              <span className="text-[9px] text-[#ffffff]/40 truncate block font-mono">{c.email_dono}</span>
                             </div>
                           </button>
 
@@ -906,7 +1019,7 @@ export default function App() {
                               onClick={() => handleToggleCombatOnBoard(c)}
                               className={`text-[9px] font-black uppercase tracking-widest py-1.5 px-3 border transition-colors ${
                                 isActiveOnBoard
-                                  ? 'bg-orange-500 text-white border-orange-500'
+                                    ? 'bg-orange-500 text-white border-orange-500'
                                   : 'bg-white/5 border-white/10 text-white/40 hover:text-white hover:bg-white/15'
                               }`}
                             >
@@ -1001,24 +1114,6 @@ export default function App() {
               </div>
             )}
 
-            {/* AUDIO GRUPO CALL WIDGET */}
-            <AudioChat
-              appletId="d96f7606-341f-48aa-9ee1-6e8fad2f58c0"
-              charName={
-                isGM 
-                  ? 'MESTRE GM' 
-                  : characters.find(c => c.id === selectedCharId)?.nome || userProfile?.displayName || 'Aventureiro'
-              }
-            />
-
-            {/* GAME STATUS DEFINITIONS MANAGER (GM ONLY) */}
-            {isGM && (
-              <StatusManager
-                isGM={isGM}
-                activeCharacter={characters.find(c => c.id === selectedCharId)}
-              />
-            )}
-
           </div>
 
           {/* CENTRE PANEL: DETAILS AND HERO SHEET EXPORTER */}
@@ -1073,7 +1168,7 @@ export default function App() {
                     return null;
                   }
 
-                  // Filter out messages hidden by GM (Backup security)
+                  // Filter out messages hidden by GM
                   if (msg.ocultada && !isGM && msg.remetente_email !== currentUser.email) {
                     return null;
                   }
@@ -1178,6 +1273,46 @@ export default function App() {
           </div>
 
         </div>
+      )}
+
+      {/* FLOATING 30-SECOND SHEET UPDATE NOTIFIER FOR PLAYERS */}
+      {!isGM && hasSheetUpdateAlert && (
+        <div className="fixed bottom-6 right-6 z-50 animate-bounce">
+          <button
+            onClick={handleAcknowledgeSheetUpdate}
+            className="flex items-center gap-3 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-black text-xs py-3 px-5 border-2 border-white/30 shadow-2xl rounded-none transition-all uppercase tracking-wider group"
+          >
+            <div className="p-1 bg-white/20 rounded-full animate-pulse">
+              <Bell className="h-4 w-4" />
+            </div>
+            <div className="text-left">
+              <span className="block text-[11px] font-extrabold leading-tight">O Mestre atualizou sua ficha!</span>
+              <span className="text-[9px] text-white/80 font-mono tracking-widest uppercase">Clique aqui para ver as alterações</span>
+            </div>
+            <RefreshCw className="h-4 w-4 group-hover:rotate-180 transition-transform duration-300 ml-1" />
+          </button>
+        </div>
+      )}
+
+      {/* GM CONFIG MODAL (Discord & Settings) */}
+      {isGM && (
+        <GMConfigModal
+          isOpen={showGMConfig}
+          onClose={() => setShowGMConfig(false)}
+          characters={characters}
+        />
+      )}
+
+      {/* PLAYER CONFIG MODAL (Profile, Avatar, Password) */}
+      {!isGM && userProfile && (
+        <PlayerConfigModal
+          isOpen={showPlayerConfig}
+          onClose={() => setShowPlayerConfig(false)}
+          userProfile={userProfile}
+          onProfileUpdated={(updated) => setUserProfile(updated)}
+          characters={characters}
+          onLogout={handleLogout}
+        />
       )}
 
       {/* COMPACT FOOTER */}

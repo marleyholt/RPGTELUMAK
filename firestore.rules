@@ -37,17 +37,31 @@ service cloud.firestore {
       allow delete: if isGM();
     }
 
+    // --- CONFIGURATION (DISCORD MAPPINGS, GM SETTINGS) ---
+    match /config/{configId} {
+      allow read: if isSignedIn();
+      allow write: if isGM();
+    }
+
+    // --- DISCORD NOTEBOOK MESSAGES ---
+    match /discord_notebook_messages/{msgId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && (
+        request.resource.data.authorName != null ||
+        request.auth.token.email == "discord-bot@system.local"
+      );
+      allow update, delete: if isGM() || request.auth.token.email == "discord-bot@system.local";
+    }
+
     // --- CHARACTERS ---
     match /characters/{charId} {
       allow read: if isSignedIn();
-      allow create: if isGM() || (isSignedIn() && request.resource.data.email_dono == request.auth.token.email);
-      allow update: if isGM() || (isSignedIn() && resource.data.email_dono == request.auth.token.email);
-      allow delete: if isGM();
+      allow create, update, delete: if isGM();
 
       // Alternate Versions / Transformations Subcollection
       match /versions/{versionId} {
         allow read: if isSignedIn();
-        allow create, update, delete: if isGM() || (isSignedIn() && get(/databases/$(database)/documents/characters/$(charId)).data.email_dono == request.auth.token.email);
+        allow create, update, delete: if isGM();
       }
     }
 
@@ -72,19 +86,10 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isGM();
 
-      // Tokens Subcollection
+      // Tokens Subcollection (GM ONLY can move, create, delete)
       match /tokens/{tokenId} {
         allow read: if isSignedIn();
-        allow create: if isGM() || isSignedIn();
-        // Players can drag their own token if they are the owner of the character linked to that token
-        allow update: if isGM() || (
-          isSignedIn() && 
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['x', 'y']) &&
-          resource.data.type == "PLAYER" &&
-          resource.data.charId != null &&
-          get(/databases/$(database)/documents/characters/$(resource.data.charId)).data.email_dono == request.auth.token.email
-        );
-        allow delete: if isGM();
+        allow write: if isGM();
       }
     }
 

@@ -4,6 +4,7 @@ import { db } from '../firebase';
 import { Character, CharVersion } from '../types';
 import { Sparkles, Plus, Trash2, Check, ArrowRight, Edit } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../utils/errors';
+import { ImageUploadField } from './ImageUploadField';
 
 interface SheetVersionsProps {
   character: Character;
@@ -143,7 +144,7 @@ export function SheetVersions({ character, isGM, isOwner }: SheetVersionsProps) 
     }
   };
 
-  const canEdit = isGM || isOwner;
+  const canEdit = isGM;
 
   return (
     <div className="space-y-6">
@@ -164,7 +165,7 @@ export function SheetVersions({ character, isGM, isOwner }: SheetVersionsProps) 
           </div>
         </div>
 
-        {character.versao_ativa_id && character.versao_ativa_id !== 'base' && (
+        {isGM && character.versao_ativa_id && character.versao_ativa_id !== 'base' && (
           <button
             onClick={() => handleActivateVersion(null)}
             className="w-full sm:w-auto bg-white/5 hover:bg-white/10 text-white font-black text-xs py-2.5 px-4 rounded-none border border-white/10 uppercase tracking-widest transition"
@@ -174,7 +175,7 @@ export function SheetVersions({ character, isGM, isOwner }: SheetVersionsProps) 
         )}
       </div>
 
-      {/* Adding or editing versions */}
+      {/* Adding or editing versions (GM only) */}
       {canEdit && (
         <div className="pt-1">
           {!showForm ? (
@@ -284,22 +285,25 @@ export function SheetVersions({ character, isGM, isOwner }: SheetVersionsProps) 
                 </div>
               </div>
 
-              {/* Alternate images */}
+              {/* Alternate images via direct file upload */}
               <div className="space-y-2">
-                <span className="block text-[10px] text-orange-500 uppercase font-black tracking-widest italic">Imagens da Forma (Estilizada para Transformações)</span>
+                <span className="block text-[10px] text-orange-500 uppercase font-black tracking-widest italic">Imagens da Forma (Upload de Fotos)</span>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-[9px] text-white/40 mb-1.5 uppercase font-bold">Saudável</label>
-                    <input type="url" value={vImgSaudavel} onChange={e => setVImgSaudavel(e.target.value)} className="w-full bg-[#0a0a0a] border border-white/10 rounded-none px-2.5 py-1.5 text-white text-[11px] font-mono" />
-                  </div>
-                  <div>
-                    <label className="block text-[9px] text-white/40 mb-1.5 uppercase font-bold">Ferido (&lt;50% HP)</label>
-                    <input type="url" value={vImgFerido} onChange={e => setVImgFerido(e.target.value)} className="w-full bg-[#0a0a0a] border border-white/10 rounded-none px-2.5 py-1.5 text-white text-[11px] font-mono" />
-                  </div>
-                  <div>
-                    <label className="block text-[9px] text-white/40 mb-1.5 uppercase font-bold">Muito Ferido (&lt;25% HP)</label>
-                    <input type="url" value={vImgMuitoFerido} onChange={e => setVImgMuitoFerido(e.target.value)} className="w-full bg-[#0a0a0a] border border-white/10 rounded-none px-2.5 py-1.5 text-white text-[11px] font-mono" />
-                  </div>
+                  <ImageUploadField
+                    label="Saudável"
+                    value={vImgSaudavel}
+                    onChange={setVImgSaudavel}
+                  />
+                  <ImageUploadField
+                    label="Ferido (<50% HP)"
+                    value={vImgFerido}
+                    onChange={setVImgFerido}
+                  />
+                  <ImageUploadField
+                    label="Muito Ferido (<25% HP)"
+                    value={vImgMuitoFerido}
+                    onChange={setVImgMuitoFerido}
+                  />
                 </div>
               </div>
 

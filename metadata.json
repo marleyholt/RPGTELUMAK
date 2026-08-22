@@ -1,6 +1,6 @@
 {
   "name": "Telumak RPG Portal",
-  "description": "Portal profissional de fichas e grid de combate em tempo real com áudio-chamada integrada, gerenciamento de status visuais, transformações e exportação em PDF.",
-  "requestFramePermissions": ["microphone"],
+  "description": "Portal profissional de RPG com sincronização e espelhamento em tempo real com Discord (Notebook por canal/jogador), Arena Tática com tokens em SQM configuráveis pelo Mestre, uploads de imagens locais e sincronização de fichas com proteção de visualização do jogador.",
+  "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

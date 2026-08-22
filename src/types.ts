@@ -20,6 +20,14 @@ export interface Character {
   destino_atual: number;
   destino_max: number;
   
+  // Markers / Marcadores
+  alcance_atual?: number;
+  alcance_max?: string | number; // e.g. "10" or "10 Metros"
+  movimento_atual?: number;
+  movimento_max?: string | number; // e.g. "15" or "15 Metros por Ação"
+  fortitude_atual?: number;
+  fortitude_max?: string | number; // e.g. "150" or "150 Kg"
+
   // Base Attributes
   fisico: number;
   destreza: number;
@@ -27,7 +35,7 @@ export interface Character {
   carisma: number;
   primordio: number;
 
-  // Combat modifiers
+  // Combat modifiers / Ferramentas de combate
   ferramenta_fisico: number;
   ferramenta_destreza: number;
   ferramenta_cognicao: number;
@@ -59,6 +67,9 @@ export interface CharVersion {
   hp_max: number;
   ether_max: number;
   destino_max: number;
+  alcance_max?: string | number;
+  movimento_max?: string | number;
+  fortitude_max?: string | number;
   fisico: number;
   destreza: number;
   cognicao: number;
@@ -97,6 +108,7 @@ export interface ArenaToken {
   type: "PLAYER" | "NPC" | "OBJ";
   x: number; // grid position
   y: number; // grid position
+  sqm?: number; // Size in SQM: 1 (1x1), 2 (2x2), 3 (3x3), etc.
   charId?: string; // link to existing character
 }
 
@@ -113,5 +125,24 @@ export interface CampaignNote {
   autor_uid: string;
   autor_email: string;
   tipo: "PUBLIC" | "PRIVATE" | "GM_ONLY"; // PUBLIC = todos, PRIVATE = apenas autor e GM, GM_ONLY = apenas mestre
+  createdAt: any;
+}
+
+export interface DiscordChannelConfig {
+  defaultChannelId?: string;
+  guildId?: string;
+  guildName?: string;
+  playerChannels?: { [userEmailOrCharId: string]: string }; // Maps player email or charId to Discord Channel ID
+}
+
+export interface DiscordNotebookMessage {
+  id: string;
+  channelId: string;
+  authorName: string;
+  authorEmail?: string;
+  authorAvatar?: string;
+  content: string;
+  attachments?: string[];
+  isFromDiscord?: boolean;
   createdAt: any;
 }
