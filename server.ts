@@ -176,6 +176,55 @@ async function startServer() {
     }
   });
 
+  // Rota para buscar e validar um Canal específico do Discord por ID (Auto-detect & validação)
+  app.get("/api/discord/channel-info", async (req, res) => {
+    const { channelId } = req.query;
+
+    if (!channelId || typeof channelId !== 'string') {
+      return res.status(400).json({ error: "ID do canal não fornecido" });
+    }
+
+    if (!discordClient || !discordClient.isReady()) {
+      return res.json({ 
+        online: false, 
+        found: false, 
+        message: "O bot do Discord não está conectado no servidor Node.js. Verifique o DISCORD_BOT_TOKEN." 
+      });
+    }
+
+    try {
+      const cleanId = channelId.trim();
+      const channel: any = await discordClient.channels.fetch(cleanId).catch(() => null);
+      
+      if (!channel) {
+        return res.json({ 
+          online: true, 
+          found: false, 
+          message: "Canal não encontrado no Discord ou o bot não tem permissão para acessá-lo." 
+        });
+      }
+
+      // Detecção de tipo e categoria
+      const isVoice = channel.type === 2 || channel.type === 13; // GuildVoice / GuildStageVoice
+      const categoryName = channel.parent?.name || (isVoice ? 'VOZ' : 'GERAL');
+
+      return res.json({
+        online: true,
+        found: true,
+        channelId: channel.id,
+        name: channel.name || '',
+        type: isVoice ? 'voice' : 'text',
+        category: categoryName.toUpperCase(),
+        topic: channel.topic || '',
+        guildId: channel.guild?.id || null,
+        guildName: channel.guild?.name || null
+      });
+    } catch (err: any) {
+      console.error("Erro ao inspecionar canal do Discord:", err);
+      return res.json({ online: false, found: false, error: err.message });
+    }
+  });
+
   // Rota para o NOTEBOOK enviar mensagem para um canal específico do Discord
   app.post("/api/discord/notebook/send", async (req, res) => {
     const { channelId, remetente, conteudo, attachment } = req.body;

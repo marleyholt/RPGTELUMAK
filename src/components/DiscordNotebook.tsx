@@ -10,10 +10,12 @@ import {
   RefreshCw, X, Dices, Pin, PinOff, Search, Copy, Trash2, ArrowDown, 
   MessageSquareQuote, Volume2, Mic, MicOff, Headphones, ChevronDown, 
   ChevronRight, Plus, Download, FileText, Lock, Edit2, Check, Radio, UserCheck, Shield,
-  Smile, Terminal, AlertTriangle, CheckCircle2, Info, Bug, ShieldAlert, Cpu, ArrowUp
+  Smile, Terminal, AlertTriangle, CheckCircle2, Info, Bug, ShieldAlert, Cpu, ArrowUp,
+  Bot, Sparkles, ExternalLink
 } from 'lucide-react';
 import { processImageFile } from '../utils/imageUpload';
 import { ImageCropModal } from './ImageCropModal';
+import { DiscordBotGuideModal } from './DiscordBotGuideModal';
 import { trackRead, trackWrite, trackDelete } from '../utils/firebaseUsageTracker';
 
 interface DiscordNotebookProps {
@@ -42,6 +44,18 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
   const [pendingCropImage, setPendingCropImage] = useState<string | null>(null);
   const [showChannelModal, setShowChannelModal] = useState(false);
   const [channelToEdit, setChannelToEdit] = useState<DiscordChannelItem | null>(null);
+  const [showGuideModal, setShowGuideModal] = useState(false);
+
+  // Auto-detection state for Discord channel
+  const [isDetectingChannel, setIsDetectingChannel] = useState(false);
+  const [detectChannelStatus, setDetectChannelStatus] = useState<{
+    success: boolean;
+    message: string;
+    name?: string;
+    category?: string;
+    type?: 'text' | 'voice';
+    guildName?: string;
+  } | null>(null);
 
   // Channel Creation / Edit Form State (Single centralized configuration per channel)
   const [formChannelName, setFormChannelName] = useState('');
@@ -390,6 +404,77 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
     }, 20);
   };
 
+  // Auto-detect and validate Discord Channel ID
+  const handleDetectDiscordChannel = async (idToDetect?: string) => {
+    const targetId = (idToDetect !== undefined ? idToDetect : formDiscordId).trim();
+    if (!targetId) {
+      setDetectChannelStatus({
+        success: false,
+        message: 'Digite ou cole o ID numérico do canal do Discord (17-20 dígitos).'
+      });
+      return;
+    }
+
+    setIsDetectingChannel(true);
+    setDetectChannelStatus(null);
+
+    try {
+      const res = await fetch(`/api/discord/channel-info?channelId=${encodeURIComponent(targetId)}`);
+      
+      if (res.status === 405 || !res.headers.get('content-type')?.includes('application/json')) {
+        setDetectChannelStatus({
+          success: false,
+          message: '⚠️ Backend Node.js offline ou ambiente estático. Você pode preencher os campos manualmente.'
+        });
+        return;
+      }
+
+      const data = await res.json();
+
+      if (data.online && data.found) {
+        setDetectChannelStatus({
+          success: true,
+          message: `✓ Canal Ativo: "#${data.name}" no servidor "${data.guildName || 'Discord'}"`,
+          name: data.name,
+          category: data.category,
+          type: data.type,
+          guildName: data.guildName
+        });
+
+        // Autopreenchimento inteligente
+        if (!formChannelName || formChannelName === 'novo-canal' || !channelToEdit) {
+          setFormChannelName(data.name);
+        }
+        if (data.category && (!formCategory || formCategory === 'ANOTAÇÕES' || !channelToEdit)) {
+          setFormCategory(data.category);
+        }
+        if (data.type) {
+          setFormType(data.type);
+        }
+        if (data.topic && !formTopic) {
+          setFormTopic(data.topic);
+        }
+      } else if (data.online && !data.found) {
+        setDetectChannelStatus({
+          success: false,
+          message: `❌ ${data.message || 'Canal não encontrado ou o bot não tem permissão para acessá-lo no Discord.'}`
+        });
+      } else {
+        setDetectChannelStatus({
+          success: false,
+          message: `⚠️ ${data.message || 'Bot offline no servidor local/backend.'}`
+        });
+      }
+    } catch (err: any) {
+      setDetectChannelStatus({
+        success: false,
+        message: `❌ Erro ao inspecionar canal: ${err?.message || 'Falha de comunicação'}`
+      });
+    } finally {
+      setIsDetectingChannel(false);
+    }
+  };
+
   // GM: Open Modal to Add Channel
   const handleOpenAddChannel = (categoryPreset?: string) => {
     setChannelToEdit(null);
@@ -401,6 +486,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
     setFormAccessType('public');
     setFormTargetCharId('');
     setFormAllowedEmails([]);
+    setDetectChannelStatus(null);
     setShowChannelModal(true);
   };
 
@@ -413,6 +499,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
     setFormType(ch.type || 'text');
     setFormTopic(ch.topic || '');
     setFormDiscordId(ch.discordChannelId || '');
+    setDetectChannelStatus(null);
     
     if (ch.charKey) {
       setFormAccessType('character');
@@ -658,21 +745,33 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
       <div className="w-64 bg-[#2b2d31] flex flex-col shrink-0 border-r border-[#1f2023] z-10">
         
         {/* Header */}
-        <div className="h-12 border-b border-[#1f2023] px-4 flex items-center justify-between shadow-sm">
-          <div className="flex items-center gap-2 overflow-hidden">
-            <span className="font-black text-sm text-white tracking-tight truncate">
-              NOTEBOOK & DISCORD
+        <div className="h-12 border-b border-[#1f2023] px-3 flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-1.5 overflow-hidden">
+            <span className="font-black text-xs text-white tracking-tight truncate">
+              DISCORD & NOTEBOOK
             </span>
           </div>
+
+          {isGM && (
+            <button
+              type="button"
+              onClick={() => setShowGuideModal(true)}
+              className="p-1 text-[#949ba4] hover:text-[#5865f2] hover:bg-[#35373c] rounded transition flex items-center gap-1 text-[10px] font-bold"
+              title="Abrir Tutorial / Guia do Bot do Discord"
+            >
+              <Bot className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Tutorial</span>
+            </button>
+          )}
         </div>
 
         {/* GM Action: Add Channel */}
         {isGM && (
-          <div className="p-2 bg-[#232428] border-b border-[#1f2023]">
+          <div className="p-2 bg-[#232428] border-b border-[#1f2023] flex items-center gap-1.5">
             <button
               type="button"
               onClick={() => handleOpenAddChannel()}
-              className="w-full py-1.5 px-3 bg-[#5865f2] hover:bg-[#4752c4] text-white text-xs font-bold rounded flex items-center justify-center gap-1.5 transition shadow"
+              className="flex-1 py-1.5 px-3 bg-[#5865f2] hover:bg-[#4752c4] text-white text-xs font-bold rounded flex items-center justify-center gap-1.5 transition shadow"
             >
               <Plus className="h-4 w-4" />
               <span>Criar Canal</span>
@@ -1376,7 +1475,86 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
 
             <form onSubmit={handleSaveChannel} className="p-6 space-y-4 text-xs max-h-[80vh] overflow-y-auto custom-scroll">
               
-              {/* 1. Nome do Canal & Categoria */}
+              {/* 1. Conexão e Detecção com o Discord (ID do Canal) */}
+              <div className="bg-[#232428] p-3.5 rounded-lg border border-[#5865f2]/40 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#5865f2] animate-pulse" />
+                    <label className="text-[11px] font-black uppercase tracking-wider text-white">
+                      ID do Canal no Discord (Auto-detecção & Sincronização)
+                    </label>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowGuideModal(true)}
+                    className="text-[10px] text-[#5865f2] hover:underline font-bold flex items-center gap-1"
+                  >
+                    <Bot className="h-3 w-3" />
+                    Como pegar o ID?
+                  </button>
+                </div>
+                
+                <p className="text-[10px] text-[#949ba4] leading-relaxed">
+                  Insira o ID numérico do canal do seu Discord para autodetectar o nome, categoria e validar se o bot tem acesso.
+                </p>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={formDiscordId}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormDiscordId(val);
+                      // Auto-trigger when pasting a 17-20 digit discord snowflake ID
+                      const trimmed = val.trim();
+                      if (/^\d{17,20}$/.test(trimmed) && trimmed !== formDiscordId) {
+                        handleDetectDiscordChannel(trimmed);
+                      }
+                    }}
+                    placeholder="ex: 1455643268833607823"
+                    className="flex-1 bg-[#1e1f22] text-white px-3 py-2 rounded border border-white/10 font-mono text-xs focus:outline-none focus:border-[#5865f2]"
+                  />
+                  <button
+                    type="button"
+                    disabled={isDetectingChannel || !formDiscordId.trim()}
+                    onClick={() => handleDetectDiscordChannel()}
+                    className="px-3 py-2 bg-[#5865f2] hover:bg-[#4752c4] disabled:opacity-40 text-white font-bold rounded flex items-center gap-1.5 transition text-xs shrink-0 shadow"
+                    title="Detectar nome do canal e validar status no Discord"
+                  >
+                    {isDetectingChannel ? (
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Search className="h-3.5 w-3.5" />
+                    )}
+                    <span>{isDetectingChannel ? 'Detectando...' : 'Detectar'}</span>
+                  </button>
+                </div>
+
+                {/* Detection Status Result Card */}
+                {detectChannelStatus && (
+                  <div className={`p-2.5 rounded border text-[11px] font-mono flex items-start gap-2 animate-in fade-in ${
+                    detectChannelStatus.success 
+                      ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300' 
+                      : 'bg-rose-950/40 border-rose-500/40 text-rose-300'
+                  }`}>
+                    {detectChannelStatus.success ? (
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" />
+                    ) : (
+                      <AlertTriangle className="h-4 w-4 shrink-0 text-rose-400 mt-0.5" />
+                    )}
+                    <div className="leading-snug">
+                      <p className="font-bold">{detectChannelStatus.message}</p>
+                      {detectChannelStatus.guildName && (
+                        <p className="text-[10px] opacity-80 mt-0.5 font-sans">
+                          Nome detectado e preenchido automaticamente nos campos abaixo.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. Nome do Canal & Categoria */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-black uppercase tracking-wider text-[#949ba4] mb-1">
@@ -1408,7 +1586,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
                 </div>
               </div>
 
-              {/* 2. Tipo de Canal */}
+              {/* 3. Tipo de Canal */}
               <div>
                 <label className="block text-[11px] font-black uppercase tracking-wider text-[#949ba4] mb-1">
                   Tipo de Canal
@@ -1423,7 +1601,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
                 </select>
               </div>
 
-              {/* 3. Tópico / Descrição */}
+              {/* 4. Tópico / Descrição */}
               <div>
                 <label className="block text-[11px] font-black uppercase tracking-wider text-[#949ba4] mb-1">
                   Tópico / Descrição
@@ -1434,27 +1612,6 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
                   onChange={(e) => setFormTopic(e.target.value)}
                   placeholder="Descrição exibida no topo do canal para os jogadores"
                   className="w-full bg-[#1e1f22] text-white px-3 py-2 rounded border border-white/10 focus:outline-none focus:border-[#5865f2]"
-                />
-              </div>
-
-              {/* 4. Conexão com o Discord (ID do Canal) */}
-              <div className="bg-[#232428] p-3.5 rounded-lg border border-[#5865f2]/30 space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[#5865f2] animate-pulse" />
-                  <label className="text-[11px] font-black uppercase tracking-wider text-white">
-                    ID do Canal no Discord (Sincronização)
-                  </label>
-                </div>
-                <p className="text-[10px] text-[#949ba4] leading-relaxed">
-                  Copie o ID do canal no seu servidor do Discord (clique com o botão direito no canal do Discord &gt; <em>Copiar ID do canal</em>). 
-                  Todas as mensagens enviadas aqui serão postadas nele pelo bot!
-                </p>
-                <input
-                  type="text"
-                  value={formDiscordId}
-                  onChange={(e) => setFormDiscordId(e.target.value)}
-                  placeholder="ex: 123456789012345678"
-                  className="w-full bg-[#1e1f22] text-white px-3 py-2 rounded border border-white/10 font-mono text-xs focus:outline-none focus:border-[#5865f2]"
                 />
               </div>
 
@@ -1675,6 +1832,12 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
           }}
         />
       )}
+
+      {/* Discord Bot Setup Tutorial Guide Modal */}
+      <DiscordBotGuideModal
+        isOpen={showGuideModal}
+        onClose={() => setShowGuideModal(false)}
+      />
 
     </div>
   );
