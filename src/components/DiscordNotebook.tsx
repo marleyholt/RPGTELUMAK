@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, 
-  deleteDoc, serverTimestamp, doc, setDoc, getDocs 
+  deleteDoc, serverTimestamp, doc, setDoc, getDocs, limitToLast 
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Character, DiscordNotebookMessage, DiscordChannelItem, UserProfile } from '../types';
@@ -10,10 +10,11 @@ import {
   RefreshCw, X, Dices, Pin, PinOff, Search, Copy, Trash2, ArrowDown, 
   MessageSquareQuote, Volume2, Mic, MicOff, Headphones, ChevronDown, 
   ChevronRight, Plus, Download, FileText, Lock, Edit2, Check, Radio, UserCheck, Shield,
-  Smile, Terminal, AlertTriangle, CheckCircle2, Info, Bug, ShieldAlert, Cpu
+  Smile, Terminal, AlertTriangle, CheckCircle2, Info, Bug, ShieldAlert, Cpu, ArrowUp
 } from 'lucide-react';
 import { processImageFile } from '../utils/imageUpload';
 import { ImageCropModal } from './ImageCropModal';
+import { trackRead, trackWrite, trackDelete } from '../utils/firebaseUsageTracker';
 
 interface DiscordNotebookProps {
   isGM: boolean;
@@ -67,6 +68,8 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const [isPinning, setIsPinning] = useState<string | null>(null);
+  const [messageLimit, setMessageLimit] = useState(50);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
   
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatScrollContainerRef = useRef<HTMLDivElement>(null);
@@ -76,6 +79,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
   // 1. Load Real-Time Channels directly from Firestore (NO fake default channels)
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'discord_channels'), (snap) => {
+      trackRead('discord_channels', snap.docChanges().length || snap.size);
       const items: DiscordChannelItem[] = [];
       snap.forEach((d) => {
         items.push({ id: d.id, ...d.data() } as DiscordChannelItem);
@@ -158,7 +162,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
     return activeChannel.discordChannelId || activeChannel.id;
   }, [activeChannel]);
 
-  // 6. Listen to messages for active channel
+  // 6. Listen to messages for active channel with smart limitToLast pagination
   useEffect(() => {
     if (!activeChannelId) {
       setMessages([]);
@@ -168,15 +172,18 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
     const q = query(
       collection(db, 'discord_notebook_messages'),
       where('channelId', '==', activeChannelId),
-      orderBy('createdAt', 'asc')
+      orderBy('createdAt', 'asc'),
+      limitToLast(messageLimit)
     );
 
     const unsub = onSnapshot(q, (snap) => {
+      trackRead('discord_notebook_messages', snap.docChanges().length || snap.size);
       const msgs: DiscordNotebookMessage[] = [];
       snap.forEach(d => {
         msgs.push({ id: d.id, ...d.data() } as DiscordNotebookMessage);
       });
       setMessages(msgs);
+      setHasMoreMessages(snap.size >= messageLimit);
       
       setTimeout(() => {
         if (!filterPinnedOnly && !searchQuery.trim()) {
@@ -188,7 +195,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
     });
 
     return unsub;
-  }, [activeChannelId, filterPinnedOnly, searchQuery]);
+  }, [activeChannelId, messageLimit, filterPinnedOnly, searchQuery]);
 
   // Scroll tracking
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -233,6 +240,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
         pinnedBy: !currentPinned ? userName : null,
         pinnedAt: !currentPinned ? serverTimestamp() : null
       });
+      trackWrite('discord_notebook_messages', 1);
     } catch (err) {
       console.error("Erro ao fixar/desafixar mensagem:", err);
     } finally {
@@ -248,6 +256,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
 
     try {
       await deleteDoc(doc(db, 'discord_notebook_messages', msg.id));
+      trackDelete('discord_notebook_messages', 1);
     } catch (err) {
       console.error("Erro ao apagar mensagem:", err);
       alert("Não foi possível apagar a mensagem.");
@@ -344,6 +353,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
       }
 
       const docRef = await addDoc(collection(db, 'discord_notebook_messages'), messagePayload);
+      trackWrite('discord_notebook_messages', 1);
       logEvent('success', `Mensagem gravada no Firestore com sucesso!`, {
         docId: docRef.id,
         canal: activeChannel?.name,
@@ -465,6 +475,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
 
     try {
       await setDoc(doc(db, 'discord_channels', channelDocId), channelPayload, { merge: true });
+      trackWrite('discord_channels', 1);
       setShowChannelModal(false);
     } catch (err: any) {
       console.error("Erro ao salvar canal:", err);
@@ -480,6 +491,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
 
     try {
       await deleteDoc(doc(db, 'discord_channels', ch.id));
+      trackDelete('discord_channels', 1);
       if (activeChannel?.id === ch.id) {
         setActiveChannel(null);
       }
@@ -925,6 +937,20 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
                   {activeChannel.topic || `Este é o início do canal #${activeChannel.name}. Anotações sincronizadas em tempo real.`}
                 </p>
               </div>
+
+              {/* Load Earlier Messages Button */}
+              {hasMoreMessages && (
+                <div className="text-center py-2">
+                  <button
+                    type="button"
+                    onClick={() => setMessageLimit(prev => prev + 50)}
+                    className="px-4 py-1.5 bg-[#2b2d31] hover:bg-[#35373c] text-sky-400 hover:text-white border border-blue-500/20 text-xs font-bold transition flex items-center gap-1.5 mx-auto rounded"
+                  >
+                    <ArrowUp className="h-3.5 w-3.5" />
+                    <span>Carregar mensagens anteriores (+50)</span>
+                  </button>
+                </div>
+              )}
 
               {/* Dynamic Real-Time Messages from Firestore */}
               {filteredMessages.length === 0 && (

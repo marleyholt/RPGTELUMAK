@@ -27,6 +27,7 @@ import { GMConfigModal } from './components/GMConfigModal';
 import { PlayerConfigModal } from './components/PlayerConfigModal';
 import { ImageUploadField } from './components/ImageUploadField';
 import { DiagnosticModal, GlobalLogEntry } from './components/DiagnosticModal';
+import { trackRead, trackWrite, trackDelete } from './utils/firebaseUsageTracker';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -97,7 +98,7 @@ export default function App() {
   }, []);
 
   // Navigation State
-  const [currentTab, setCurrentTab] = useState<'personagens' | 'arena' | 'notebook'>('personagens');
+  const [currentTab, setCurrentTab] = useState<'personagens' | 'arena' | 'discord'>('personagens');
   const [selectedCharId, setSelectedCharId] = useState<string | null>(null);
 
   // GM & Player Config Modal State
@@ -254,6 +255,7 @@ export default function App() {
     // 1. Sync Characters
     const charsPath = 'characters';
     const unsubChars = onSnapshot(collection(db, charsPath), (snap) => {
+      trackRead('characters', snap.docChanges().length || snap.size);
       const list: Character[] = [];
       snap.forEach(d => {
         list.push({ id: d.id, ...d.data() } as Character);
@@ -273,6 +275,7 @@ export default function App() {
     const msgsPath = 'messages';
     const qMsgs = query(collection(db, msgsPath), orderBy('createdAt', 'asc'), limit(50));
     const unsubMsgs = onSnapshot(qMsgs, (snap) => {
+      trackRead('messages', snap.docChanges().length || snap.size);
       const list: ChatMessage[] = [];
       snap.forEach(d => {
         const item = d.data();
@@ -289,6 +292,7 @@ export default function App() {
     // 3. Sync Custom Status Types
     const statusPath = 'statuses';
     const unsubStatus = onSnapshot(collection(db, statusPath), (snap) => {
+      trackRead('statuses', snap.docChanges().length || snap.size);
       const list: CustomStatusType[] = [];
       snap.forEach(d => {
         list.push({ id: d.id, ...d.data() } as CustomStatusType);
@@ -305,25 +309,24 @@ export default function App() {
     };
   }, [currentUser, userProfile?.role]);
 
-  // Sync alternative Sheet Versions (Transformations) for all selected characters
+  // Sync alternative Sheet Versions (Transformations) ONLY for the selected character to optimize traffic
   useEffect(() => {
-    if (characters.length === 0) return;
+    if (!selectedCharId) return;
     
-    const unsubs = characters.map(c => {
-      const verPath = `characters/${c.id}/versions`;
-      return onSnapshot(collection(db, 'characters', c.id, 'versions'), (snap) => {
-        const list: CharVersion[] = [];
-        snap.forEach(d => {
-          list.push({ id: d.id, ...d.data() } as CharVersion);
-        });
-        setVersionsMap(prev => ({ ...prev, [c.id]: list }));
-      }, (err) => {
-        console.warn(`Could not sync versions for character ${c.id}:`, err);
+    const verPath = `characters/${selectedCharId}/versions`;
+    const unsub = onSnapshot(collection(db, 'characters', selectedCharId, 'versions'), (snap) => {
+      trackRead('characters', snap.docChanges().length || snap.size);
+      const list: CharVersion[] = [];
+      snap.forEach(d => {
+        list.push({ id: d.id, ...d.data() } as CharVersion);
       });
+      setVersionsMap(prev => ({ ...prev, [selectedCharId]: list }));
+    }, (err) => {
+      console.warn(`Could not sync versions for character ${selectedCharId}:`, err);
     });
 
-    return () => unsubs.forEach(fn => fn());
-  }, [characters]);
+    return () => unsub();
+  }, [selectedCharId]);
 
   // 30s Polling Check for Player Character Sheet Changes
   useEffect(() => {
@@ -467,6 +470,7 @@ export default function App() {
     const docPath = `characters/${id}`;
     try {
       await setDoc(doc(db, 'characters', id), newChar);
+      trackWrite('characters', 1);
       setNewCharNome('');
       setNewCharEmail('');
       setNewCharCla('');
@@ -486,6 +490,7 @@ export default function App() {
       await updateDoc(doc(db, 'characters', char.id), {
         ativo_na_mesa: !char.ativo_na_mesa
       });
+      trackWrite('characters', 1);
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, docPath);
     }
@@ -519,6 +524,7 @@ export default function App() {
     const path = 'messages';
     try {
       await addDoc(collection(db, 'messages'), newMessage);
+      trackWrite('messages', 1);
       if (!directText) setChatMessageText('');
       
       // Envia para o Discord se for mensagem pública
@@ -844,13 +850,13 @@ export default function App() {
             </button>
 
             <button
-              onClick={() => setCurrentTab('notebook')}
+              onClick={() => setCurrentTab('discord')}
               className={`flex items-center gap-1.5 px-5 py-2 text-xs font-black uppercase tracking-widest transition duration-150 ${
-                currentTab === 'notebook' ? 'bg-blue-600 text-white' : 'text-white/40 hover:text-white hover:bg-white/5'
+                currentTab === 'discord' ? 'bg-[#5865F2] text-white shadow' : 'text-white/40 hover:text-white hover:bg-white/5'
               }`}
             >
               <MessageSquareText className="h-3.5 w-3.5" />
-              Notebook
+              Discord
             </button>
           </div>
 
@@ -864,7 +870,7 @@ export default function App() {
                   ? 'border-rose-500 text-rose-400 animate-pulse'
                   : 'border-blue-500/30 text-sky-400 hover:text-white'
               }`}
-              title="Diagnóstico e Alertas do Sistema"
+              title="Diagnóstico, Consumo de Banco e Alertas"
             >
               <Bell className="h-4 w-4" />
               {globalLogs.filter(l => l.type === 'error').length > 0 && (
@@ -907,8 +913,8 @@ export default function App() {
         </div>
       </nav>
 
-      {/* DISCORD NOTEBOOK TAB */}
-      {currentTab === 'notebook' && (
+      {/* DISCORD TAB */}
+      {currentTab === 'discord' && (
         <div className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 no-print">
           <DiscordNotebook
             isGM={isGM}
