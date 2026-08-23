@@ -419,7 +419,11 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
 
     if (diceCheck.isRoll && diceCheck.results.length > 0) {
       const roll = diceCheck.results[0];
-      const rollsDisplay = roll.rolls.join(', ');
+      const formattedRollArray = roll.rolls.map(r => {
+        const isCrit = (roll.explodeThreshold !== null && r >= roll.explodeThreshold) || (roll.explodeThreshold === null && roll.faces > 1 && r === roll.faces);
+        return isCrit ? `**${r}**` : `${r}`;
+      });
+      const rollsDisplay = formattedRollArray.join(', ');
       
       let explodeInfo = '';
       if (roll.explodeThreshold !== null) {
@@ -523,7 +527,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
       if (res.status === 405 || !res.headers.get('content-type')?.includes('application/json')) {
         setDetectChannelStatus({
           success: false,
-          message: '⚠️ Backend Node.js offline ou ambiente estático. Você pode preencher os campos manualmente.'
+          message: 'ℹ️ Modo Local / Firestore: Você pode criar e nomear o canal livremente preenchendo os campos abaixo. (Para sincronização direta com o Discord oficial, o servidor Node.js precisa estar com o DISCORD_BOT_TOKEN ativo).'
         });
         return;
       }
@@ -533,7 +537,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
       if (data.online && data.found) {
         setDetectChannelStatus({
           success: true,
-          message: `✓ Canal Ativo: "#${data.name}" no servidor "${data.guildName || 'Discord'}"`,
+          message: `✓ Canal Detectado: "#${data.name}" no servidor "${data.guildName || 'Discord'}"`,
           name: data.name,
           category: data.category,
           type: data.type,
@@ -556,18 +560,18 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
       } else if (data.online && !data.found) {
         setDetectChannelStatus({
           success: false,
-          message: `❌ ${data.message || 'Canal não encontrado ou o bot não tem permissão para acessá-lo no Discord.'}`
+          message: `ℹ️ ${data.message || 'Canal não encontrado no Discord ou o bot não tem acesso a ele. Você pode preencher o nome e categoria abaixo manualmente.'}`
         });
       } else {
         setDetectChannelStatus({
           success: false,
-          message: `⚠️ ${data.message || 'Bot offline no servidor local/backend.'}`
+          message: `ℹ️ Bot do Discord não conectado (DISCORD_BOT_TOKEN não configurado nos Secrets). Não se preocupe: você pode criar o canal preenchendo o Nome e Categoria abaixo normalmente!`
         });
       }
     } catch (err: any) {
       setDetectChannelStatus({
         success: false,
-        message: `❌ Erro ao inspecionar canal: ${err?.message || 'Falha de comunicação'}`
+        message: `ℹ️ Não foi possível autodetectar via API do Discord. Preencha o nome do canal abaixo para criar localmente.`
       });
     } finally {
       setIsDetectingChannel(false);
@@ -1694,20 +1698,20 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
 
                 {/* Detection Status Result Card */}
                 {detectChannelStatus && (
-                  <div className={`p-2.5 rounded border text-[11px] font-mono flex items-start gap-2 animate-in fade-in ${
+                  <div className={`p-3 rounded border text-[11px] flex items-start gap-2.5 animate-in fade-in ${
                     detectChannelStatus.success 
                       ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300' 
-                      : 'bg-rose-950/40 border-rose-500/40 text-rose-300'
+                      : 'bg-amber-950/40 border-amber-500/40 text-amber-200'
                   }`}>
                     {detectChannelStatus.success ? (
                       <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" />
                     ) : (
-                      <AlertTriangle className="h-4 w-4 shrink-0 text-rose-400 mt-0.5" />
+                      <Info className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
                     )}
-                    <div className="leading-snug">
-                      <p className="font-bold">{detectChannelStatus.message}</p>
+                    <div className="leading-snug space-y-1">
+                      <p className="font-medium font-sans">{detectChannelStatus.message}</p>
                       {detectChannelStatus.guildName && (
-                        <p className="text-[10px] opacity-80 mt-0.5 font-sans">
+                        <p className="text-[10px] opacity-80 font-sans">
                           Nome detectado e preenchido automaticamente nos campos abaixo.
                         </p>
                       )}

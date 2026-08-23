@@ -105,7 +105,7 @@ export function parseAndRollDice(text: string): DiceRollResult | null {
   const diceSum = rolls.reduce((acc, curr) => acc + curr, 0);
   const total = diceSum + modifier;
 
-  // Build clean representation: 4 + 2d10!9 = 4 + (9, 6, 10, 2) = 31
+  // Build clean representation with critical rolls bolded: 4 + 2d10!9 = 4 + (**9**, 6, **10**, 2) = 31
   let formulaParts: string[] = [];
   if (modifier !== 0) {
     formulaParts.push(`${modifier > 0 ? '+' : ''}${modifier}`);
@@ -119,7 +119,13 @@ export function parseAndRollDice(text: string): DiceRollResult | null {
     formattedFormula = dicePart;
   }
 
-  const rollsStr = `(${rolls.join(', ')})`;
+  // Format rolls with bold markdown for any criticals
+  const formattedRolls = rolls.map(roll => {
+    const isCritical = (explodeThreshold !== null && roll >= explodeThreshold) || (explodeThreshold === null && faces > 1 && roll === faces);
+    return isCritical ? `**${roll}**` : `${roll}`;
+  });
+
+  const rollsStr = `(${formattedRolls.join(', ')})`;
   let formattedDetails = '';
   if (modifier !== 0) {
     formattedDetails = modifier > 0 ? `${modifier} + ${rollsStr} = **${total}**` : `${rollsStr} - ${Math.abs(modifier)} = **${total}**`;
