@@ -433,10 +433,12 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
       }
 
       // Build rich formatted roll message
+      const forSuffix = roll.comment ? (roll.comment.toLowerCase().startsWith('para ') ? ` ${roll.comment}` : ` para ${roll.comment}`) : '';
+
       finalContent = `🎲 **Rolagem de Dados:** \`${roll.formattedFormula}\`${explodeInfo}\n` +
         `> **Dados Rolados:** [ ${rollsDisplay} ]\n` +
         `> **Cálculo:** ${roll.formattedDetails}\n` +
-        `> 🏆 **Resultado Total = ${roll.total}**`;
+        `> 🏆 **Resultado Total = ${roll.total}**${forSuffix}`;
       
       logEvent('info', `Rolagem de dados executada: ${roll.formattedFormula} = ${roll.total}`, {
         autor: senderName,

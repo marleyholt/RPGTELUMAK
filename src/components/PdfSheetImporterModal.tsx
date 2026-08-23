@@ -70,7 +70,13 @@ export function PdfSheetImporterModal({
         })
       });
 
-      const resData = await response.json();
+      const responseText = await response.text();
+      let resData: any = {};
+      try {
+        resData = JSON.parse(responseText);
+      } catch {
+        throw new Error(`Falha no servidor (${response.status}): ${responseText.substring(0, 180)}`);
+      }
 
       if (!response.ok || !resData.success) {
         throw new Error(resData.error || 'Falha ao processar PDF.');
@@ -101,7 +107,13 @@ export function PdfSheetImporterModal({
         })
       });
 
-      const resData = await response.json();
+      const responseText = await response.text();
+      let resData: any = {};
+      try {
+        resData = JSON.parse(responseText);
+      } catch {
+        throw new Error(`Falha no servidor (${response.status}): ${responseText.substring(0, 180)}`);
+      }
 
       if (!response.ok || !resData.success) {
         throw new Error(resData.error || 'Falha ao processar texto.');

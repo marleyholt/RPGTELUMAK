@@ -30,29 +30,33 @@ export interface DiceRollResult {
   total: number;
   formattedFormula: string;
   formattedDetails: string;
+  comment?: string;
 }
 
-const DICE_REGEX = /^([+-]?\d+)?\+?(\d+)d(\d+)(?:!(\d+))?([+-]\d+)?$/i;
+// Regex matching [mod+]xdy[!z][+mod] followed by optional comment text
+const DICE_COMMAND_REGEX = /^(?:[!\/]r(?:oll)?\s+)?([+-]?\s*\d+\s*)?\+?\s*(\d+)\s*d\s*(\d+)(?:\s*!\s*(\d+))?(?:\s*([+-]\s*\d+))?(?:\s+(.+))?$/i;
 
 export function parseAndRollDice(text: string): DiceRollResult | null {
-  const cleaned = text.trim().replace(/\s+/g, '');
-  const match = cleaned.match(DICE_REGEX);
+  const trimmed = text.trim();
+  const match = trimmed.match(DICE_COMMAND_REGEX);
 
   if (!match) {
     return null;
   }
 
   // match groups:
-  // 1: prefix modifier (e.g. "4", "+4", "-2")
+  // 1: prefix modifier (e.g. "8", "+4", "-2")
   // 2: dice count x (e.g. "2")
   // 3: faces y (e.g. "10")
-  // 4: explode threshold !z (e.g. "9")
+  // 4: explode threshold !z (e.g. "10")
   // 5: suffix modifier (e.g. "+4", "-2")
+  // 6: trailing comment / action name (e.g. "Golpe Final")
   const prefixModStr = match[1];
   const diceCountStr = match[2];
   const facesStr = match[3];
   const explodeStr = match[4];
   const suffixModStr = match[5];
+  const commentStr = match[6];
 
   const diceCount = parseInt(diceCountStr, 10);
   const faces = parseInt(facesStr, 10);
@@ -62,10 +66,10 @@ export function parseAndRollDice(text: string): DiceRollResult | null {
 
   let modifier = 0;
   if (prefixModStr) {
-    modifier += parseInt(prefixModStr, 10) || 0;
+    modifier += parseInt(prefixModStr.replace(/\s+/g, ''), 10) || 0;
   }
   if (suffixModStr) {
-    modifier += parseInt(suffixModStr, 10) || 0;
+    modifier += parseInt(suffixModStr.replace(/\s+/g, ''), 10) || 0;
   }
 
   let explodeThreshold: number | null = null;
@@ -106,10 +110,6 @@ export function parseAndRollDice(text: string): DiceRollResult | null {
   const total = diceSum + modifier;
 
   // Build clean representation with critical rolls bolded: 4 + 2d10!9 = 4 + (**9**, 6, **10**, 2) = 31
-  let formulaParts: string[] = [];
-  if (modifier !== 0) {
-    formulaParts.push(`${modifier > 0 ? '+' : ''}${modifier}`);
-  }
   let dicePart = `${diceCount}d${faces}${explodeThreshold !== null ? `!${explodeThreshold}` : ''}`;
   
   let formattedFormula = '';
@@ -136,8 +136,10 @@ export function parseAndRollDice(text: string): DiceRollResult | null {
     formattedDetails = `${rollsStr} = **${total}**`;
   }
 
+  const cleanComment = commentStr ? commentStr.trim().replace(/^[:#-]\s*/, '') : undefined;
+
   return {
-    rawExpression: cleaned,
+    rawExpression: trimmed,
     modifier,
     diceCount,
     faces,
@@ -148,7 +150,8 @@ export function parseAndRollDice(text: string): DiceRollResult | null {
     diceSum,
     total,
     formattedFormula,
-    formattedDetails
+    formattedDetails,
+    comment: cleanComment
   };
 }
 
@@ -159,18 +162,12 @@ export function parseAndRollDice(text: string): DiceRollResult | null {
 export function extractDiceRollsFromMessage(text: string): { isRoll: boolean; results: DiceRollResult[]; cleanText: string } {
   const trimmed = text.trim();
   
-  // Single roll command like "4+2d10!9" or "/r 4+2d10!9" or "!r 2d20"
-  let cleanCmd = trimmed;
-  if (cleanCmd.startsWith('/r ') || cleanCmd.startsWith('/roll ') || cleanCmd.startsWith('!r ') || cleanCmd.startsWith('!roll ')) {
-    cleanCmd = cleanCmd.replace(/^(\/r|\/roll|!r|!roll)\s+/i, '');
-  }
-
-  const singleResult = parseAndRollDice(cleanCmd);
+  const singleResult = parseAndRollDice(trimmed);
   if (singleResult) {
     return {
       isRoll: true,
       results: [singleResult],
-      cleanText: cleanCmd
+      cleanText: trimmed
     };
   }
 

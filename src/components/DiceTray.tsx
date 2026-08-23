@@ -1,119 +1,53 @@
 import React, { useState } from 'react';
 import { Sparkles } from 'lucide-react';
+import { parseAndRollDice, DiceRollResult } from '../utils/diceRoller';
 
 interface DiceTrayProps {
   onSendRoll: (htmlContent: string) => void;
 }
 
-export interface RollResult {
-  formula: string;
-  rolls: number[];
-  modifier: number;
-  total: number;
-  isCrit: boolean;
-  isFumble: boolean;
-  exploded: boolean;
-}
-
-export function parseAndRollExpression(expr: string): RollResult | null {
-  const cleanedExpr = expr.replace(/\s+/g, '').toLowerCase();
-  const pattern = /^(\d*)d(\d+)(?:!(\d+))?([+-]\d+)?$/;
-  const match = cleanedExpr.match(pattern);
-
-  if (!match) return null;
-
-  const qty = parseInt(match[1]) || 1;
-  const faces = parseInt(match[2]);
-  const explodeOn = match[3] ? parseInt(match[3]) : null;
-  const modifier = match[4] ? parseInt(match[4]) : 0;
-
-  const rolls: number[] = [];
-  let total = 0;
-  let exploded = false;
-  let isCrit = false;
-  let isFumble = false;
-
-  const rollSingle = (f: number): number => {
-    return Math.floor(Math.random() * f) + 1;
-  };
-
-  const recursiveRoll = (f: number, expThresh: number | null): number => {
-    const r = rollSingle(f);
-    rolls.push(r);
-    
-    let sum = r;
-    if (expThresh !== null && r >= expThresh) {
-      exploded = true;
-      if (rolls.length < 25) {
-        sum += recursiveRoll(f, expThresh);
-      }
-    }
-    return sum;
-  };
-
-  for (let i = 0; i < qty; i++) {
-    total += recursiveRoll(faces, explodeOn);
-  }
-
-  if (faces === 20 && qty > 0) {
-    if (rolls[0] === 20) isCrit = true;
-    if (rolls[0] === 1) isFumble = true;
-  }
-
-  return {
-    formula: cleanedExpr,
-    rolls,
-    modifier,
-    total: total + modifier,
-    isCrit,
-    isFumble,
-    exploded,
-  };
-}
-
 export function DiceTray({ onSendRoll }: DiceTrayProps) {
   const [customFormula, setCustomFormula] = useState('');
-  const [lastResult, setLastResult] = useState<RollResult | null>(null);
+  const [lastResult, setLastResult] = useState<DiceRollResult | null>(null);
   const [isRolling, setIsRolling] = useState(false);
 
   const handleRoll = (formula: string) => {
     setIsRolling(true);
     setTimeout(() => {
-      const res = parseAndRollExpression(formula);
+      const res = parseAndRollDice(formula);
       if (res) {
         setLastResult(res);
         const html = formatRollToHtml(res);
         onSendRoll(html);
       } else {
-        alert('Formato inválido! Use por exemplo: "1d20+5" ou "2d10!9"');
+        alert('Formato inválido! Use por exemplo: "8+2d10!10 Golpe Final", "1d20+5" ou "2d10!9"');
       }
       setIsRolling(false);
     }, 400);
   };
 
-  const formatRollToHtml = (res: RollResult): string => {
-    const sign = res.modifier >= 0 ? '+' : '';
-    const modStr = res.modifier !== 0 ? ` ${sign}${res.modifier}` : '';
-    const rollDetail = `[${res.rolls.join(' + ')}]${modStr}`;
-    
+  const formatRollToHtml = (res: DiceRollResult): string => {
+    const isCrit = res.explodedRollsCount > 0 || (res.faces === 20 && res.rolls[0] === 20);
+    const isFumble = res.faces === 20 && res.rolls[0] === 1;
+
     let statusLabel = '';
-    if (res.isCrit) {
-      statusLabel = `<span class="px-2 py-0.5 text-[9px] font-black text-rose-500 bg-rose-950/20 border border-rose-500/30 uppercase tracking-widest ml-2 animate-pulse">Crítico!</span>`;
-    } else if (res.isFumble) {
+    if (isCrit) {
+      statusLabel = `<span class="px-2 py-0.5 text-[9px] font-black text-rose-500 bg-rose-950/20 border border-rose-500/30 uppercase tracking-widest ml-2 animate-pulse">Crítico / Explosivo!</span>`;
+    } else if (isFumble) {
       statusLabel = `<span class="px-2 py-0.5 text-[9px] font-black text-red-500 bg-red-950/20 border border-red-500/30 uppercase tracking-widest ml-2">Falha Crítica!</span>`;
-    } else if (res.exploded) {
-      statusLabel = `<span class="px-2 py-0.5 text-[9px] font-black text-sky-400 bg-blue-950/20 border border-blue-500/30 uppercase tracking-widest ml-2">Explosivo!</span>`;
     }
+
+    const forSuffix = res.comment ? (res.comment.toLowerCase().startsWith('para ') ? ` ${res.comment}` : ` para ${res.comment}`) : '';
 
     return `
       <div class="dice-roll-block leading-normal p-1 border-l-2 border-blue-500/60 pl-3">
         <div class="flex flex-wrap items-center text-sky-400 font-sans font-black text-xs uppercase tracking-widest mb-1.5">
-          <span>Rolou: <strong class="text-white font-mono bg-[#111111] px-2 py-0.5 border border-white/10 ml-1 select-all">${res.formula}</strong></span>
+          <span>Rolou: <strong class="text-white font-mono bg-[#111111] px-2 py-0.5 border border-white/10 ml-1 select-all">${res.formattedFormula}</strong></span>
           ${statusLabel}
         </div>
-        <div class="text-[11px] text-white/50 break-all leading-tight mb-2 font-mono">${rollDetail}</div>
+        <div class="text-[11px] text-white/50 break-all leading-tight mb-2 font-mono">${res.formattedDetails}</div>
         <div class="text-xl font-black text-white uppercase tracking-wider font-sans italic">
-          Resultado: <span class="text-sky-400 font-mono text-2xl">${res.total}</span>
+          Resultado Total: <span class="text-sky-400 font-mono text-2xl">${res.total}</span>${forSuffix ? `<span class="text-sm font-normal text-white/70 font-sans ml-1.5">${forSuffix}</span>` : ''}
         </div>
       </div>
     `;
@@ -166,7 +100,7 @@ export function DiceTray({ onSendRoll }: DiceTrayProps) {
             {lastResult.total}
           </div>
           <p className="text-[10px] text-white/30 font-mono mt-1.5 w-full truncate">
-            {lastResult.formula} ➔ {'[' + lastResult.rolls.join('+') + ']' + (lastResult.modifier ? `${lastResult.modifier >= 0 ? '+' : ''}${lastResult.modifier}` : '')}
+            {lastResult.formattedFormula} ➔ {lastResult.formattedDetails}
           </p>
         </div>
       )}

@@ -34,8 +34,12 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // Accept larger payloads for base64 image uploads
-  app.use(express.json({ limit: '10mb' }));
+  // Accept larger payloads for base64 PDF and image uploads
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+  // Serve static assets from public folder
+  app.use(express.static(path.join(process.cwd(), 'public')));
 
   // Inicializa o Firebase no Backend
   let db: any = null;
@@ -400,13 +404,25 @@ Observações importantes:
         text: promptText
       });
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
-        contents: { parts: contentsParts },
-        config: {
-          responseMimeType: "application/json",
-        }
-      });
+      let response: any;
+      try {
+        response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: contentsParts,
+          config: {
+            responseMimeType: "application/json",
+          }
+        });
+      } catch (geminiErr: any) {
+        console.warn("Tentando fallback para gemini-3.7-flash devido a:", geminiErr?.message);
+        response = await ai.models.generateContent({
+          model: "gemini-3.7-flash",
+          contents: contentsParts,
+          config: {
+            responseMimeType: "application/json",
+          }
+        });
+      }
 
       const rawJson = response.text || "{}";
       let parsedData: any = {};
