@@ -70,11 +70,13 @@ export function PdfSheetImporterModal({
     }
   };
 
-  const processFile = async (uploadedFile: File) => {
+  const processFile = async (uploadedFile: File, retryCount = 0) => {
     setIsProcessing(true);
     setError(null);
     setExtractedData(null);
-    setStatusLogs([]);
+    if (retryCount === 0) {
+      setStatusLogs([]);
+    }
     setCurrentStep('reading');
     setProgressPercent(15);
 
@@ -91,6 +93,29 @@ export function PdfSheetImporterModal({
       reader.readAsDataURL(uploadedFile);
       const base64Data = await base64Promise;
 
+      // Extract raw text strings from PDF as supplemental context
+      let extractedTextQuick = '';
+      try {
+        const textReader = new FileReader();
+        const rawTextPromise = new Promise<string>((resolve) => {
+          textReader.onload = () => {
+            const raw = (textReader.result as string) || '';
+            // Basic extraction of readable text chunks inside PDF streams
+            const textMatches = raw.match(/\(([^()]{3,})\)/g);
+            if (textMatches && textMatches.length > 5) {
+              resolve(textMatches.map(m => m.slice(1, -1)).join(' '));
+            } else {
+              resolve('');
+            }
+          };
+          textReader.onerror = () => resolve('');
+        });
+        textReader.readAsText(uploadedFile);
+        extractedTextQuick = await rawTextPromise;
+      } catch (e) {
+        console.log("Quick text parse skip:", e);
+      }
+
       // Step 2: Sending to Gemini AI
       setCurrentStep('gemini_analyzing');
       setProgressPercent(45);
@@ -104,10 +129,18 @@ export function PdfSheetImporterModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           pdfBase64: base64Data,
+          textContent: extractedTextQuick || undefined,
           mimeType: uploadedFile.type || 'application/pdf',
           filename: uploadedFile.name
         })
       });
+
+      // Handle server restarting / method not allowed with auto-retry
+      if (response.status === 405 && retryCount < 1) {
+        addLog('progress', 'Servidor inicializando rotas de API. Reconectando em 1.5 segundos...');
+        await new Promise(r => setTimeout(r, 1500));
+        return processFile(uploadedFile, retryCount + 1);
+      }
 
       // Step 3: Parsing Sankötei structure
       setCurrentStep('parsing_sankotei');
@@ -119,6 +152,9 @@ export function PdfSheetImporterModal({
       try {
         resData = JSON.parse(responseText);
       } catch {
+        if (response.status === 405) {
+          throw new Error(`Servidor reiniciou ou rota não respondeu (405). Clique em "Tentar Novamente" abaixo.`);
+        }
         throw new Error(`Falha no servidor (${response.status}): ${responseText.substring(0, 180)}`);
       }
 
@@ -612,14 +648,29 @@ export function PdfSheetImporterModal({
 
               {/* Helpful error diagnostic tip */}
               {error && (
-                <div className="p-2 bg-rose-950/30 border border-rose-500/30 rounded text-[11px] text-rose-300 flex items-start gap-2">
-                  <Info className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-bold">Dica de solução:</p>
-                    <p className="text-white/70">
-                      Caso o PDF seja uma digitalização em imagem (scan) sem camada de texto, tente colar o conteúdo na opção "Ou colar o texto / OCR da ficha manualmente".
-                    </p>
+                <div className="p-2.5 bg-rose-950/40 border border-rose-500/40 rounded text-[11px] text-rose-300 flex flex-col gap-2">
+                  <div className="flex items-start gap-2">
+                    <Info className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold">Diagnóstico do Processamento:</p>
+                      <p className="text-white/80">
+                        O backend concluiu o carregamento das rotas da API. Se o erro ocorreu durante uma inicialização, você pode reprocessar o mesmo arquivo agora.
+                      </p>
+                    </div>
                   </div>
+
+                  {file && (
+                    <div className="flex items-center gap-2 pt-1 border-t border-rose-500/20">
+                      <button
+                        type="button"
+                        onClick={() => processFile(file)}
+                        className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded flex items-center gap-1.5 shadow transition"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        <span>Tentar Novamente ({file.name})</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
