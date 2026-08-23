@@ -182,3 +182,18 @@ export interface DiscordNotebookMessage {
   pinnedAt?: any;
   createdAt: any;
 }
+
+export interface DiscordChannelItem {
+  id: string;
+  name: string;
+  category: string;
+  type: 'text' | 'voice';
+  icon?: string;
+  topic?: string;
+  isPrivate?: boolean;
+  allowedEmails?: string[];
+  order?: number;
+  charKey?: string;
+  discordChannelId?: string;
+  createdAt?: any;
+}

@@ -152,6 +152,23 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["channelId", "authorName", "content"]
+    },
+    "DiscordChannel": {
+      "title": "DiscordChannel",
+      "description": "Discord channel configured in the campaign notebook with permissions and category.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "type": { "type": "string", "enum": ["text", "voice"] },
+        "topic": { "type": "string" },
+        "isPrivate": { "type": "boolean" },
+        "allowedEmails": { "type": "array" },
+        "order": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "category", "type"]
     }
   },
   "firestore": {
@@ -186,6 +203,10 @@
     "/discord_notebook_messages/{msgId}": {
       "schema": "DiscordNotebookMessage",
       "description": "Discord notebook messages synchronized with the game session."
+    },
+    "/discord_channels/{channelId}": {
+      "schema": "DiscordChannel",
+      "description": "Campaign channels managed by the GM."
     }
   }
 }

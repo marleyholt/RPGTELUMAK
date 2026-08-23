@@ -45,6 +45,12 @@ service cloud.firestore {
       allow write: if isGM();
     }
 
+    // --- DISCORD CHANNELS (GM MANAGES, ALL USERS READ) ---
+    match /discord_channels/{channelId} {
+      allow read: if isSignedIn();
+      allow write: if isGM();
+    }
+
     // --- DISCORD NOTEBOOK MESSAGES ---
     match /discord_notebook_messages/{msgId} {
       allow read: if isSignedIn();
