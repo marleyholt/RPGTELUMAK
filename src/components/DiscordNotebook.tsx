@@ -435,24 +435,27 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
       allowedEmails = [];
     }
 
-    const channelPayload: Partial<DiscordChannelItem> = {
+    const channelPayload: Record<string, any> = {
       name: cleanName,
       category: formCategory.trim(),
       type: formType,
-      topic: formTopic.trim() || undefined,
+      topic: formTopic.trim() || '',
       isPrivate: isPrivate,
-      allowedEmails: allowedEmails,
-      charKey: charKey || undefined,
-      discordChannelId: formDiscordId.trim() || undefined,
+      allowedEmails: allowedEmails || [],
+      discordChannelId: formDiscordId.trim() || '',
       createdAt: serverTimestamp()
     };
+
+    if (charKey) {
+      channelPayload.charKey = charKey;
+    }
 
     try {
       await setDoc(doc(db, 'discord_channels', channelDocId), channelPayload, { merge: true });
       setShowChannelModal(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erro ao salvar canal:", err);
-      alert("Erro ao salvar canal no Firestore.");
+      alert(`Erro ao salvar canal no Firestore: ${err?.message || err}`);
     }
   };
 
