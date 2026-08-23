@@ -15,21 +15,14 @@ import {
 import { processImageFile } from '../utils/imageUpload';
 import { ImageCropModal } from './ImageCropModal';
 
-interface LogEntry {
-  id: string;
-  time: string;
-  type: 'info' | 'success' | 'warn' | 'error';
-  title: string;
-  details?: string;
-}
-
 interface DiscordNotebookProps {
   isGM: boolean;
   currentUserProfile: UserProfile | null;
   characters: Character[];
+  onAddLog?: (type: 'info' | 'success' | 'warn' | 'error', title: string, details?: any) => void;
 }
 
-export function DiscordNotebook({ isGM, currentUserProfile, characters }: DiscordNotebookProps) {
+export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog }: DiscordNotebookProps) {
   // Channels stored in Firestore (real channels created by GM)
   const [dbChannels, setDbChannels] = useState<DiscordChannelItem[]>([]);
   const [activeChannel, setActiveChannel] = useState<DiscordChannelItem | null>(null);
@@ -59,55 +52,11 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
   const [formTargetCharId, setFormTargetCharId] = useState<string>('');
   const [formAllowedEmails, setFormAllowedEmails] = useState<string[]>([]);
 
-  // Diagnostic Logs Console
-  const [showDebugModal, setShowDebugModal] = useState(false);
-  const [logs, setLogs] = useState<LogEntry[]>([
-    {
-      id: 'init-1',
-      time: new Date().toLocaleTimeString(),
-      type: 'info',
-      title: 'Sistema Discord Notebook Inicializado',
-      details: 'Conectando ao Firestore e preparando canais...'
+  const logEvent = (type: 'info' | 'success' | 'warn' | 'error', title: string, details?: any) => {
+    if (onAddLog) {
+      onAddLog(type, title, details);
     }
-  ]);
-  const [copiedLogs, setCopiedLogs] = useState(false);
-  const [testSending, setTestSending] = useState(false);
-
-  const addLog = (type: 'info' | 'success' | 'warn' | 'error', title: string, details?: any) => {
-    const entry: LogEntry = {
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-      time: new Date().toLocaleTimeString(),
-      type,
-      title,
-      details: typeof details === 'object' ? JSON.stringify(details, null, 2) : (details ? String(details) : undefined)
-    };
-    setLogs(prev => [entry, ...prev.slice(0, 99)]);
   };
-
-  // Global Error Listener for Diagnostics
-  useEffect(() => {
-    const handleGlobalError = (event: ErrorEvent) => {
-      addLog('error', `Erro na Janela: ${event.message || 'Desconhecido'}`, {
-        filename: event.filename,
-        lineno: event.lineno,
-        colno: event.colno,
-        stack: event.error?.stack
-      });
-    };
-    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      addLog('error', `Promise Rejeitada: ${event.reason?.message || event.reason || 'Erro assíncrono'}`, {
-        reason: event.reason,
-        stack: event.reason?.stack
-      });
-    };
-
-    window.addEventListener('error', handleGlobalError);
-    window.addEventListener('unhandledrejection', handleUnhandledRejection);
-    return () => {
-      window.removeEventListener('error', handleGlobalError);
-      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-    };
-  }, []);
 
   // UI States
   const [collapsedCategories, setCollapsedCategories] = useState<{ [key: string]: boolean }>({});
@@ -369,7 +318,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
       : (senderChar?.nome || currentUserProfile?.displayName || 'Jogador');
     const senderAvatar = senderChar?.img_saudavel || currentUserProfile?.photoURL || 'https://cdn.discordapp.com/embed/avatars/0.png';
 
-    addLog('info', `Enviando mensagem para canal #${activeChannel?.name || activeChannelId}`, {
+    logEvent('info', `Enviando mensagem para canal #${activeChannel?.name || activeChannelId}`, {
       canal: activeChannel?.name,
       canalId: activeChannelId,
       discordChannelId: activeChannel?.discordChannelId || 'Nenhum',
@@ -395,14 +344,14 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
       }
 
       const docRef = await addDoc(collection(db, 'discord_notebook_messages'), messagePayload);
-      addLog('success', `Mensagem gravada no Firestore com sucesso!`, {
+      logEvent('success', `Mensagem gravada no Firestore com sucesso!`, {
         docId: docRef.id,
         canal: activeChannel?.name,
         conteudo: contentToSend.substring(0, 50)
       });
     } catch (err: any) {
       console.error("Erro ao salvar mensagem:", err);
-      addLog('error', `Falha ao gravar mensagem no Firestore: ${err?.message || err}`, {
+      logEvent('error', `Falha ao gravar mensagem no Firestore: ${err?.message || err}`, {
         code: err?.code,
         message: err?.message,
         stack: err?.stack
@@ -410,38 +359,6 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
       alert(`Erro ao enviar mensagem: ${err?.message || err}`);
     } finally {
       setIsSending(false);
-    }
-  };
-
-  // Diagnostic Test Message
-  const handleSendTestMessage = async () => {
-    if (!activeChannelId) {
-      addLog('warn', 'Nenhum canal ativo selecionado para teste de envio.');
-      alert('Selecione um canal primeiro!');
-      return;
-    }
-
-    setTestSending(true);
-    addLog('info', `Iniciando teste de conectividade Firestore no canal #${activeChannel?.name}...`);
-
-    try {
-      const testPayload = {
-        channelId: activeChannelId,
-        authorName: `[TESTE DE CONEXÃO] ${currentUserProfile?.displayName || 'Telumak'}`,
-        authorAvatar: 'https://cdn.discordapp.com/embed/avatars/1.png',
-        authorEmail: currentUserProfile?.email || 'teste@telumak.rpg',
-        content: `🔧 Ping de teste do sistema de mensagens enviado às ${new Date().toLocaleTimeString()}! Conexão com Firestore 100% ativa.`,
-        isFromDiscord: false,
-        pinned: false,
-        createdAt: serverTimestamp()
-      };
-
-      const docRef = await addDoc(collection(db, 'discord_notebook_messages'), testPayload);
-      addLog('success', `✅ Teste concluído com sucesso! Documento criado com ID: ${docRef.id}`);
-    } catch (err: any) {
-      addLog('error', `❌ Falha no teste de envio: ${err?.message || err}`, err);
-    } finally {
-      setTestSending(false);
     }
   };
 
@@ -981,26 +898,6 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
                 </button>
               )}
             </div>
-
-            {/* Diagnostic Logs & Connectivity Console Button */}
-            <button
-              type="button"
-              onClick={() => setShowDebugModal(true)}
-              className={`p-1.5 px-2.5 rounded transition flex items-center gap-1.5 text-xs font-bold ${
-                logs.filter(l => l.type === 'error').length > 0
-                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse'
-                  : 'bg-[#1e1f22] text-[#949ba4] hover:text-white hover:bg-[#35373c] border border-white/5'
-              }`}
-              title="Abrir Console de Diagnóstico & Logs de Conexão"
-            >
-              <Terminal className="h-3.5 w-3.5 text-[#5865f2]" />
-              <span className="hidden sm:inline">Diagnóstico</span>
-              {logs.filter(l => l.type === 'error').length > 0 && (
-                <span className="w-4 h-4 bg-rose-500 text-white rounded-full text-[9px] flex items-center justify-center font-bold">
-                  {logs.filter(l => l.type === 'error').length}
-                </span>
-              )}
-            </button>
           </div>
         </div>
 
@@ -1751,197 +1648,6 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
             setPendingCropImage(null);
           }}
         />
-      )}
-
-      {/* Diagnostic & Error Log Console Modal */}
-      {showDebugModal && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-fadeIn">
-          <div className="bg-[#1e1f22] border border-[#2b2d31] rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden font-sans text-[#dbdee1]">
-            
-            {/* Modal Header */}
-            <div className="px-5 py-4 bg-[#2b2d31] border-b border-[#1f2023] flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#5865f2]/20 text-[#5865f2] flex items-center justify-center border border-[#5865f2]/30">
-                  <Terminal className="h-4 w-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-black text-white flex items-center gap-2">
-                    Console de Diagnóstico & Logs do Discord
-                    <span className="text-[10px] bg-[#23a55a]/20 text-[#23a55a] border border-[#23a55a]/30 px-1.5 py-0.5 rounded font-mono font-bold">
-                      LIVE
-                    </span>
-                  </h3>
-                  <p className="text-[11px] text-[#949ba4]">
-                    Monitoramento em tempo real do Firestore, sincronização e erros de envio
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowDebugModal(false)}
-                className="p-1.5 rounded-lg text-[#949ba4] hover:text-white hover:bg-[#35373c] transition"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Live System Status Cards */}
-            <div className="p-4 bg-[#232428] border-b border-[#1f2023] grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
-              <div className="bg-[#1e1f22] p-2.5 rounded-lg border border-white/5">
-                <span className="text-[10px] uppercase font-bold text-[#949ba4] block mb-0.5">Banco Firestore</span>
-                <span className="text-emerald-400 font-bold flex items-center gap-1">
-                  <CheckCircle2 className="h-3.5 w-3.5" /> Conectado
-                </span>
-              </div>
-
-              <div className="bg-[#1e1f22] p-2.5 rounded-lg border border-white/5">
-                <span className="text-[10px] uppercase font-bold text-[#949ba4] block mb-0.5">Canais Carregados</span>
-                <span className="text-white font-bold font-mono">
-                  {dbChannels.length} canais ativos
-                </span>
-              </div>
-
-              <div className="bg-[#1e1f22] p-2.5 rounded-lg border border-white/5">
-                <span className="text-[10px] uppercase font-bold text-[#949ba4] block mb-0.5">Canal Selecionado</span>
-                <span className="text-white font-bold truncate block" title={activeChannel?.name || 'Nenhum'}>
-                  {activeChannel ? `#${activeChannel.name}` : 'Nenhum'}
-                </span>
-                <span className="text-[9px] text-[#5865f2] font-mono block truncate">
-                  {activeChannel?.discordChannelId ? `ID: ${activeChannel.discordChannelId}` : 'Sem ID Discord'}
-                </span>
-              </div>
-
-              <div className="bg-[#1e1f22] p-2.5 rounded-lg border border-white/5">
-                <span className="text-[10px] uppercase font-bold text-[#949ba4] block mb-0.5">Usuário Logado</span>
-                <span className="text-white font-bold truncate block">
-                  {isGM ? 'Alex AP (GM)' : (currentUserProfile?.displayName || 'Jogador')}
-                </span>
-                <span className="text-[9px] text-[#949ba4] truncate block">
-                  {currentUserProfile?.email || 'Sem email'}
-                </span>
-              </div>
-            </div>
-
-            {/* Actions Bar */}
-            <div className="px-4 py-2.5 bg-[#2b2d31]/50 border-b border-[#1f2023] flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled={testSending || !activeChannelId}
-                  onClick={handleSendTestMessage}
-                  className="px-3 py-1.5 bg-[#5865f2] hover:bg-[#4752c4] disabled:opacity-50 text-white rounded text-xs font-bold flex items-center gap-1.5 transition shadow"
-                >
-                  <Cpu className={`h-3.5 w-3.5 ${testSending ? 'animate-spin' : ''}`} />
-                  <span>{testSending ? 'Enviando Teste...' : 'Testar Envio no Canal'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    const report = [
-                      `=== RELATÓRIO DE DIAGNÓSTICO TELUMAK ===`,
-                      `Data: ${new Date().toISOString()}`,
-                      `Usuário: ${currentUserProfile?.displayName} (${currentUserProfile?.email || 'N/A'}) - ${isGM ? 'Mestre' : 'Jogador'}`,
-                      `Canal Ativo: #${activeChannel?.name || 'N/A'} (ID Doc: ${activeChannel?.id}, Discord ID: ${activeChannel?.discordChannelId || 'Nenhum'})`,
-                      `Total de Canais no App: ${dbChannels.length}`,
-                      `Total de Mensagens no Canal: ${messages.length}`,
-                      `\n=== HISTÓRICO DE LOGS (${logs.length} entradas) ===`,
-                      ...logs.map(l => `[${l.time}] [${l.type.toUpperCase()}] ${l.title} ${l.details ? `\nDetalhes: ${l.details}` : ''}`)
-                    ].join('\n');
-
-                    navigator.clipboard.writeText(report);
-                    setCopiedLogs(true);
-                    setTimeout(() => setCopiedLogs(false), 2500);
-                  }}
-                  className="px-3 py-1.5 bg-[#313338] hover:bg-[#35373c] text-white rounded text-xs font-bold flex items-center gap-1.5 transition border border-white/10"
-                >
-                  {copiedLogs ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-                  <span>{copiedLogs ? 'Copiado para a Área de Transferência!' : 'Copiar Relatório Completo'}</span>
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setLogs([])}
-                  className="px-2.5 py-1 text-xs text-[#949ba4] hover:text-white transition"
-                  title="Limpar logs"
-                >
-                  Limpar Logs
-                </button>
-              </div>
-            </div>
-
-            {/* Logs List Terminal Screen */}
-            <div className="flex-1 overflow-y-auto p-4 bg-[#111214] font-mono text-xs space-y-2.5 custom-scroll select-text">
-              {logs.length === 0 ? (
-                <div className="py-12 text-center text-[#949ba4] italic">
-                  Nenhum registro no console até o momento.
-                </div>
-              ) : (
-                logs.map((log) => {
-                  let colorClass = 'text-[#dbdee1] border-white/5 bg-white/[0.02]';
-                  let IconComp = Info;
-                  let badge = 'INFO';
-
-                  if (log.type === 'error') {
-                    colorClass = 'text-rose-300 border-rose-500/30 bg-rose-500/10';
-                    IconComp = AlertTriangle;
-                    badge = 'ERRO';
-                  } else if (log.type === 'warn') {
-                    colorClass = 'text-amber-300 border-amber-500/30 bg-amber-500/10';
-                    IconComp = AlertTriangle;
-                    badge = 'AVISO';
-                  } else if (log.type === 'success') {
-                    colorClass = 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10';
-                    IconComp = CheckCircle2;
-                    badge = 'OK';
-                  }
-
-                  return (
-                    <div
-                      key={log.id}
-                      className={`p-3 rounded-lg border ${colorClass} transition leading-relaxed`}
-                    >
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <div className="flex items-center gap-2 font-bold">
-                          <IconComp className="h-3.5 w-3.5 shrink-0" />
-                          <span className="text-[10px] px-1.5 py-0.5 rounded font-black tracking-wider uppercase bg-black/40">
-                            {badge}
-                          </span>
-                          <span>{log.title}</span>
-                        </div>
-                        <span className="text-[10px] text-[#949ba4] shrink-0 font-normal">
-                          {log.time}
-                        </span>
-                      </div>
-
-                      {log.details && (
-                        <pre className="mt-2 p-2 bg-black/50 rounded text-[11px] text-[#949ba4] overflow-x-auto whitespace-pre-wrap font-mono border border-white/5">
-                          {log.details}
-                        </pre>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="px-5 py-3 bg-[#2b2d31] border-t border-[#1f2023] flex items-center justify-between text-xs text-[#949ba4]">
-              <span>Use este relatório caso encontre qualquer comportamento inesperado.</span>
-              <button
-                type="button"
-                onClick={() => setShowDebugModal(false)}
-                className="px-4 py-1.5 bg-[#5865f2] hover:bg-[#4752c4] text-white font-bold rounded shadow transition"
-              >
-                Fechar
-              </button>
-            </div>
-
-          </div>
-        </div>
       )}
 
     </div>

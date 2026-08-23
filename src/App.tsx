@@ -26,6 +26,7 @@ import { DiscordNotebook } from './components/DiscordNotebook';
 import { GMConfigModal } from './components/GMConfigModal';
 import { PlayerConfigModal } from './components/PlayerConfigModal';
 import { ImageUploadField } from './components/ImageUploadField';
+import { DiagnosticModal, GlobalLogEntry } from './components/DiagnosticModal';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -37,6 +38,63 @@ export default function App() {
   const [statuses, setStatuses] = useState<CustomStatusType[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [versionsMap, setVersionsMap] = useState<{ [charId: string]: CharVersion[] }>({});
+
+  // Global Diagnostics / Error Logs State
+  const [showDiagnosticModal, setShowDiagnosticModal] = useState(false);
+  const [globalLogs, setGlobalLogs] = useState<GlobalLogEntry[]>([
+    {
+      id: 'init-1',
+      time: new Date().toLocaleTimeString(),
+      type: 'info',
+      title: 'Portal RPG Telumak Inicializado',
+      details: 'Sistemas carregados e prontos para a sessão.'
+    }
+  ]);
+
+  const addGlobalLog = (type: 'info' | 'success' | 'warn' | 'error', title: string, details?: any) => {
+    const entry: GlobalLogEntry = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      time: new Date().toLocaleTimeString(),
+      type,
+      title,
+      details: typeof details === 'object' ? JSON.stringify(details, null, 2) : (details ? String(details) : undefined)
+    };
+    setGlobalLogs(prev => [entry, ...prev.slice(0, 99)]);
+  };
+
+  // Global Error Listeners (with filter for Vite HMR sandbox reconnection)
+  useEffect(() => {
+    const handleGlobalError = (event: ErrorEvent) => {
+      const msg = event.message || '';
+      const file = event.filename || '';
+      if (msg.includes('@vite') || file.includes('@vite')) return;
+
+      addGlobalLog('error', `Erro de Interface: ${msg || 'Erro desconhecido'}`, {
+        arquivo: file,
+        linha: event.lineno,
+        coluna: event.colno,
+        stack: event.error?.stack
+      });
+    };
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      const msg = event.reason?.message || String(event.reason || '');
+      // Filter out harmless Vite HMR dev socket noise
+      if (msg.includes('WebSocket closed without opened') || msg.includes('@vite')) return;
+
+      addGlobalLog('error', `Promise Rejeitada: ${msg || 'Erro assíncrono'}`, {
+        motivo: event.reason,
+        stack: event.reason?.stack
+      });
+    };
+
+    window.addEventListener('error', handleGlobalError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    return () => {
+      window.removeEventListener('error', handleGlobalError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);
 
   // Navigation State
   const [currentTab, setCurrentTab] = useState<'personagens' | 'arena' | 'notebook'>('personagens');
@@ -797,7 +855,25 @@ export default function App() {
           </div>
 
           {/* GM / Player Config & User Actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Global Diagnostic & Alert Bell Button */}
+            <button
+              onClick={() => setShowDiagnosticModal(true)}
+              className={`p-2 bg-[#151515] hover:bg-[#202020] border text-xs font-black uppercase tracking-wider transition shadow relative flex items-center justify-center ${
+                globalLogs.filter(l => l.type === 'error').length > 0
+                  ? 'border-rose-500 text-rose-400 animate-pulse'
+                  : 'border-blue-500/30 text-sky-400 hover:text-white'
+              }`}
+              title="Diagnóstico e Alertas do Sistema"
+            >
+              <Bell className="h-4 w-4" />
+              {globalLogs.filter(l => l.type === 'error').length > 0 && (
+                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-600 text-white rounded-full text-[8px] flex items-center justify-center font-black">
+                  {globalLogs.filter(l => l.type === 'error').length}
+                </span>
+              )}
+            </button>
+
             {isGM ? (
               <button
                 onClick={() => setShowGMConfig(true)}
@@ -838,6 +914,7 @@ export default function App() {
             isGM={isGM}
             currentUserProfile={userProfile}
             characters={characters}
+            onAddLog={addGlobalLog}
           />
         </div>
       )}
@@ -1424,6 +1501,18 @@ export default function App() {
           onLogout={handleLogout}
         />
       )}
+
+      {/* GLOBAL SYSTEM DIAGNOSTIC & TELEMETRY MODAL */}
+      <DiagnosticModal
+        isOpen={showDiagnosticModal}
+        onClose={() => setShowDiagnosticModal(false)}
+        logs={globalLogs}
+        onClearLogs={() => setGlobalLogs([])}
+        onAddLog={addGlobalLog}
+        currentUserProfile={userProfile}
+        characters={characters}
+        currentTab={currentTab}
+      />
 
       {/* COMPACT FOOTER */}
       <footer className="bg-[#030303] py-6 text-center border-t border-white/10 text-[9px] font-black uppercase tracking-widest text-[#ffffff]/20 no-print">
