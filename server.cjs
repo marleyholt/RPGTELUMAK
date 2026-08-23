@@ -208,27 +208,24 @@ async function startServer() {
   app.post("/api/discord/notebook/send", async (req, res) => {
     const { channelId, remetente, conteudo, attachment } = req.body;
     const targetChannelId = channelId || defaultChannelId;
+    if (!targetChannelId) {
+      return res.status(400).json({ error: "ID do canal n\xE3o fornecido" });
+    }
     if (!discordClient || !discordClient.isReady()) {
-      if (db && targetChannelId) {
-        await (0, import_firestore.addDoc)((0, import_firestore.collection)(db, "discord_notebook_messages"), {
-          channelId: targetChannelId,
-          authorName: remetente,
-          content: conteudo || "",
-          attachments: attachment ? [attachment] : void 0,
-          isFromDiscord: false,
-          createdAt: (0, import_firestore.serverTimestamp)()
-        });
-      }
-      return res.status(200).json({ success: true, offlineSaved: true });
+      return res.status(200).json({
+        success: false,
+        botOffline: true,
+        message: "Bot do Discord offline ou n\xE3o conectado"
+      });
     }
     try {
-      const channel = await discordClient.channels.fetch(targetChannelId);
+      const channel = await discordClient.channels.fetch(targetChannelId).catch(() => null);
       if (channel && channel.isTextBased() && "send" in channel) {
         const sendOptions = {};
         let formattedText = `**[${remetente}]**
 ${conteudo || ""}`;
         sendOptions.content = formattedText;
-        if (attachment && attachment.startsWith("data:image/")) {
+        if (attachment && typeof attachment === "string" && attachment.startsWith("data:image/")) {
           const base64Data = attachment.split(",")[1];
           const buffer = Buffer.from(base64Data, "base64");
           const ext = attachment.substring(attachment.indexOf("/") + 1, attachment.indexOf(";"));
@@ -236,34 +233,14 @@ ${conteudo || ""}`;
           sendOptions.files = [file];
         }
         const sentMsg = await channel.send(sendOptions);
-        if (db) {
-          const discordAttachments = sentMsg.attachments.map((a) => a.url);
-          await (0, import_firestore.addDoc)((0, import_firestore.collection)(db, "discord_notebook_messages"), {
-            channelId: targetChannelId,
-            authorName: remetente,
-            content: conteudo || "",
-            attachments: discordAttachments.length > 0 ? discordAttachments : attachment ? [attachment] : void 0,
-            isFromDiscord: false,
-            createdAt: (0, import_firestore.serverTimestamp)()
-          });
-        }
-        return res.json({ success: true });
+        console.log(`[DISCORD] Mensagem enviada para o canal #${channel.name || targetChannelId} no Discord! ID: ${sentMsg.id}`);
+        return res.json({ success: true, discordMessageId: sentMsg.id });
       } else {
-        return res.status(500).json({ error: "Canal do Discord inv\xE1lido ou n\xE3o suporta texto" });
+        return res.status(400).json({ error: "Canal do Discord n\xE3o encontrado ou o bot n\xE3o tem permiss\xE3o para enviar mensagens nele." });
       }
     } catch (err) {
       console.error("Erro ao enviar mensagem pro Discord Notebook:", err);
-      if (db && targetChannelId) {
-        await (0, import_firestore.addDoc)((0, import_firestore.collection)(db, "discord_notebook_messages"), {
-          channelId: targetChannelId,
-          authorName: remetente,
-          content: conteudo || "",
-          attachments: attachment ? [attachment] : void 0,
-          isFromDiscord: false,
-          createdAt: (0, import_firestore.serverTimestamp)()
-        });
-      }
-      return res.status(200).json({ success: true, warning: err.message });
+      return res.status(500).json({ error: err?.message || "Falha ao despachar mensagem para o Discord" });
     }
   });
   app.post("/api/discord/send", async (req, res) => {
