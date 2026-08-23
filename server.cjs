@@ -53,7 +53,9 @@ var getFirebaseConfig = () => {
 async function startServer() {
   const app = (0, import_express.default)();
   const PORT = 3e3;
-  app.use(import_express.default.json({ limit: "10mb" }));
+  app.use(import_express.default.json({ limit: "50mb" }));
+  app.use(import_express.default.urlencoded({ extended: true, limit: "50mb" }));
+  app.use(import_express.default.static(import_path.default.join(process.cwd(), "public")));
   let db = null;
   const firebaseConfig = getFirebaseConfig();
   if (firebaseConfig && firebaseConfig.apiKey) {
@@ -360,13 +362,25 @@ ${textContent}`
       contentsParts.push({
         text: promptText
       });
-      const response = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
-        contents: { parts: contentsParts },
-        config: {
-          responseMimeType: "application/json"
-        }
-      });
+      let response;
+      try {
+        response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: contentsParts,
+          config: {
+            responseMimeType: "application/json"
+          }
+        });
+      } catch (geminiErr) {
+        console.warn("Tentando fallback para gemini-3.7-flash devido a:", geminiErr?.message);
+        response = await ai.models.generateContent({
+          model: "gemini-3.7-flash",
+          contents: contentsParts,
+          config: {
+            responseMimeType: "application/json"
+          }
+        });
+      }
       const rawJson = response.text || "{}";
       let parsedData = {};
       try {
