@@ -29,6 +29,7 @@ var import_discord = require("discord.js");
 var import_app = require("firebase/app");
 var import_auth = require("firebase/auth");
 var import_firestore = require("firebase/firestore");
+var import_genai = require("@google/genai");
 var import_fs = __toESM(require("fs"), 1);
 var getFirebaseConfig = () => {
   try {
@@ -41,7 +42,8 @@ var getFirebaseConfig = () => {
       storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfigLocal.storageBucket,
       messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfigLocal.messagingSenderId,
       appId: process.env.VITE_FIREBASE_APP_ID || firebaseConfigLocal.appId,
-      measurementId: process.env.VITE_FIREBASE_MEASUREMENT_ID || firebaseConfigLocal.measurementId
+      measurementId: process.env.VITE_FIREBASE_MEASUREMENT_ID || firebaseConfigLocal.measurementId,
+      firestoreDatabaseId: process.env.VITE_FIREBASE_DATABASE_ID || firebaseConfigLocal.firestoreDatabaseId
     };
   } catch (err) {
     console.error("Falha ao ler firebase-applet-config.json no backend:", err);
@@ -64,14 +66,19 @@ async function startServer() {
         await (0, import_auth.signInWithEmailAndPassword)(auth, botEmail, botPassword);
         console.log("Bot logado no Firebase Auth");
       } catch (e) {
-        if (e.code === "auth/user-not-found" || e.code === "auth/invalid-credential") {
-          await (0, import_auth.createUserWithEmailAndPassword)(auth, botEmail, botPassword);
-          console.log("Usu\xE1rio do bot criado e logado no Firebase Auth");
+        if (e.code === "auth/user-not-found" || e.code === "auth/invalid-credential" || e.code === "auth/wrong-password") {
+          try {
+            await (0, import_auth.createUserWithEmailAndPassword)(auth, botEmail, botPassword);
+            console.log("Usu\xE1rio do bot criado e logado no Firebase Auth");
+          } catch (createErr) {
+            console.error("Erro ao criar usu\xE1rio do bot no Firebase:", createErr);
+          }
         } else {
           console.error("Erro ao autenticar o bot no Firebase", e);
         }
       }
-      db = (0, import_firestore.getFirestore)(firebaseApp);
+      db = (0, import_firestore.getFirestore)(firebaseApp, firebaseConfig.firestoreDatabaseId || void 0);
+      console.log(`[FIREBASE BACKEND] Firestore conectado no banco: ${firebaseConfig.firestoreDatabaseId || "(default)"}`);
     } catch (e) {
       console.error("Erro ao inicializar Firebase no Backend", e);
     }
@@ -88,42 +95,49 @@ async function startServer() {
       ]
     });
     discordClient.on("ready", () => {
-      console.log(`Discord Bot logado como ${discordClient?.user?.tag}`);
+      console.log(`[DISCORD BOT] Logado e pronto como ${discordClient?.user?.tag}`);
     });
     discordClient.on("messageCreate", async (message) => {
       if (message.author.bot) return;
+      console.log(`[DISCORD -> BACKEND] Mensagem recebida no canal ${message.channelId} de ${message.author.username}: "${message.content}"`);
       if (db) {
         try {
-          const attachments = message.attachments.map((att) => att.url);
+          const attachments = message.attachments ? Array.from(message.attachments.values()).map((att) => att.url) : [];
           const notebookDoc = {
             channelId: message.channelId,
-            authorName: message.member?.displayName || message.author.username,
-            authorAvatar: message.author.displayAvatarURL(),
+            authorName: message.member?.displayName || message.author.globalName || message.author.username,
+            authorAvatar: message.author.displayAvatarURL() || "https://cdn.discordapp.com/embed/avatars/0.png",
+            authorEmail: "discord-bot@system.local",
             content: message.content || "",
-            attachments: attachments.length > 0 ? attachments : void 0,
             isFromDiscord: true,
+            pinned: false,
             createdAt: (0, import_firestore.serverTimestamp)()
           };
-          await (0, import_firestore.addDoc)((0, import_firestore.collection)(db, "discord_notebook_messages"), notebookDoc);
+          if (attachments.length > 0) {
+            notebookDoc.attachments = attachments;
+          }
+          const docRef = await (0, import_firestore.addDoc)((0, import_firestore.collection)(db, "discord_notebook_messages"), notebookDoc);
+          console.log(`[DISCORD -> FIRESTORE] Mensagem gravada com sucesso! Doc ID: ${docRef.id} no canal ${message.channelId}`);
           if (defaultChannelId && message.channelId === defaultChannelId) {
             const chatMsg = {
               remetente: `[Discord] ${message.author.username}`,
               remetente_email: "discord-bot@system.local",
               destinatario: "TODOS",
               tipo: "CHAT",
-              conteudo: message.content,
+              conteudo: message.content || "",
               createdAt: (0, import_firestore.serverTimestamp)()
             };
             await (0, import_firestore.addDoc)((0, import_firestore.collection)(db, "messages"), chatMsg);
           }
-          console.log(`Mensagem do Discord no canal ${message.channelId} sincronizada com sucesso!`);
         } catch (err) {
-          console.error("Erro ao salvar mensagem do Discord no Firestore:", err);
+          console.error("[DISCORD -> FIRESTORE] Erro ao salvar mensagem do Discord no Firestore:", err?.message || err);
         }
+      } else {
+        console.warn("[DISCORD -> FIRESTORE] db do Firestore n\xE3o est\xE1 inicializado no backend.");
       }
     });
     discordClient.login(token).catch((err) => {
-      console.error("Erro ao logar o bot no Discord:", err);
+      console.error("[DISCORD BOT] Erro ao logar o bot no Discord:", err);
     });
   } else {
     console.warn("DISCORD_BOT_TOKEN n\xE3o configurado no .env");
@@ -241,6 +255,134 @@ ${conteudo || ""}`;
     } catch (err) {
       console.error("Erro ao enviar mensagem pro Discord Notebook:", err);
       return res.status(500).json({ error: err?.message || "Falha ao despachar mensagem para o Discord" });
+    }
+  });
+  app.post("/api/characters/import-pdf", async (req, res) => {
+    try {
+      const { pdfBase64, textContent, mimeType = "application/pdf" } = req.body;
+      if (!pdfBase64 && !textContent) {
+        return res.status(400).json({ error: "Nenhum arquivo PDF ou texto fornecido para processamento." });
+      }
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({
+          error: "GEMINI_API_KEY n\xE3o configurada no servidor. Configure a chave nos Secrets para habilitar o processamento por IA."
+        });
+      }
+      const ai = new import_genai.GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: {
+            "User-Agent": "aistudio-build"
+          }
+        }
+      });
+      const promptText = `
+Voc\xEA \xE9 um especialista no sistema de RPG Sank\xF6tei / Telumak RPG.
+Analise detalhadamente o documento PDF da ficha de personagem Sank\xF6tei fornecido e extraia todos os dados com extrema fidelidade.
+
+ESTRUTURA DE DADOS ESPERADA (retorne EXCLUSIVAMENTE em formato JSON):
+{
+  "nome": "Nome do personagem (ex: The Hen)",
+  "cla": "Cl\xE3 do personagem entre par\xEAnteses se houver (ex: Nuero)",
+  "ocupacao": "Ocupa\xE7\xE3o (ex: Deus Rei)",
+  "posicao_social": "Posi\xE7\xE3o Social (ex: Deus Rei)",
+  "cidadania": "Cidadania e Naturalidade (ex: R\xEBno)",
+  "seguimento": "Seguimento (ex: Conquistador)",
+  "nivelamento_alma": "Texto completo de Nivelamento e Alma (ex: 9 (116). Alma: Reihao (25) 2x)",
+  "nivel": 9,
+  "ryo_dourado": 20,
+  "ryo_prateado": 0,
+  "ryo_bronze": 0,
+  "hp_max": 50,
+  "hp_atual": 48,
+  "hp_consumidos": 2,
+  "ether_max": 12,
+  "ether_atual": 11,
+  "ether_consumidos": 1,
+  "destino_max": 23,
+  "destino_atual": 22,
+  "destino_consumidos": 1,
+  "fortitude_max": "29+4 | 33 equipados",
+  "movimento_max": "03 | 15 metros",
+  "alcance_max": "03 (6) | 15 (30) metros",
+  "tecnicas_max": "02 | 00 equipada",
+  "fisico": 78,
+  "destreza": 4,
+  "cognicao": 4,
+  "carisma": 30,
+  "primordio": 75,
+  "primordio_detalhe": "(45+20+5+5)",
+  "ferramenta_fisico": 0,
+  "ferramenta_fisico_max": 2,
+  "ferramenta_fisico_atual": 2,
+  "ferramenta_fisico_sec_max": 3,
+  "ferramenta_fisico_sec_atual": 3,
+  "ferramenta_destreza": 0,
+  "ferramenta_destreza_max": 0,
+  "ferramenta_destreza_atual": 0,
+  "ferramenta_cognicao": 0,
+  "ferramenta_cognicao_max": 0,
+  "ferramenta_cognicao_atual": 0,
+  "ferramenta_carisma": 0,
+  "ferramenta_carisma_max": 1,
+  "ferramenta_carisma_atual": 1,
+  "html_ataques": "HTML formatado e estilizado contendo a se\xE7\xE3o COMBATE, ataques, dano, redutores e modificadores da ficha",
+  "html_dons": "HTML formatado e estilizado contendo DONS E PODERES, DOM\xCDNIOS | VIRTUDES e FRAQUEZAS",
+  "html_equipamentos": "HTML formatado e estilizado contendo UTILIT\xC1RIOS, EQUIPAMENTOS EM USO e EQUIPAMENTOS GUARDADOS NO BA\xDA",
+  "html_defesa": "HTML formatado e estilizado contendo REDUTORES, FRAGILIDADE MORTAL e ORGULHO DO SOBREVIVENTE"
+}
+
+Observa\xE7\xF5es importantes:
+- Os atributos principais s\xE3o: For\xE7a/F\xEDsico (fisico), Destreza (destreza), Cogni\xE7\xE3o (cognicao), Carisma (carisma), Prim\xF3rdio (primordio).
+- Sa\xFAde: se o PDF indicar '46+4 / 02 consumidos', o hp_max \xE9 50 (46+4), hp_consumidos \xE9 2, e hp_atual \xE9 48 (50 - 2).
+- Energia (\xC9ter): se indicar '12 / 01 consumidos', ether_max \xE9 12, ether_consumidos \xE9 1, ether_atual \xE9 11.
+- Destino (Henaen): se indicar '21+2 / 01 consumidos', destino_max \xE9 23, destino_consumidos \xE9 1, destino_atual \xE9 22.
+- Ferramentas: F\xEDsico com '2/2 3/3' significa ferramenta_fisico_max=2, ferramenta_fisico_atual=2, ferramenta_fisico_sec_max=3, ferramenta_fisico_sec_atual=3.
+- Formate os blocos html_ataques, html_dons, html_equipamentos e html_defesa com tags HTML limpas (divs, headings, listas, par\xE1grafos, strong, spans coloridos para status como BLEED, BURN, DANO, REDUTOR) para exibi\xE7\xE3o direta no app.
+`;
+      const contentsParts = [];
+      if (pdfBase64) {
+        const cleanBase64 = pdfBase64.replace(/^data:[^;]+;base64,/, "");
+        contentsParts.push({
+          inlineData: {
+            mimeType: mimeType || "application/pdf",
+            data: cleanBase64
+          }
+        });
+      }
+      if (textContent) {
+        contentsParts.push({
+          text: `Texto da ficha extra\xEDdo:
+${textContent}`
+        });
+      }
+      contentsParts.push({
+        text: promptText
+      });
+      const response = await ai.models.generateContent({
+        model: "gemini-3.7-flash",
+        contents: { parts: contentsParts },
+        config: {
+          responseMimeType: "application/json"
+        }
+      });
+      const rawJson = response.text || "{}";
+      let parsedData = {};
+      try {
+        parsedData = JSON.parse(rawJson);
+      } catch (jsonErr) {
+        console.error("Erro ao fazer parse do JSON retornado pelo Gemini:", jsonErr, rawJson);
+        return res.status(500).json({ error: "Falha ao estruturar os dados extra\xEDdos do PDF." });
+      }
+      return res.json({
+        success: true,
+        data: parsedData,
+        message: `Ficha de "${parsedData.nome || "Personagem"}" extra\xEDda com sucesso!`
+      });
+    } catch (err) {
+      console.error("Erro ao importar ficha por PDF:", err);
+      return res.status(500).json({ error: err?.message || "Erro no processamento do PDF da ficha." });
     }
   });
   app.post("/api/discord/send", async (req, res) => {
