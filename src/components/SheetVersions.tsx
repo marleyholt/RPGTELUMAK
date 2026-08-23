@@ -151,7 +151,7 @@ export function SheetVersions({ character, isGM, isOwner }: SheetVersionsProps) 
       {/* Current transformation status widget */}
       <div className="bg-[#080808] border border-white/10 p-5 rounded-none flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-none bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-500 shrink-0">
+          <div className="w-12 h-12 rounded-none bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-sky-400 shrink-0">
             <Sparkles className="h-5 w-5 animate-pulse" />
           </div>
           <div>
@@ -185,14 +185,14 @@ export function SheetVersions({ character, isGM, isOwner }: SheetVersionsProps) 
                 setVersaoNome('');
                 setShowForm(true);
               }}
-              className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white text-xs py-3 px-5 rounded-none font-black uppercase tracking-widest transition shadow-lg shrink-0"
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-xs py-3 px-5 rounded-none font-black uppercase tracking-widest transition shadow-lg shrink-0"
             >
               <Plus className="h-4 w-4 stroke-[3]" />
               Criar Nova Versão / Forma de Transformação
             </button>
           ) : (
             <form onSubmit={handleSaveVersion} className="bg-[#080808] border border-white/10 p-5 rounded-none space-y-5">
-              <h4 className="text-xs font-black text-orange-500 uppercase tracking-widest border-b border-white/10 pb-2.5 italic">
+              <h4 className="text-xs font-black text-sky-400 uppercase tracking-widest border-b border-white/10 pb-2.5 italic">
                 {editingId ? 'Editar Dados da Versão' : 'Modelar Novo Estado / Forma'}
               </h4>
 
@@ -204,7 +204,7 @@ export function SheetVersions({ character, isGM, isOwner }: SheetVersionsProps) 
                     value={versaoNome}
                     onChange={(e) => setVersaoNome(e.target.value)}
                     placeholder="Ex: Modo Titan, Despertar de Éter, Corrupção"
-                    className="w-full bg-[#0a0a0a] border border-white/10 rounded-none px-3.5 py-2.5 text-white text-xs focus:border-orange-500 focus:outline-none"
+                    className="w-full bg-[#0a0a0a] border border-white/10 rounded-none px-3.5 py-2.5 text-white text-xs focus:border-blue-500 focus:outline-none"
                     required
                   />
                 </div>
@@ -215,7 +215,7 @@ export function SheetVersions({ character, isGM, isOwner }: SheetVersionsProps) 
                     type="number"
                     value={vNivel}
                     onChange={(e) => setVNivel(Number(e.target.value))}
-                    className="w-full bg-[#0a0a0a] border border-white/10 rounded-none px-3.5 py-2.5 text-white text-xs focus:border-orange-500 focus:outline-none font-mono"
+                    className="w-full bg-[#0a0a0a] border border-white/10 rounded-none px-3.5 py-2.5 text-white text-xs focus:border-blue-500 focus:outline-none font-mono"
                     min="1"
                     required
                   />
@@ -227,7 +227,7 @@ export function SheetVersions({ character, isGM, isOwner }: SheetVersionsProps) 
                     type="number"
                     value={vHpMax}
                     onChange={(e) => setVHpMax(Number(e.target.value))}
-                    className="w-full bg-[#0a0a0a] border border-white/10 rounded-none px-3.5 py-2.5 text-white text-xs focus:border-orange-500 focus:outline-none font-mono"
+                    className="w-full bg-[#0a0a0a] border border-white/10 rounded-none px-3.5 py-2.5 text-white text-xs focus:border-blue-500 focus:outline-none font-mono"
                     min="1"
                     required
                   />
@@ -239,7 +239,7 @@ export function SheetVersions({ character, isGM, isOwner }: SheetVersionsProps) 
                     type="number"
                     value={vEtherMax}
                     onChange={(e) => setVEtherMax(Number(e.target.value))}
-                    className="w-full bg-[#0a0a0a] border border-white/10 rounded-none px-3.5 py-2.5 text-white text-xs focus:border-orange-500 focus:outline-none font-mono"
+                    className="w-full bg-[#0a0a0a] border border-white/10 rounded-none px-3.5 py-2.5 text-white text-xs focus:border-blue-500 focus:outline-none font-mono"
                     min="0"
                     required
                   />
@@ -251,7 +251,7 @@ export function SheetVersions({ character, isGM, isOwner }: SheetVersionsProps) 
                     type="number"
                     value={vDestinoMax}
                     onChange={(e) => setVDestinoMax(Number(e.target.value))}
-                    className="w-full bg-[#0a0a0a] border border-white/10 rounded-none px-3.5 py-2.5 text-white text-xs focus:border-orange-500 focus:outline-none font-mono"
+                    className="w-full bg-[#0a0a0a] border border-white/10 rounded-none px-3.5 py-2.5 text-white text-xs focus:border-blue-500 focus:outline-none font-mono"
                     min="0"
                     required
                   />
@@ -260,7 +260,7 @@ export function SheetVersions({ character, isGM, isOwner }: SheetVersionsProps) 
 
               {/* Attributes block */}
               <div>
-                <span className="block text-[10px] text-orange-500 uppercase font-black tracking-widest mb-2.5 italic">Atributos Substitutos</span>
+                <span className="block text-[10px] text-sky-400 uppercase font-black tracking-widest mb-2.5 italic">Atributos Substitutos</span>
                 <div className="grid grid-cols-5 gap-2 text-center text-xs">
                   <div className="bg-[#030303] p-2 border border-white/5 rounded-none">
                     <span className="text-[9px] text-white/30 block uppercase font-bold tracking-widest mb-1">FIS</span>
@@ -280,14 +280,14 @@ export function SheetVersions({ character, isGM, isOwner }: SheetVersionsProps) 
                   </div>
                   <div className="bg-[#030303] p-2 border border-white/5 rounded-none">
                     <span className="text-[9px] text-white/30 block uppercase font-bold tracking-widest mb-1">PRI</span>
-                    <input type="number" value={vPrimordio} onChange={e => setVPrimordio(Number(e.target.value))} className="w-full text-center bg-transparent focus:outline-none font-black text-orange-500 font-mono text-sm" />
+                    <input type="number" value={vPrimordio} onChange={e => setVPrimordio(Number(e.target.value))} className="w-full text-center bg-transparent focus:outline-none font-black text-sky-400 font-mono text-sm" />
                   </div>
                 </div>
               </div>
 
               {/* Alternate images via direct file upload */}
               <div className="space-y-2">
-                <span className="block text-[10px] text-orange-500 uppercase font-black tracking-widest italic">Imagens da Forma (Upload de Fotos)</span>
+                <span className="block text-[10px] text-sky-400 uppercase font-black tracking-widest italic">Imagens da Forma (Upload de Fotos)</span>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <ImageUploadField
                     label="Saudável"
@@ -309,15 +309,15 @@ export function SheetVersions({ character, isGM, isOwner }: SheetVersionsProps) 
 
               {/* Alternate Rich Text blocks */}
               <div className="space-y-3">
-                <span className="block text-[10px] text-orange-500 uppercase font-black tracking-widest italic">Planilhas de Ataques e Dons da Forma (Texto/Tags HTML)</span>
+                <span className="block text-[10px] text-sky-400 uppercase font-black tracking-widest italic">Planilhas de Ataques e Dons da Forma (Texto/Tags HTML)</span>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[9px] text-white/40 mb-1 uppercase font-bold">Habilidades & Ataques Diferenciados</label>
-                    <textarea value={vHtmlAtaques} onChange={e => setVHtmlAtaques(e.target.value)} placeholder="Técnicas especiais liberadas..." className="w-full h-24 bg-[#0a0a0a] border border-white/10 rounded-none p-3 text-[11px] text-white focus:outline-none focus:border-orange-500 font-mono" />
+                    <textarea value={vHtmlAtaques} onChange={e => setVHtmlAtaques(e.target.value)} placeholder="Técnicas especiais liberadas..." className="w-full h-24 bg-[#0a0a0a] border border-white/10 rounded-none p-3 text-[11px] text-white focus:outline-none focus:border-blue-500 font-mono" />
                   </div>
                   <div>
                     <label className="block text-[9px] text-white/40 mb-1 uppercase font-bold">Dons & Poderes Ativos na Transformação</label>
-                    <textarea value={vHtmlDons} onChange={e => setVHtmlDons(e.target.value)} placeholder="Dons exclusivos modificados..." className="w-full h-24 bg-[#0a0a0a] border border-white/10 rounded-none p-3 text-[11px] text-white focus:outline-none focus:border-orange-500 font-mono" />
+                    <textarea value={vHtmlDons} onChange={e => setVHtmlDons(e.target.value)} placeholder="Dons exclusivos modificados..." className="w-full h-24 bg-[#0a0a0a] border border-white/10 rounded-none p-3 text-[11px] text-white focus:outline-none focus:border-blue-500 font-mono" />
                   </div>
                 </div>
               </div>
@@ -332,7 +332,7 @@ export function SheetVersions({ character, isGM, isOwner }: SheetVersionsProps) 
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-none text-xs font-black uppercase tracking-widest transition shadow-lg"
+                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-none text-xs font-black uppercase tracking-widest transition shadow-lg"
                 >
                   Salvar Mudanças
                 </button>
@@ -353,7 +353,7 @@ export function SheetVersions({ character, isGM, isOwner }: SheetVersionsProps) 
                 key={v.id}
                 className={`p-4 rounded-none border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
                   isActive
-                    ? 'bg-[#0f0b05] border-orange-500/50 shadow'
+                    ? 'bg-blue-950/30 border-blue-500/50 shadow'
                     : 'bg-[#080808] border-white/10 hover:border-white/20'
                 }`}
               >
@@ -363,9 +363,9 @@ export function SheetVersions({ character, isGM, isOwner }: SheetVersionsProps) 
                     <span className="text-[9px] bg-white/10 text-white border border-white/10 py-0.5 px-2 rounded-none font-mono font-black uppercase tracking-wider">Nvl {v.nivel}</span>
                   </div>
                   <div className="text-[10px] text-white/50 mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono">
-                    <span>HP Max: <strong className="text-orange-500 font-bold">{v.hp_max}</strong></span>
-                    <span>Éter Max: <strong className="text-orange-500 font-bold">{v.ether_max}</strong></span>
-                    <span>Destino Max: <strong className="text-orange-500 font-bold">{v.destino_max}</strong></span>
+                    <span>HP Max: <strong className="text-sky-400 font-bold">{v.hp_max}</strong></span>
+                    <span>Éter Max: <strong className="text-sky-400 font-bold">{v.ether_max}</strong></span>
+                    <span>Destino Max: <strong className="text-sky-400 font-bold">{v.destino_max}</strong></span>
                     <span>Atributos (F/D/C/C/P): <strong className="text-white font-bold">{v.fisico}/{v.destreza}/{v.cognicao}/{v.carisma}/{v.primordio}</strong></span>
                   </div>
                 </div>
@@ -374,7 +374,7 @@ export function SheetVersions({ character, isGM, isOwner }: SheetVersionsProps) 
                   {!isActive ? (
                     <button
                       onClick={() => handleActivateVersion(v.id)}
-                      className="text-[10px] font-black uppercase tracking-widest bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-none transition flex items-center gap-1.5 shrink-0"
+                      className="text-[10px] font-black uppercase tracking-widest bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-none transition flex items-center gap-1.5 shrink-0"
                     >
                       <span>Ativar</span>
                       <ArrowRight className="h-3.5 w-3.5 stroke-[3]" />

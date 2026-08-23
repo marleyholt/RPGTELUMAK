@@ -88,7 +88,7 @@ export function StatusManager({ isGM, activeCharacter }: StatusManagerProps) {
   return (
     <div className="bg-[#080808] border border-white/10 p-5 rounded-none shadow-xl space-y-5">
       <div className="flex items-center justify-between border-b border-white/10 pb-3 flex-wrap gap-2">
-        <h3 className="text-xs font-black text-orange-500 uppercase tracking-widest flex items-center gap-1.5 italic">
+        <h3 className="text-xs font-black text-sky-400 uppercase tracking-widest flex items-center gap-1.5 italic">
           <Sparkles className="h-4 w-4 stroke-[3]" />
           Gerenciar Status de Jogo
         </h3>
@@ -109,7 +109,7 @@ export function StatusManager({ isGM, activeCharacter }: StatusManagerProps) {
               value={nome}
               onChange={(e) => setNome(e.target.value)}
               placeholder="Ex: Paralisado, Queimado"
-              className="w-full bg-[#0a0a0a] border border-white/10 rounded-none px-3.5 py-2.5 text-white text-xs focus:border-orange-500 focus:outline-none placeholder-white/20"
+              className="w-full bg-[#0a0a0a] border border-white/10 rounded-none px-3.5 py-2.5 text-white text-xs focus:border-blue-500 focus:outline-none placeholder-white/20"
               required
             />
           </div>
@@ -122,7 +122,7 @@ export function StatusManager({ isGM, activeCharacter }: StatusManagerProps) {
                 value={imageUrl}
                 onChange={(e) => setImageUrl(e.target.value)}
                 placeholder="https://icon-library/burn.png"
-                className="flex-1 bg-[#0a0a0a] border border-white/10 rounded-none px-3.5 py-2.5 text-white text-xs focus:border-orange-500 focus:outline-none font-mono placeholder-white/10"
+                className="flex-1 bg-[#0a0a0a] border border-white/10 rounded-none px-3.5 py-2.5 text-white text-xs focus:border-blue-500 focus:outline-none font-mono placeholder-white/10"
                 required
               />
               <button
@@ -154,7 +154,7 @@ export function StatusManager({ isGM, activeCharacter }: StatusManagerProps) {
 
           <button
             type="submit"
-            className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs py-2 px-5 rounded-none uppercase tracking-widest transition shadow-lg shrink-0"
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs py-2 px-5 rounded-none uppercase tracking-widest transition shadow-lg shrink-0"
           >
             {editingId ? <Check className="h-3.5 w-3.5 stroke-[3]" /> : <Plus className="h-4 w-4 stroke-[3]" />}
             {editingId ? 'Salvar Edições' : 'Cadastrar Status'}
@@ -164,8 +164,8 @@ export function StatusManager({ isGM, activeCharacter }: StatusManagerProps) {
 
       {/* Applied Status Quick Toggles for Selected Active Character */}
       {activeCharacter && (
-        <div className="bg-black border border-orange-500/10 p-4 rounded-none">
-          <p className="text-[10px] text-orange-400 font-extrabold uppercase tracking-widest mb-3.5">
+        <div className="bg-black border border-blue-500/20 p-4 rounded-none">
+          <p className="text-[10px] text-sky-400 font-extrabold uppercase tracking-widest mb-3.5">
             Alternar Status Ativos em: <span className="text-white normal-case font-mono">{activeCharacter.nome}</span>
           </p>
           <div className="flex flex-wrap gap-2">
@@ -180,7 +180,7 @@ export function StatusManager({ isGM, activeCharacter }: StatusManagerProps) {
                     onClick={() => handleToggleOnCharacter(st.id, activeCharacter)}
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-none text-xs transition duration-150 border font-bold ${
                       isActive
-                        ? 'bg-[#0f0b05] border-orange-500/50 text-orange-500'
+                        ? 'bg-blue-950/40 border-blue-500/60 text-sky-300'
                         : 'bg-black border-white/10 hover:border-white/20 text-white/40 hover:text-white/80'
                     }`}
                   >
@@ -208,7 +208,7 @@ export function StatusManager({ isGM, activeCharacter }: StatusManagerProps) {
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs font-black text-white uppercase tracking-wider">{st.nome}</p>
-                  <p className="text-[9px] text-orange-400 font-mono tracking-tight">{st.id}</p>
+                  <p className="text-[9px] text-sky-400 font-mono tracking-tight">{st.id}</p>
                 </div>
               </div>
 

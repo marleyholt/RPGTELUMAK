@@ -160,14 +160,14 @@ export function ImageCropModal({
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-white/10 bg-black">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-orange-500/10 border border-orange-500/30 text-orange-500">
+            <div className="p-1.5 bg-blue-500/10 border border-blue-500/30 text-sky-400">
               <Crop className="h-4 w-4" />
             </div>
             <div>
               <h3 className="text-xs font-black uppercase tracking-wider text-white">
                 {title}
               </h3>
-              <p className="text-[9px] text-white/50 font-mono">
+              <p className="text-[9px] text-sky-200/50 font-mono">
                 Arraste para mover, use o zoom para enquadrar o foco
               </p>
             </div>
@@ -187,7 +187,7 @@ export function ImageCropModal({
             onClick={() => setSelectedRatio('portrait')}
             className={`px-3 py-1 border transition uppercase ${
               selectedRatio === 'portrait'
-                ? 'bg-orange-500 text-white border-orange-500 font-bold'
+                ? 'bg-blue-600 text-white border-blue-500 font-bold'
                 : 'border-white/10 text-white/50 hover:text-white'
             }`}
           >
@@ -198,7 +198,7 @@ export function ImageCropModal({
             onClick={() => setSelectedRatio('square')}
             className={`px-3 py-1 border transition uppercase ${
               selectedRatio === 'square'
-                ? 'bg-orange-500 text-white border-orange-500 font-bold'
+                ? 'bg-blue-600 text-white border-blue-500 font-bold'
                 : 'border-white/10 text-white/50 hover:text-white'
             }`}
           >
@@ -209,7 +209,7 @@ export function ImageCropModal({
             onClick={() => setSelectedRatio('landscape')}
             className={`px-3 py-1 border transition uppercase ${
               selectedRatio === 'landscape'
-                ? 'bg-orange-500 text-white border-orange-500 font-bold'
+                ? 'bg-blue-600 text-white border-blue-500 font-bold'
                 : 'border-white/10 text-white/50 hover:text-white'
             }`}
           >
@@ -233,7 +233,7 @@ export function ImageCropModal({
 
           {/* Mask container */}
           <div 
-            className="relative border-2 border-orange-500/80 shadow-[0_0_25px_rgba(249,115,22,0.2)] overflow-hidden"
+            className="relative border-2 border-blue-500/80 shadow-[0_0_25px_rgba(59,130,246,0.25)] overflow-hidden"
             style={{
               width: `${Math.min(targetW, 300)}px`,
               height: `${Math.min(targetH, 360)}px`,
@@ -269,10 +269,10 @@ export function ImageCropModal({
               step="0.05"
               value={zoom}
               onChange={(e) => setZoom(parseFloat(e.target.value))}
-              className="flex-1 accent-orange-500 h-1.5 bg-white/10 rounded appearance-none cursor-pointer"
+              className="flex-1 accent-blue-500 h-1.5 bg-white/10 rounded appearance-none cursor-pointer"
             />
             <ZoomIn className="h-3.5 w-3.5 text-white/40" />
-            <span className="text-[10px] font-mono text-orange-400 w-10 text-right">
+            <span className="text-[10px] font-mono text-sky-400 w-10 text-right">
               {Math.round(zoom * 100)}%
             </span>
           </div>
@@ -285,7 +285,7 @@ export function ImageCropModal({
                 className="p-1.5 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10 text-[10px] font-mono flex items-center gap-1 transition"
                 title="Girar 90°"
               >
-                <RotateCw className="h-3 w-3 text-orange-400" />
+                <RotateCw className="h-3 w-3 text-sky-400" />
                 Girar
               </button>
               <button
@@ -311,7 +311,7 @@ export function ImageCropModal({
                 type="button"
                 onClick={handleConfirmSave}
                 disabled={isExporting}
-                className="px-4 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-black uppercase tracking-wider transition flex items-center gap-1.5 shadow"
+                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black uppercase tracking-wider transition flex items-center gap-1.5 shadow"
               >
                 {isExporting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                 Aplicar Foco

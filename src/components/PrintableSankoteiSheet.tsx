@@ -34,9 +34,9 @@ export function PrintableSankoteiSheet({
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/90 backdrop-blur-md p-4 sm:p-6 print:p-0 print:bg-white print:static print:overflow-visible">
       
       {/* Non-Print Control Toolbar */}
-      <div className="no-print max-w-4xl mx-auto mb-4 bg-[#111] border border-orange-500/40 p-4 shadow-2xl flex flex-wrap items-center justify-between gap-3 sticky top-2 z-50">
+      <div className="no-print max-w-4xl mx-auto mb-4 bg-[#111] border border-blue-500/40 p-4 shadow-2xl flex flex-wrap items-center justify-between gap-3 sticky top-2 z-50">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-orange-500 text-black font-black text-xs">
+          <div className="p-2 bg-blue-600 text-white font-black text-xs">
             PDF SANKÖTEI
           </div>
           <div>
@@ -52,7 +52,7 @@ export function PrintableSankoteiSheet({
         <div className="flex items-center gap-2">
           <button
             onClick={handlePrint}
-            className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs py-2 px-4 shadow-lg uppercase tracking-wider transition"
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs py-2 px-4 shadow-lg uppercase tracking-wider transition"
           >
             <Printer className="h-4 w-4" />
             <span>Imprimir / Gerar PDF</span>

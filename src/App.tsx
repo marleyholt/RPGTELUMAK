@@ -557,8 +557,8 @@ export default function App() {
     return (
       <div className="min-h-screen bg-[#050505] flex items-center justify-center text-white">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-xs font-mono tracking-widest uppercase text-white/50">Sintonizando Grimório...</span>
+          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-xs font-mono tracking-widest uppercase text-sky-400/70">Sintonizando Grimório...</span>
         </div>
       </div>
     );
@@ -567,10 +567,10 @@ export default function App() {
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-[#050505] flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-[#0a0a0a] border border-white/10 p-8 shadow-2xl relative">
+        <div className="max-w-md w-full bg-[#0a0a0a] border border-blue-500/20 p-8 shadow-2xl relative">
           
           <div className="text-center mb-8 flex flex-col items-center">
-            <div className="w-20 h-20 rounded-full border-2 border-orange-500/40 p-1 bg-black/80 shadow-2xl mb-3 flex items-center justify-center">
+            <div className="w-20 h-20 rounded-full border-2 border-blue-500/40 p-1 bg-black/80 shadow-2xl mb-3 flex items-center justify-center">
               <img 
                 src="/telumak-logo.svg" 
                 alt="RPG Telumak" 
@@ -579,16 +579,16 @@ export default function App() {
               />
             </div>
             <h1 className="text-3xl sm:text-4xl font-black italic tracking-tighter uppercase text-white mb-1">
-              RPG <span className="text-orange-500">TELUMAK</span>
+              RPG <span className="text-blue-500">TELUMAK</span>
             </h1>
-            <p className="text-[10px] uppercase font-mono tracking-widest text-white/40">Sistema Digital de Mesa e Fichas</p>
+            <p className="text-[10px] uppercase font-mono tracking-widest text-sky-400/60">Sistema Digital de Mesa e Fichas</p>
           </div>
 
           <div className="flex border-b border-white/10 mb-6">
             <button
               onClick={() => { setAuthTab('LOGIN'); setAuthError(''); }}
               className={`flex-1 py-2 text-[10px] font-black uppercase tracking-wider transition ${
-                authTab === 'LOGIN' ? 'bg-orange-500 text-white' : 'text-white/40 hover:text-white'
+                authTab === 'LOGIN' ? 'bg-blue-600 text-white' : 'text-white/40 hover:text-white'
               }`}
             >
               Entrar
@@ -596,7 +596,7 @@ export default function App() {
             <button
               onClick={() => { setAuthTab('REGISTER'); setAuthError(''); }}
               className={`flex-1 py-2 text-[10px] font-black uppercase tracking-wider transition ${
-                authTab === 'REGISTER' ? 'bg-orange-500 text-white' : 'text-white/40 hover:text-white'
+                authTab === 'REGISTER' ? 'bg-blue-600 text-white' : 'text-white/40 hover:text-white'
               }`}
             >
               Criar Conta
@@ -612,32 +612,32 @@ export default function App() {
           {authTab === 'LOGIN' ? (
             <form onSubmit={handleEmailLogin} className="space-y-4">
               <div className="space-y-1">
-                <label className="block text-[9px] text-white/40 font-black uppercase tracking-widest">E-mail do Jogador</label>
+                <label className="block text-[9px] text-sky-300/60 font-black uppercase tracking-widest">E-mail do Jogador</label>
                 <input
                   type="email"
                   value={authEmail}
                   onChange={e => setAuthEmail(e.target.value)}
                   placeholder="seu-email@telumak.com"
-                  className="w-full bg-[#050505] border border-white/10 px-3 py-2.5 text-xs text-white focus:outline-none focus:border-orange-500 rounded-none placeholder-white/10 animate-fade-in"
+                  className="w-full bg-[#050505] border border-white/10 px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500 rounded-none placeholder-white/10 animate-fade-in"
                   required
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="block text-[9px] text-white/40 font-black uppercase tracking-widest">Senha de Conjuração</label>
+                <label className="block text-[9px] text-sky-300/60 font-black uppercase tracking-widest">Senha de Conjuração</label>
                 <input
                   type="password"
                   value={authPassword}
                   onChange={e => setAuthPassword(e.target.value)}
                   placeholder="******"
-                  className="w-full bg-[#050505] border border-white/10 px-3 py-2.5 text-xs text-white focus:outline-none focus:border-orange-500 rounded-none placeholder-white/10"
+                  className="w-full bg-[#050505] border border-white/10 px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500 rounded-none placeholder-white/10"
                   required
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black uppercase text-[10px] tracking-widest py-3 transition-all duration-150 rounded-none"
+                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black uppercase text-[10px] tracking-widest py-3 transition-all duration-150 rounded-none"
               >
                 Confirmar Entrada
               </button>
@@ -646,56 +646,56 @@ export default function App() {
             <form onSubmit={handleEmailRegister} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="block text-[9px] text-white/40 font-black uppercase tracking-widest">Nome do Herói</label>
+                  <label className="block text-[9px] text-sky-300/60 font-black uppercase tracking-widest">Nome do Herói</label>
                   <input
                     type="text"
                     value={authDisplayName}
                     onChange={e => setAuthDisplayName(e.target.value)}
                     placeholder="Guerreiro"
-                    className="w-full bg-[#050505] border border-white/10 px-3 py-2.5 text-xs text-white focus:outline-none focus:border-orange-500 rounded-none placeholder-white/10"
+                    className="w-full bg-[#050505] border border-white/10 px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500 rounded-none placeholder-white/10"
                     required
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-[9px] text-white/40 font-black uppercase tracking-widest flex items-center gap-1">Chave GM <HelpCircle className="h-2.5 w-2.5 text-orange-400" title="Insira 'TELUMAK_GM' para se registrar como Mestre de jogo instantaneamente." /></label>
+                  <label className="block text-[9px] text-sky-300/60 font-black uppercase tracking-widest flex items-center gap-1">Chave GM <HelpCircle className="h-2.5 w-2.5 text-sky-400" title="Insira 'TELUMAK_GM' para se registrar como Mestre de jogo instantaneamente." /></label>
                   <input
                     type="text"
                     value={gmSecretKey}
                     onChange={e => setGmSecretKey(e.target.value)}
                     placeholder="Opcional"
-                    className="w-full bg-[#050505] border border-white/10 px-3 py-2.5 text-xs text-orange-400 focus:outline-none focus:border-orange-500 rounded-none placeholder-white/10"
+                    className="w-full bg-[#050505] border border-white/10 px-3 py-2.5 text-xs text-sky-400 focus:outline-none focus:border-blue-500 rounded-none placeholder-white/10"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="block text-[9px] text-white/40 font-black uppercase tracking-widest">E-mail de Inscrição</label>
+                <label className="block text-[9px] text-sky-300/60 font-black uppercase tracking-widest">E-mail de Inscrição</label>
                 <input
                   type="email"
                   value={authEmail}
                   onChange={e => setAuthEmail(e.target.value)}
                   placeholder="seu-email@telumak.com"
-                  className="w-full bg-[#050505] border border-white/10 px-3 py-2.5 text-xs text-white focus:outline-none focus:border-orange-500 rounded-none placeholder-white/10"
+                  className="w-full bg-[#050505] border border-white/10 px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500 rounded-none placeholder-white/10"
                   required
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="block text-[9px] text-white/40 font-black uppercase tracking-widest">Senha (Min. 6 caracteres)</label>
+                <label className="block text-[9px] text-sky-300/60 font-black uppercase tracking-widest">Senha (Min. 6 caracteres)</label>
                 <input
                   type="password"
                   value={authPassword}
                   onChange={e => setAuthPassword(e.target.value)}
                   placeholder="******"
-                  className="w-full bg-[#050505] border border-white/10 px-3 py-2.5 text-xs text-white focus:outline-none focus:border-orange-500 rounded-none placeholder-white/10"
+                  className="w-full bg-[#050505] border border-white/10 px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500 rounded-none placeholder-white/10"
                   required
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black uppercase text-[10px] tracking-widest py-3 transition-all duration-150 rounded-none"
+                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black uppercase text-[10px] tracking-widest py-3 transition-all duration-150 rounded-none"
               >
                 Completar Cadastro
               </button>
@@ -711,7 +711,7 @@ export default function App() {
           <button
             onClick={handleLogin}
             type="button"
-            className="w-full bg-white text-black hover:bg-orange-500 hover:text-white font-black uppercase text-[10px] tracking-widest py-3 px-4 transition-colors duration-150 flex items-center justify-center gap-3 shadow active:scale-95 rounded-none"
+            className="w-full bg-white text-black hover:bg-blue-600 hover:text-white font-black uppercase text-[10px] tracking-widest py-3 px-4 transition-colors duration-150 flex items-center justify-center gap-3 shadow active:scale-95 rounded-none"
           >
             <svg className="h-3.5 w-3.5 fill-current shrink-0" viewBox="0 0 24 24">
               <path d="M12.24 10.285V13.4h6.887C18.2 15.614 15.645 18 12.24 18c-3.86 0-7-3.14-7-7s3.14-7 7-7c1.7 0 3.3.6 4.5 1.6l2.4-2.4C17.3 1.5 14.9 1 12.24 1 6.137 1 1.24 5.9 1.24 12s4.897 11 11 11c5.93 0 10.518-4.14 10.518-10.5 0-.714-.07-1.41-.2-2.215H12.24z"/>
@@ -719,7 +719,7 @@ export default function App() {
             Sincronizar com o Google
           </button>
 
-          <p className="text-[8px] text-white/20 font-black tracking-widest uppercase mt-6 text-center">TELUMAK RPG SYSTEM</p>
+          <p className="text-[8px] text-sky-400/30 font-black tracking-widest uppercase mt-6 text-center">TELUMAK RPG SYSTEM</p>
         </div>
       </div>
     );
@@ -729,12 +729,12 @@ export default function App() {
     <div className="min-h-screen bg-[#050505] flex flex-col justify-between text-white font-sans overflow-x-hidden">
       
       {/* GLOBAL NAVBAR */}
-      <nav className="no-print bg-[#0a0a0a] border-b border-white/10 p-4 sticky top-0 z-40 shadow-xl">
+      <nav className="no-print bg-[#0a0a0a] border-b border-blue-500/20 p-4 sticky top-0 z-40 shadow-xl">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row gap-4 items-center justify-between">
           
           {/* Logo & Identity */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full border border-orange-500/40 p-0.5 bg-black shrink-0 shadow-lg shadow-orange-500/10 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-full border border-blue-500/40 p-0.5 bg-black shrink-0 shadow-lg shadow-blue-500/10 flex items-center justify-center">
               <img 
                 src="/telumak-logo.svg" 
                 alt="RPG Telumak Logo" 
@@ -744,14 +744,14 @@ export default function App() {
             </div>
             <div>
               <span className="text-2xl sm:text-3xl font-black tracking-tighter uppercase italic leading-none text-white flex items-center gap-1.5">
-                <span>RPG</span> <span className="text-orange-500">TELUMAK</span>
+                <span>RPG</span> <span className="text-blue-500">TELUMAK</span>
               </span>
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-[10px] text-white/50 font-bold uppercase tracking-widest leading-none">
+                <span className="text-[10px] text-sky-300/70 font-bold uppercase tracking-widest leading-none">
                   {isGM ? '👑 Escudo do Mestre' : '🛡️ Portal do Jogador'}
                 </span>
                 <span className="text-white/20 text-[10px]">•</span>
-                <span className="text-[10px] font-mono text-orange-400 uppercase tracking-wider leading-none">{currentUser?.email}</span>
+                <span className="text-[10px] font-mono text-sky-400 uppercase tracking-wider leading-none">{currentUser?.email}</span>
               </div>
             </div>
           </div>
@@ -764,7 +764,7 @@ export default function App() {
                 setShowCreateCharForm(false);
               }}
               className={`flex items-center gap-1.5 px-5 py-2 text-xs font-black uppercase tracking-widest transition duration-150 ${
-                currentTab === 'personagens' ? 'bg-orange-500 text-white' : 'text-white/40 hover:text-white hover:bg-white/5'
+                currentTab === 'personagens' ? 'bg-blue-600 text-white' : 'text-white/40 hover:text-white hover:bg-white/5'
               }`}
             >
               <Scroll className="h-3.5 w-3.5" />
@@ -774,21 +774,21 @@ export default function App() {
             <button
               onClick={() => setCurrentTab('arena')}
               className={`flex items-center gap-1.5 px-5 py-2 text-xs font-black uppercase tracking-widest transition duration-150 ${
-                currentTab === 'arena' ? 'bg-orange-500 text-white' : 'text-white/40 hover:text-white hover:bg-white/5'
+                currentTab === 'arena' ? 'bg-blue-600 text-white' : 'text-white/40 hover:text-white hover:bg-white/5'
               }`}
               title={!isPlayerActiveOnTable ? "Acesso restrito: Requer ficha ativa na mesa" : "Arena Tática em Tempo Real"}
             >
               <LayoutGrid className="h-3.5 w-3.5" />
               <span>Arena Grid</span>
               {!isPlayerActiveOnTable && (
-                <Lock className="h-3 w-3 text-amber-400 shrink-0" />
+                <Lock className="h-3 w-3 text-cyan-400 shrink-0" />
               )}
             </button>
 
             <button
               onClick={() => setCurrentTab('notebook')}
               className={`flex items-center gap-1.5 px-5 py-2 text-xs font-black uppercase tracking-widest transition duration-150 ${
-                currentTab === 'notebook' ? 'bg-orange-500 text-white' : 'text-white/40 hover:text-white hover:bg-white/5'
+                currentTab === 'notebook' ? 'bg-blue-600 text-white' : 'text-white/40 hover:text-white hover:bg-white/5'
               }`}
             >
               <MessageSquareText className="h-3.5 w-3.5" />
@@ -801,7 +801,7 @@ export default function App() {
             {isGM ? (
               <button
                 onClick={() => setShowGMConfig(true)}
-                className="p-2 bg-[#151515] hover:bg-[#202020] text-orange-400 border border-orange-500/30 text-xs font-black uppercase tracking-wider transition shadow flex items-center justify-center"
+                className="p-2 bg-[#151515] hover:bg-[#202020] text-sky-400 border border-blue-500/30 text-xs font-black uppercase tracking-wider transition shadow flex items-center justify-center"
                 title="Configurações do Mestre (GM) & Criar Fichas"
               >
                 <Settings className="h-4 w-4" />
@@ -809,19 +809,19 @@ export default function App() {
             ) : (
               <button
                 onClick={() => setShowPlayerConfig(true)}
-                className="p-2 bg-[#151515] hover:bg-[#202020] text-orange-400 border border-orange-500/30 text-xs font-black uppercase tracking-wider transition shadow flex items-center justify-center"
+                className="p-2 bg-[#151515] hover:bg-[#202020] text-sky-400 border border-blue-500/30 text-xs font-black uppercase tracking-wider transition shadow flex items-center justify-center"
                 title="Meu Perfil, Avatar e Segurança"
               >
                 <Settings className="h-4 w-4" />
               </button>
             )}
 
-            <span className="text-[10px] bg-orange-500/10 font-bold tracking-widest text-orange-500 border border-orange-500/20 rounded px-2.5 py-1">
+            <span className="text-[10px] bg-blue-500/15 font-bold tracking-widest text-sky-400 border border-blue-500/30 rounded px-2.5 py-1">
               {userProfile?.role || 'PLAYER'}
             </span>
             <button
               onClick={handleLogout}
-              className="text-white/40 hover:text-orange-500 transition-colors"
+              className="text-white/40 hover:text-sky-400 transition-colors"
               title="Encerrar Sessão"
             >
               <LogOut className="h-5 w-5" />
@@ -852,10 +852,10 @@ export default function App() {
               characters={activeCharacters}
             />
           ) : (
-            <div className="bg-[#080808] border border-amber-500/30 p-8 sm:p-12 shadow-2xl text-center flex flex-col items-center justify-center max-w-2xl mx-auto my-8 relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-b from-amber-500/[0.04] to-transparent pointer-events-none"></div>
+            <div className="bg-[#080808] border border-blue-500/30 p-8 sm:p-12 shadow-2xl text-center flex flex-col items-center justify-center max-w-2xl mx-auto my-8 relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-b from-blue-500/[0.05] to-transparent pointer-events-none"></div>
               
-              <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-5 shadow-lg">
+              <div className="w-16 h-16 rounded-full bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-cyan-400 mb-5 shadow-lg">
                 <ShieldAlert className="h-8 w-8" />
               </div>
 
@@ -863,7 +863,7 @@ export default function App() {
                 Acesso Restrito ao Grid Tático
               </h2>
               
-              <p className="text-xs sm:text-sm text-[#a0a0a0] leading-relaxed max-w-lg mb-6 font-sans">
+              <p className="text-xs sm:text-sm text-sky-200/70 leading-relaxed max-w-lg mb-6 font-sans">
                 A visualização e interação com a Arena Tática em tempo real é exclusiva para fichas que foram escaladas na <strong className="text-white">Mesa de Combate</strong> pelo Mestre (GM).
               </p>
 
@@ -871,11 +871,11 @@ export default function App() {
               <div className="w-full bg-[#101010] border border-white/10 p-4 rounded-none text-left mb-6 space-y-2">
                 <div className="flex items-center justify-between text-xs border-b border-white/5 pb-2">
                   <span className="text-white/50 font-mono">Usuário:</span>
-                  <span className="text-orange-400 font-mono font-bold">{currentUser?.email}</span>
+                  <span className="text-sky-400 font-mono font-bold">{currentUser?.email}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs border-b border-white/5 pb-2">
                   <span className="text-white/50 font-mono">Status na Mesa:</span>
-                  <span className="text-amber-400 font-mono font-bold flex items-center gap-1">
+                  <span className="text-cyan-400 font-mono font-bold flex items-center gap-1">
                     <Lock className="h-3 w-3" />
                     Fora da Mesa de Combate
                   </span>
@@ -901,7 +901,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setCurrentTab('personagens')}
-                  className="px-6 py-2.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-black uppercase tracking-wider transition shadow"
+                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black uppercase tracking-wider transition shadow"
                 >
                   Ir para Minhas Fichas
                 </button>
@@ -914,7 +914,7 @@ export default function App() {
                 </button>
               </div>
 
-              <p className="text-[10px] text-white/40 font-mono mt-6">
+              <p className="text-[10px] text-sky-400/50 font-mono mt-6">
                 💡 Assim que o Mestre marcar sua ficha com "+ Mesa" no painel, o Grid Tático será desbloqueado automaticamente.
               </p>
             </div>
@@ -930,13 +930,13 @@ export default function App() {
           {isGM && (
             <div className="bg-[#0a0a0a] border border-white/10 p-3 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
               <div className="flex items-center gap-3 shrink-0">
-                <div className="flex items-center gap-2 px-2.5 py-1 bg-orange-500/10 border border-orange-500/30 text-orange-400">
+                <div className="flex items-center gap-2 px-2.5 py-1 bg-blue-500/10 border border-blue-500/30 text-sky-400">
                   <Swords className="h-4 w-4" />
                   <span className="text-xs font-black uppercase tracking-wider font-mono">
                     Mesa ({mestreMesaRoster.length})
                   </span>
                 </div>
-                <span className="text-[10px] text-white/40 font-mono hidden sm:inline uppercase">
+                <span className="text-[10px] text-sky-200/50 font-mono hidden sm:inline uppercase">
                   Selecione para abrir a ficha:
                 </span>
               </div>
@@ -952,7 +952,7 @@ export default function App() {
                       key={c.id}
                       className={`flex items-center gap-2 p-1.5 border transition-all shrink-0 ${
                         isSelected
-                          ? 'bg-orange-500/15 border-orange-500 text-white shadow-lg'
+                          ? 'bg-blue-600/20 border-blue-500 text-white shadow-lg shadow-blue-500/10'
                           : 'bg-black/60 border-white/10 hover:border-white/20 text-white/70'
                       }`}
                     >
@@ -970,7 +970,7 @@ export default function App() {
                           <span className="text-xs font-extrabold uppercase truncate block max-w-[100px] leading-tight">
                             {c.nome}
                           </span>
-                          <span className="text-[9px] text-orange-400 font-mono block">
+                          <span className="text-[9px] text-sky-400 font-mono block">
                             Nv.{c.nivel} {c.email_dono ? `• ${c.email_dono.split('@')[0]}` : ''}
                           </span>
                         </div>
@@ -980,7 +980,7 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => setupQuickStatsEditor(c)}
-                          className="p-1 hover:bg-white/10 text-white/50 hover:text-orange-400 transition"
+                          className="p-1 hover:bg-white/10 text-white/50 hover:text-sky-400 transition"
                           title="Ajustar Atributos Rápidos"
                         >
                           <Sliders className="h-3.5 w-3.5" />
@@ -990,7 +990,7 @@ export default function App() {
                           onClick={() => handleToggleCombatOnBoard(c)}
                           className={`text-[8px] font-mono font-bold uppercase px-1.5 py-0.5 border transition ${
                             isActiveOnBoard
-                              ? 'bg-orange-500 text-white border-orange-500'
+                              ? 'bg-blue-600 text-white border-blue-500'
                               : 'bg-white/5 border-white/10 text-white/40 hover:text-white'
                           }`}
                           title={isActiveOnBoard ? 'Presente na Mesa de Combate' : 'Colocar na Mesa'}
@@ -1008,7 +1008,7 @@ export default function App() {
           {/* PLAYER COMPACT SWITCHER (IF MULTIPLE CHARACTERS OWNED) */}
           {!isGM && myCharactersList.length > 1 && (
             <div className="bg-[#0a0a0a] border border-white/10 p-2.5 flex items-center gap-2 overflow-x-auto custom-scroll">
-              <span className="text-[10px] text-white/50 font-mono uppercase font-bold shrink-0">Minhas Fichas:</span>
+              <span className="text-[10px] text-sky-300/70 font-mono uppercase font-bold shrink-0">Minhas Fichas:</span>
               {myCharactersList.map(c => {
                 const isSelected = selectedCharId === c.id;
                 return (
@@ -1018,7 +1018,7 @@ export default function App() {
                     onClick={() => setSelectedCharId(c.id)}
                     className={`flex items-center gap-2 px-3 py-1 border text-xs font-bold uppercase transition ${
                       isSelected
-                        ? 'bg-orange-500 text-white border-orange-500'
+                        ? 'bg-blue-600 text-white border-blue-500'
                         : 'bg-white/5 hover:bg-white/10 text-white/70 border-white/10'
                     }`}
                   >
@@ -1032,15 +1032,15 @@ export default function App() {
 
           {/* PLAYER ZERO CHARACTERS NOTICE */}
           {!isGM && myCharactersList.length === 0 && (
-            <div className="p-6 border border-dashed border-white/15 bg-black/60 text-center space-y-2">
-              <BookOpen className="h-8 w-8 text-orange-500/60 mx-auto" />
+            <div className="p-6 border border-dashed border-blue-500/30 bg-black/60 text-center space-y-2">
+              <BookOpen className="h-8 w-8 text-sky-400/60 mx-auto" />
               <h3 className="text-sm font-black text-white uppercase tracking-wider">
                 Nenhum personagem vinculado a esta conta
               </h3>
-              <p className="text-xs text-white/60 font-sans max-w-md mx-auto">
+              <p className="text-xs text-sky-200/70 font-sans max-w-md mx-auto">
                 Solicite ao Mestre (GM) para vincular sua ficha a este e-mail através da aba <strong>Config GM &gt; Fichas & Permissões</strong>.
               </p>
-              <div className="inline-block bg-[#050505] border border-white/10 px-3 py-1.5 text-xs text-orange-400 font-mono select-all mt-2">
+              <div className="inline-block bg-[#050505] border border-blue-500/20 px-3 py-1.5 text-xs text-sky-400 font-mono select-all mt-2">
                 {currentUser.email}
               </div>
             </div>
@@ -1049,9 +1049,9 @@ export default function App() {
           {/* MODAL: CREATE NEW CHARACTER FOR GM */}
           {showCreateCharForm && isGM && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-              <form onSubmit={handleCreateNewCharacter} className="bg-[#0c0c0c] border border-orange-500/40 p-6 space-y-4 shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto custom-scroll">
+              <form onSubmit={handleCreateNewCharacter} className="bg-[#0c0c0c] border border-blue-500/40 p-6 space-y-4 shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto custom-scroll">
                 <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                  <h4 className="text-xs font-black uppercase tracking-widest text-orange-500 flex items-center gap-2">
+                  <h4 className="text-xs font-black uppercase tracking-widest text-sky-400 flex items-center gap-2">
                     <Sparkles className="h-4 w-4" />
                     <span>Criar Nova Ficha de Personagem</span>
                   </h4>
@@ -1066,59 +1066,59 @@ export default function App() {
 
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-[10px] text-white/60 font-bold uppercase mb-1">Nome do Personagem *</label>
+                    <label className="block text-[10px] text-sky-200/70 font-bold uppercase mb-1">Nome do Personagem *</label>
                     <input
                       type="text"
                       placeholder="Ex: Kaelen das Sombras"
                       value={newCharNome}
                       onChange={e => setNewCharNome(e.target.value)}
-                      className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs focus:outline-none focus:border-orange-500"
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] text-white/60 font-bold uppercase mb-1">Email do Jogador Dono (Opcional)</label>
+                    <label className="block text-[10px] text-sky-200/70 font-bold uppercase mb-1">Email do Jogador Dono (Opcional)</label>
                     <input
                       type="email"
                       placeholder="jogador@email.com (Vazio = Sem Dono)"
                       value={newCharEmail}
                       onChange={e => setNewCharEmail(e.target.value)}
-                      className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-blue-500"
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[10px] text-white/60 font-bold uppercase mb-1">Clã</label>
+                      <label className="block text-[10px] text-sky-200/70 font-bold uppercase mb-1">Clã</label>
                       <input
                         type="text"
                         placeholder="Ex: Corvos Negros"
                         value={newCharCla}
                         onChange={e => setNewCharCla(e.target.value)}
-                        className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs focus:outline-none focus:border-orange-500"
+                        className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] text-white/60 font-bold uppercase mb-1">Ocupação</label>
+                      <label className="block text-[10px] text-sky-200/70 font-bold uppercase mb-1">Ocupação</label>
                       <input
                         type="text"
                         placeholder="Ex: Arcanista"
                         value={newCharOcupacao}
                         onChange={e => setNewCharOcupacao(e.target.value)}
-                        className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs focus:outline-none focus:border-orange-500"
+                        className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-[10px] text-white/60 font-bold uppercase mb-1">Nível Inicial</label>
+                    <label className="block text-[10px] text-sky-200/70 font-bold uppercase mb-1">Nível Inicial</label>
                     <input
                       type="number"
                       placeholder="1"
                       value={newCharNivel}
                       onChange={e => setNewCharNivel(Number(e.target.value))}
-                      className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-blue-500"
                       min="1"
                     />
                   </div>
@@ -1142,7 +1142,7 @@ export default function App() {
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-black uppercase tracking-wider transition-colors shadow"
+                    className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black uppercase tracking-wider transition-colors shadow"
                   >
                     Criar Ficha
                   </button>
@@ -1154,9 +1154,9 @@ export default function App() {
           {/* MODAL: QUICK STAT ADJUSTER FOR GM */}
           {editingStatsCharId && isGM && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-              <div className="bg-[#080808] border border-orange-500/40 p-6 space-y-4 shadow-2xl relative max-w-md w-full">
+              <div className="bg-[#080808] border border-blue-500/40 p-6 space-y-4 shadow-2xl relative max-w-md w-full">
                 <div className="flex justify-between items-center border-b border-white/10 pb-2">
-                  <h4 className="text-xs font-black uppercase tracking-widest text-orange-500 flex items-center gap-2">
+                  <h4 className="text-xs font-black uppercase tracking-widest text-sky-400 flex items-center gap-2">
                     <Sliders className="h-4 w-4" />
                     <span>Ajuste Rápido de Atributos (Mestre)</span>
                   </h4>
@@ -1167,56 +1167,56 @@ export default function App() {
                 
                 <div className="grid grid-cols-3 gap-2">
                   <div>
-                    <label className="block text-[9px] text-white/50 font-black uppercase mb-1">HP Máx</label>
-                    <input type="number" value={editHpMax} onChange={e => setEditHpMax(Number(e.target.value))} className="w-full bg-[#050505] text-white border border-white/10 px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-orange-500" />
+                    <label className="block text-[9px] text-sky-300/70 font-black uppercase mb-1">HP Máx</label>
+                    <input type="number" value={editHpMax} onChange={e => setEditHpMax(Number(e.target.value))} className="w-full bg-[#050505] text-white border border-white/10 px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" />
                   </div>
                   <div>
-                    <label className="block text-[9px] text-white/50 font-black uppercase mb-1">Éter Máx</label>
-                    <input type="number" value={editEtherMax} onChange={e => setEditEtherMax(Number(e.target.value))} className="w-full bg-[#050505] text-white border border-white/10 px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-orange-500" />
+                    <label className="block text-[9px] text-sky-300/70 font-black uppercase mb-1">Éter Máx</label>
+                    <input type="number" value={editEtherMax} onChange={e => setEditEtherMax(Number(e.target.value))} className="w-full bg-[#050505] text-white border border-white/10 px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" />
                   </div>
                   <div>
-                    <label className="block text-[9px] text-white/50 font-black uppercase mb-1">Destino Máx</label>
-                    <input type="number" value={editDestinoMax} onChange={e => setEditDestinoMax(Number(e.target.value))} className="w-full bg-[#050505] text-white border border-white/10 px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-orange-500" />
+                    <label className="block text-[9px] text-sky-300/70 font-black uppercase mb-1">Destino Máx</label>
+                    <input type="number" value={editDestinoMax} onChange={e => setEditDestinoMax(Number(e.target.value))} className="w-full bg-[#050505] text-white border border-white/10 px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-5 gap-1.5 text-center">
                   <div>
-                    <label className="block text-[9px] text-white/40 font-black uppercase mb-1">FIS</label>
-                    <input type="number" value={editFis} onChange={e => setEditFis(Number(e.target.value))} className="w-full text-center bg-[#050505] text-white border border-white/10 px-1 py-1.5 text-xs font-mono focus:outline-none focus:border-orange-500" />
+                    <label className="block text-[9px] text-sky-300/60 font-black uppercase mb-1">FIS</label>
+                    <input type="number" value={editFis} onChange={e => setEditFis(Number(e.target.value))} className="w-full text-center bg-[#050505] text-white border border-white/10 px-1 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" />
                   </div>
                   <div>
-                    <label className="block text-[9px] text-white/40 font-black uppercase mb-1">DES</label>
-                    <input type="number" value={editDes} onChange={e => setEditDes(Number(e.target.value))} className="w-full text-center bg-[#050505] text-white border border-white/10 px-1 py-1.5 text-xs font-mono focus:outline-none focus:border-orange-500" />
+                    <label className="block text-[9px] text-sky-300/60 font-black uppercase mb-1">DES</label>
+                    <input type="number" value={editDes} onChange={e => setEditDes(Number(e.target.value))} className="w-full text-center bg-[#050505] text-white border border-white/10 px-1 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" />
                   </div>
                   <div>
-                    <label className="block text-[9px] text-white/40 font-black uppercase mb-1">COG</label>
-                    <input type="number" value={editCog} onChange={e => setEditCog(Number(e.target.value))} className="w-full text-center bg-[#050505] text-white border border-white/10 px-1 py-1.5 text-xs font-mono focus:outline-none focus:border-orange-500" />
+                    <label className="block text-[9px] text-sky-300/60 font-black uppercase mb-1">COG</label>
+                    <input type="number" value={editCog} onChange={e => setEditCog(Number(e.target.value))} className="w-full text-center bg-[#050505] text-white border border-white/10 px-1 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" />
                   </div>
                   <div>
-                    <label className="block text-[9px] text-white/40 font-black uppercase mb-1">CAR</label>
-                    <input type="number" value={editCar} onChange={e => setEditCar(Number(e.target.value))} className="w-full text-center bg-[#050505] text-white border border-white/10 px-1 py-1.5 text-xs font-mono focus:outline-none focus:border-orange-500" />
+                    <label className="block text-[9px] text-sky-300/60 font-black uppercase mb-1">CAR</label>
+                    <input type="number" value={editCar} onChange={e => setEditCar(Number(e.target.value))} className="w-full text-center bg-[#050505] text-white border border-white/10 px-1 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" />
                   </div>
                   <div>
-                    <label className="block text-[9px] text-orange-500 font-black uppercase mb-1">PRI</label>
-                    <input type="number" value={editPri} onChange={e => setEditPri(Number(e.target.value))} className="w-full text-center bg-[#050505] text-orange-500 border border-orange-500/20 px-1 py-1.5 text-xs font-mono focus:outline-none focus:border-orange-500" />
+                    <label className="block text-[9px] text-cyan-400 font-black uppercase mb-1">PRI</label>
+                    <input type="number" value={editPri} onChange={e => setEditPri(Number(e.target.value))} className="w-full text-center bg-[#050505] text-cyan-400 border border-cyan-500/30 px-1 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" />
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-[9px] text-white/50 font-black uppercase tracking-widest">E-mail do Jogador Dono</label>
+                  <label className="block text-[9px] text-sky-300/70 font-black uppercase tracking-widest">E-mail do Jogador Dono</label>
                   <input 
                     type="text" 
                     value={editEmailDono} 
                     onChange={e => setEditEmailDono(e.target.value)} 
                     placeholder="email-do-jogador@telumak.com" 
-                    className="w-full bg-[#050505] text-white border border-white/10 px-3 py-1.5 text-xs font-mono focus:outline-none focus:border-orange-500" 
+                    className="w-full bg-[#050505] text-white border border-white/10 px-3 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" 
                   />
                 </div>
 
                 <div className="pt-3 border-t border-white/10 flex justify-end gap-2">
                   <button onClick={() => setEditingStatsCharId(null)} className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/70 text-xs font-bold uppercase tracking-wider">Cancelar</button>
-                  <button onClick={handleSaveQuickStats} className="px-5 py-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-black uppercase tracking-widest transition-colors shadow">Salvar</button>
+                  <button onClick={handleSaveQuickStats} className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black uppercase tracking-widest transition-colors shadow">Salvar</button>
                 </div>
               </div>
             </div>
@@ -1249,10 +1249,10 @@ export default function App() {
           <div className="bg-[#0a0a0a] border border-white/10 shadow-2xl flex flex-col h-[540px]">
               
               {/* Chat Title panel */}
-              <div className="bg-black/90 p-4 border-b border-white/10 flex items-center justify-between">
+              <div className="bg-black/90 p-4 border-b border-blue-500/20 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-none bg-orange-500 animate-bounce"></span>
-                  <span className="text-sm font-black uppercase tracking-tighter text-white italic">Game Chat <span className="text-orange-500 font-mono">_LOG</span></span>
+                  <span className="w-2.5 h-2.5 rounded-none bg-blue-500 animate-bounce"></span>
+                  <span className="text-sm font-black uppercase tracking-tighter text-white italic">Game Chat <span className="text-sky-400 font-mono">_LOG</span></span>
                 </div>
                 {isGM && (
                   <button
@@ -1283,15 +1283,15 @@ export default function App() {
 
                   let wrapperClass = "p-3 border text-left ";
                   if (msg.remetente_email === currentUser.email) {
-                    wrapperClass += "bg-[#161616] border-white/10 text-white ml-auto border-r-4 border-r-orange-500 max-w-[85%]";
+                    wrapperClass += "bg-[#161616] border-white/10 text-white ml-auto border-r-4 border-r-blue-500 max-w-[85%]";
                   } else if (msg.remetente === 'MESTRE GM 🛡️') {
-                    wrapperClass += "bg-[#111111] border-orange-500/20 text-orange-200 border-l-4 border-l-orange-500 max-w-[85%]";
+                    wrapperClass += "bg-[#0b1320] border-blue-500/30 text-sky-200 border-l-4 border-l-blue-500 max-w-[85%]";
                   } else {
                     wrapperClass += "bg-[#0b0b0b] border-white/10 text-white/90 border-l-4 border-l-white/40 max-w-[85%]";
                   }
 
                   if (isRoll) {
-                    wrapperClass += " shadow-lg ring-1 ring-orange-500/20 bg-black";
+                    wrapperClass += " shadow-lg ring-1 ring-blue-500/30 bg-black";
                   } else if (isWhisper) {
                     wrapperClass += " border-dashed border-red-500/30 bg-red-950/10 text-red-400";
                   }
@@ -1299,19 +1299,19 @@ export default function App() {
                   return (
                     <div key={msg.id} className={`flex flex-col ${msg.remetente_email === currentUser.email ? 'items-end' : 'items-start animate-fade-in'}`}>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[9px] font-mono leading-none tracking-widest uppercase font-extrabold text-orange-500">
+                        <span className="text-[9px] font-mono leading-none tracking-widest uppercase font-extrabold text-sky-400">
                           {msg.remetente}
                         </span>
                         {isGM && (
                           <button
                             onClick={() => handleToggleHideMessage(msg.id, !!msg.ocultada)}
-                            className="hover:text-orange-500 transition-colors focus:outline-none shrink-0"
+                            className="hover:text-sky-400 transition-colors focus:outline-none shrink-0"
                             title={msg.ocultada ? "Tornar Mensagem Visível a Todos" : "Ocultar dos Demais Jogadores"}
                           >
                             {msg.ocultada ? (
                               <EyeOff className="h-3 w-3 text-rose-500 stroke-[2.5]" />
                             ) : (
-                              <Eye className="h-3 w-3 text-white/30 hover:text-orange-500" />
+                              <Eye className="h-3 w-3 text-white/30 hover:text-sky-400" />
                             )}
                           </button>
                         )}
@@ -1350,7 +1350,7 @@ export default function App() {
                 <select
                   value={whisperTarget}
                   onChange={e => setWhisperTarget(e.target.value)}
-                  className="bg-[#050505] text-white/70 border border-white/10 px-3 py-2 text-[10px] font-mono uppercase tracking-widest focus:outline-none focus:border-orange-500"
+                  className="bg-[#050505] text-sky-200/80 border border-white/10 px-3 py-2 text-[10px] font-mono uppercase tracking-widest focus:outline-none focus:border-blue-500"
                 >
                   <option value="TODOS">TODOS</option>
                   <option value="GM">GM (🛡️ Mestre)</option>
@@ -1364,13 +1364,13 @@ export default function App() {
                   value={chatMessageText}
                   onChange={e => setChatMessageText(e.target.value)}
                   placeholder="Envie uma mensagem..."
-                  className="flex-1 bg-[#050505] text-white border border-white/10 px-4 py-2.5 text-xs focus:outline-none focus:border-orange-500 font-sans"
+                  className="flex-1 bg-[#050505] text-white border border-white/10 px-4 py-2.5 text-xs focus:outline-none focus:border-blue-500 font-sans"
                 />
 
                 <button
                   type="submit"
                   disabled={!chatMessageText.trim()}
-                  className="bg-orange-500 hover:bg-orange-600 text-white font-black text-xs uppercase tracking-widest px-6 py-2.5 transition-colors disabled:opacity-40"
+                  className="bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-widest px-6 py-2.5 transition-colors disabled:opacity-40"
                 >
                   Enviar
                 </button>
@@ -1386,14 +1386,14 @@ export default function App() {
         <div className="fixed bottom-6 right-6 z-50 animate-bounce">
           <button
             onClick={handleAcknowledgeSheetUpdate}
-            className="flex items-center gap-3 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-black text-xs py-3 px-5 border-2 border-white/30 shadow-2xl rounded-none transition-all uppercase tracking-wider group"
+            className="flex items-center gap-3 bg-gradient-to-r from-blue-700 to-sky-600 hover:from-blue-600 hover:to-sky-500 text-white font-black text-xs py-3 px-5 border-2 border-blue-400/40 shadow-2xl rounded-none transition-all uppercase tracking-wider group"
           >
             <div className="p-1 bg-white/20 rounded-full animate-pulse">
               <Bell className="h-4 w-4" />
             </div>
             <div className="text-left">
               <span className="block text-[11px] font-extrabold leading-tight">O Mestre atualizou sua ficha!</span>
-              <span className="text-[9px] text-white/80 font-mono tracking-widest uppercase">Clique aqui para ver as alterações</span>
+              <span className="text-[9px] text-sky-100 font-mono tracking-widest uppercase">Clique aqui para ver as alterações</span>
             </div>
             <RefreshCw className="h-4 w-4 group-hover:rotate-180 transition-transform duration-300 ml-1" />
           </button>

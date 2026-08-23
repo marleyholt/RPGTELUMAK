@@ -20,7 +20,7 @@ export function AudioChat({ appletId, charName }: AudioChatProps) {
     <div className="bg-[#080808] border border-white/10 p-5 rounded-none shadow-2xl">
       <div className="flex items-center justify-between mb-3.5">
         <div className="flex items-center gap-2.5">
-          <Phone className={`h-5 w-5 ${inCall ? 'text-orange-500 animate-pulse' : 'text-white/40'}`} />
+          <Phone className={`h-5 w-5 ${inCall ? 'text-sky-400 animate-pulse' : 'text-white/40'}`} />
           <span className="font-sans font-black text-xs text-white uppercase tracking-widest">Canal de Áudio do Grupo</span>
         </div>
         <span className="text-[9px] bg-white/5 text-white/70 px-2.5 py-1 rounded-none font-mono font-black border border-white/5">
@@ -35,7 +35,7 @@ export function AudioChat({ appletId, charName }: AudioChatProps) {
       {!inCall ? (
         <button
           onClick={() => setInCall(true)}
-          className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-black py-3 px-4 rounded-none transition uppercase tracking-widest text-xs shadow-lg"
+          className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-black py-3 px-4 rounded-none transition uppercase tracking-widest text-xs shadow-lg"
         >
           <Phone className="h-4 w-4 stroke-[3]" />
           Conectar à Chamada
@@ -44,7 +44,7 @@ export function AudioChat({ appletId, charName }: AudioChatProps) {
         <div className="space-y-3">
           {/* Embedded audio bridge container */}
           <div className="border border-white/10 bg-black p-4 rounded-none relative overflow-hidden aspect-video max-h-40 flex flex-col justify-center items-center text-center">
-            <Volume2 className="h-8 w-8 text-orange-500 animate-pulse mb-2" />
+            <Volume2 className="h-8 w-8 text-sky-400 animate-pulse mb-2" />
             <span className="text-xs font-mono text-white/80 font-black">Sala: {roomName.slice(0, 15)}...</span>
             <span className="text-[10px] text-white/30 tracking-widest uppercase font-mono mt-1">Sua voz está ativa nesta sala</span>
             

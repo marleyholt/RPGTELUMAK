@@ -106,7 +106,7 @@ export function CampaignNotes({ isGM, currentUser, characters }: CampaignNotesPr
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/10 pb-3 flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <BookOpen className="h-5 w-5 text-orange-500 stroke-[2.5]" />
+          <BookOpen className="h-5 w-5 text-sky-400 stroke-[2.5]" />
           <h3 className="text-xs font-black text-white uppercase tracking-widest italic">
             Bloco de Notas da Campanha
           </h3>
@@ -120,7 +120,7 @@ export function CampaignNotes({ isGM, currentUser, characters }: CampaignNotesPr
               setConteudo('');
             }
           }}
-          className="px-3.5 py-1.5 bg-orange-500 hover:bg-orange-600 text-white border border-transparent font-black text-[10px] uppercase tracking-widest transition flex items-center gap-1"
+          className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white border border-transparent font-black text-[10px] uppercase tracking-widest transition flex items-center gap-1"
         >
           {showForm ? <X className="h-3 w-3 stroke-[3]" /> : <Plus className="h-3 w-3 stroke-[3]" />}
           {showForm ? 'Fechar' : 'Nova Anotação'}
@@ -129,8 +129,8 @@ export function CampaignNotes({ isGM, currentUser, characters }: CampaignNotesPr
 
       {/* Editor Form */}
       {showForm && (
-        <form onSubmit={handleSaveNote} className="space-y-3 bg-black border border-orange-500/20 p-4 rounded-none">
-          <p className="text-[10px] text-orange-400 font-extrabold uppercase tracking-widest">
+        <form onSubmit={handleSaveNote} className="space-y-3 bg-black border border-blue-500/30 p-4 rounded-none">
+          <p className="text-[10px] text-sky-400 font-extrabold uppercase tracking-widest">
             {editingNoteId ? 'Editar Anotação' : 'Criar Nova Anotação'}
           </p>
           
@@ -140,7 +140,7 @@ export function CampaignNotes({ isGM, currentUser, characters }: CampaignNotesPr
               placeholder="Título do Registro"
               value={titulo}
               onChange={e => setTitulo(e.target.value)}
-              className="w-full bg-[#0d0d0d] border border-white/10 rounded-none px-3 py-2 text-white text-xs focus:border-orange-500 focus:outline-none placeholder-white/20"
+              className="w-full bg-[#0d0d0d] border border-white/10 rounded-none px-3 py-2 text-white text-xs focus:border-blue-500 focus:outline-none placeholder-white/20"
               required
             />
 
@@ -149,7 +149,7 @@ export function CampaignNotes({ isGM, currentUser, characters }: CampaignNotesPr
               value={conteudo}
               onChange={e => setConteudo(e.target.value)}
               rows={4}
-              className="w-full bg-[#0d0d0d] border border-white/10 rounded-none px-3 py-2 text-white text-xs focus:border-orange-500 focus:outline-none placeholder-white/20 font-sans leading-relaxed"
+              className="w-full bg-[#0d0d0d] border border-white/10 rounded-none px-3 py-2 text-white text-xs focus:border-blue-500 focus:outline-none placeholder-white/20 font-sans leading-relaxed"
               required
             />
 
@@ -160,7 +160,7 @@ export function CampaignNotes({ isGM, currentUser, characters }: CampaignNotesPr
                   type="button"
                   onClick={() => setTipo('PUBLIC')}
                   className={`px-2.5 py-1 text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition ${
-                    tipo === 'PUBLIC' ? 'bg-[#151205] text-orange-400 border border-orange-500/30' : 'text-white/40 border border-transparent hover:text-white/70'
+                    tipo === 'PUBLIC' ? 'bg-blue-500/20 text-sky-300 border border-blue-500/40' : 'text-white/40 border border-transparent hover:text-white/70'
                   }`}
                   title="Visível para todos os jogadores"
                 >
@@ -172,7 +172,7 @@ export function CampaignNotes({ isGM, currentUser, characters }: CampaignNotesPr
                   type="button"
                   onClick={() => setTipo('PRIVATE')}
                   className={`px-2.5 py-1 text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition ${
-                    tipo === 'PRIVATE' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/30' : 'text-white/40 border border-transparent hover:text-white/70'
+                    tipo === 'PRIVATE' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'text-white/40 border border-transparent hover:text-white/70'
                   }`}
                   title="Visível apenas para você e para o GM"
                 >
@@ -210,7 +210,7 @@ export function CampaignNotes({ isGM, currentUser, characters }: CampaignNotesPr
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-[9px] font-black uppercase tracking-wider flex items-center gap-1"
+                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-[9px] font-black uppercase tracking-wider flex items-center gap-1"
                 >
                   <Save className="h-3 w-3 stroke-[2.5]" />
                   {editingNoteId ? 'Salvar Edição' : 'Publicar Nota'}
@@ -226,7 +226,7 @@ export function CampaignNotes({ isGM, currentUser, characters }: CampaignNotesPr
         <button
           onClick={() => setNoteTypeFilter('ALL')}
           className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest border-b-2 transition ${
-            noteTypeFilter === 'ALL' ? 'border-orange-500 text-orange-500 font-extrabold' : 'border-transparent text-white/40 hover:text-white'
+            noteTypeFilter === 'ALL' ? 'border-blue-500 text-sky-400 font-extrabold' : 'border-transparent text-white/40 hover:text-white'
           }`}
         >
           Todas
@@ -234,7 +234,7 @@ export function CampaignNotes({ isGM, currentUser, characters }: CampaignNotesPr
         <button
           onClick={() => setNoteTypeFilter('PUBLIC')}
           className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest border-b-2 transition ${
-            noteTypeFilter === 'PUBLIC' ? 'border-orange-500 text-orange-500 font-extrabold' : 'border-transparent text-white/40 hover:text-white'
+            noteTypeFilter === 'PUBLIC' ? 'border-blue-500 text-sky-400 font-extrabold' : 'border-transparent text-white/40 hover:text-white'
           }`}
         >
           Públicas
@@ -242,7 +242,7 @@ export function CampaignNotes({ isGM, currentUser, characters }: CampaignNotesPr
         <button
           onClick={() => setNoteTypeFilter('PRIVATE')}
           className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest border-b-2 transition ${
-            noteTypeFilter === 'PRIVATE' ? 'border-orange-500 text-orange-500 font-extrabold' : 'border-transparent text-white/40 hover:text-white'
+            noteTypeFilter === 'PRIVATE' ? 'border-cyan-500 text-cyan-400 font-extrabold' : 'border-transparent text-white/40 hover:text-white'
           }`}
         >
           Privadas
@@ -279,7 +279,7 @@ export function CampaignNotes({ isGM, currentUser, characters }: CampaignNotesPr
             let iconElement = <Users className="h-2.5 w-2.5" />;
 
             if (note.tipo === 'PRIVATE') {
-              badgeBg = 'bg-[#151205] border-orange-500/10 text-orange-400';
+              badgeBg = 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300';
               badgeText = 'Privada (Eu & GM)';
               iconElement = <Lock className="h-2.5 w-2.5" />;
             } else if (note.tipo === 'GM_ONLY') {

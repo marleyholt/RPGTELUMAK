@@ -234,14 +234,14 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-white/10 bg-black">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-orange-500/10 border border-orange-500/30">
-              <Sliders className="h-5 w-5 text-orange-500" />
+            <div className="p-2 bg-blue-500/10 border border-blue-500/30">
+              <Sliders className="h-5 w-5 text-sky-400" />
             </div>
             <div>
               <h2 className="text-sm font-black uppercase tracking-tight text-white">
                 Painel de Configurações do Mestre (GM)
               </h2>
-              <p className="text-[10px] text-white/50 font-mono">
+              <p className="text-[10px] text-sky-200/50 font-mono">
                 Gerenciamento de contas, permissões, vínculos de fichas e integração com o Discord
               </p>
             </div>
@@ -261,7 +261,7 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
               onClick={() => setActiveTab('geral')}
               className={`px-5 py-3 text-xs font-black uppercase tracking-widest transition flex items-center gap-2 border-b-2 ${
                 activeTab === 'geral'
-                  ? 'border-orange-500 text-orange-500 bg-white/[0.02]'
+                  ? 'border-blue-500 text-sky-400 bg-white/[0.02]'
                   : 'border-transparent text-white/40 hover:text-white'
               }`}
             >
@@ -272,7 +272,7 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
               onClick={() => setActiveTab('discord')}
               className={`px-5 py-3 text-xs font-black uppercase tracking-widest transition flex items-center gap-2 border-b-2 ${
                 activeTab === 'discord'
-                  ? 'border-orange-500 text-orange-500 bg-white/[0.02]'
+                  ? 'border-blue-500 text-sky-400 bg-white/[0.02]'
                   : 'border-transparent text-white/40 hover:text-white'
               }`}
             >
@@ -311,7 +311,7 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
               {/* Top Summary Bar & Character Creation */}
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div className="bg-black/60 border border-white/10 p-3 flex items-center gap-3">
-                  <div className="p-2 bg-white/5 border border-white/10 text-orange-500">
+                  <div className="p-2 bg-white/5 border border-white/10 text-sky-400">
                     <Users className="h-5 w-5" />
                   </div>
                   <div>
@@ -321,12 +321,12 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
                 </div>
 
                 <div className="bg-black/60 border border-white/10 p-3 flex items-center gap-3">
-                  <div className="p-2 bg-orange-500/10 border border-orange-500/30 text-orange-400">
+                  <div className="p-2 bg-blue-500/10 border border-blue-500/30 text-sky-400">
                     <Crown className="h-5 w-5" />
                   </div>
                   <div>
                     <span className="text-[10px] text-white/40 uppercase font-mono block">Mestres (GMs)</span>
-                    <span className="text-lg font-black text-orange-400 font-mono">
+                    <span className="text-lg font-black text-sky-400 font-mono">
                       {usersList.filter(u => u.role === 'GM').length}
                     </span>
                   </div>
@@ -346,7 +346,7 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
                   <button
                     type="button"
                     onClick={onOpenCreateCharModal}
-                    className="bg-orange-500 hover:bg-orange-600 text-white p-3 flex flex-col items-center justify-center gap-1 transition shadow-lg text-center group"
+                    className="bg-blue-600 hover:bg-blue-500 text-white p-3 flex flex-col items-center justify-center gap-1 transition shadow-lg text-center group"
                   >
                     <div className="flex items-center gap-1.5 font-black text-xs uppercase tracking-wider">
                       <Plus className="h-4 w-4 transition-transform group-hover:scale-125" />
@@ -362,7 +362,7 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                   <div>
                     <h3 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-orange-500" />
+                      <Shield className="h-4 w-4 text-sky-400" />
                       Contas Criadas & Vínculos de Fichas
                     </h3>
                     <p className="text-[10px] text-white/50 font-mono mt-0.5">
@@ -377,14 +377,14 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
                       placeholder="Buscar por nome, email..."
                       value={accountSearch}
                       onChange={e => setAccountSearch(e.target.value)}
-                      className="w-full bg-black border border-white/10 pl-9 pr-3 py-1.5 text-xs text-white placeholder-white/30 focus:outline-none focus:border-orange-500"
+                      className="w-full bg-black border border-white/10 pl-9 pr-3 py-1.5 text-xs text-white placeholder-white/30 focus:outline-none focus:border-blue-500"
                     />
                   </div>
                 </div>
 
                 {loadingUsers ? (
                   <div className="p-8 text-center text-white/40 flex items-center justify-center gap-2 font-mono text-xs">
-                    <RefreshCw className="h-4 w-4 animate-spin text-orange-500" />
+                    <RefreshCw className="h-4 w-4 animate-spin text-blue-500" />
                     Carregando contas cadastradas...
                   </div>
                 ) : filteredUsers.length === 0 ? (
@@ -420,7 +420,7 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
                                   </span>
                                   <span className={`text-[9px] font-mono font-bold px-2 py-0.5 border ${
                                     isUserGM 
-                                      ? 'bg-orange-500/20 text-orange-400 border-orange-500/40' 
+                                      ? 'bg-blue-500/20 text-sky-400 border-blue-500/40' 
                                       : 'bg-white/5 text-white/50 border-white/10'
                                   }`}>
                                     {isUserGM ? 'MESTRE (GM)' : 'JOGADOR'}
@@ -439,7 +439,7 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
                                 onClick={() => handleToggleUserRole(u)}
                                 className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wider border transition-all flex items-center gap-1.5 ${
                                   isUserGM
-                                    ? 'bg-orange-500 text-white border-orange-500 hover:bg-orange-600'
+                                    ? 'bg-blue-600 text-white border-blue-500 hover:bg-blue-500'
                                     : 'bg-white/5 hover:bg-white/10 text-white/70 border-white/15 hover:border-white/30'
                                 }`}
                                 title={isUserGM ? 'Rebaixar para Jogador comum' : 'Promover a Mestre (GM)'}
@@ -462,11 +462,11 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
                                 userChars.map(c => (
                                   <div
                                     key={c.id}
-                                    className="bg-black border border-orange-500/30 px-2.5 py-1 flex items-center gap-2 group"
+                                    className="bg-black border border-blue-500/30 px-2.5 py-1 flex items-center gap-2 group"
                                   >
                                     <img src={c.img_saudavel} alt={c.nome} className="w-4 h-4 object-cover" />
                                     <span className="text-[10px] font-bold text-white uppercase">{c.nome}</span>
-                                    <span className="text-[9px] text-orange-400 font-mono">Nv.{c.nivel}</span>
+                                    <span className="text-[9px] text-sky-400 font-mono">Nv.{c.nivel}</span>
                                     <button
                                       type="button"
                                       onClick={() => handleUnlinkChar(c.id)}
@@ -485,7 +485,7 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
                               <select
                                 value={selectedChar}
                                 onChange={(e) => setCharLinkSelection(prev => ({ ...prev, [u.uid]: e.target.value }))}
-                                className="bg-black border border-white/10 px-2.5 py-1 text-[10px] text-white font-mono focus:outline-none focus:border-orange-500"
+                                className="bg-black border border-white/10 px-2.5 py-1 text-[10px] text-white font-mono focus:outline-none focus:border-blue-500"
                               >
                                 <option value="">+ Vincular Ficha...</option>
                                 {characters.map(c => (
@@ -504,7 +504,7 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
                                     setCharLinkSelection(prev => ({ ...prev, [u.uid]: '' }));
                                   }
                                 }}
-                                className="px-2.5 py-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-30 text-white text-[10px] font-black uppercase tracking-wider transition flex items-center gap-1"
+                                className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 text-white text-[10px] font-black uppercase tracking-wider transition flex items-center gap-1"
                               >
                                 <LinkIcon className="h-2.5 w-2.5" />
                                 <span>Vincular</span>
@@ -522,7 +522,7 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
               {/* Character-centric Quick Overview */}
               <div className="space-y-3 pt-4 border-t border-white/10">
                 <h4 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-2">
-                  <Scroll className="h-4 w-4 text-orange-500" />
+                  <Scroll className="h-4 w-4 text-sky-400" />
                   Visão Geral de Todas as Fichas & Donos:
                 </h4>
                 
@@ -564,16 +564,16 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
             <div className="space-y-6">
               
               {/* Tutorial Banner */}
-              <div className="bg-[#141414] border border-orange-500/20 p-4 space-y-2">
+              <div className="bg-[#141414] border border-blue-500/20 p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-orange-400 font-bold text-xs uppercase tracking-wider">
+                  <div className="flex items-center gap-2 text-sky-400 font-bold text-xs uppercase tracking-wider">
                     <Sparkles className="h-4 w-4" />
                     <span>Sessão NOTEBOOK do Discord:</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setShowGuideModal(true)}
-                    className="text-[10px] text-[#5865f2] hover:underline font-bold font-mono"
+                    className="text-[10px] text-sky-400 hover:underline font-bold font-mono"
                   >
                     Ver passo a passo de configuração ➜
                   </button>
@@ -587,7 +587,7 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
               {/* ID do Servidor Discord (Guild) */}
               <div className="bg-black/60 border border-white/10 p-4 space-y-3">
                 <label className="block text-[11px] text-white/70 font-bold uppercase tracking-wider flex items-center gap-1.5">
-                  <Server className="h-3.5 w-3.5 text-orange-500" />
+                  <Server className="h-3.5 w-3.5 text-sky-400" />
                   ID do Servidor Discord (Guild ID) & Nome:
                 </label>
                 <div className="flex flex-col sm:flex-row gap-2">
@@ -596,14 +596,14 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
                     value={guildId}
                     onChange={(e) => setGuildId(e.target.value)}
                     placeholder="ID do Servidor (Ex: 123456789012345678)"
-                    className="flex-1 bg-[#050505] border border-white/10 px-3.5 py-2 text-white text-xs focus:outline-none focus:border-orange-500 font-mono"
+                    className="flex-1 bg-[#050505] border border-white/10 px-3.5 py-2 text-white text-xs focus:outline-none focus:border-blue-500 font-mono"
                   />
                   <input
                     type="text"
                     value={guildName}
                     onChange={(e) => setGuildName(e.target.value)}
                     placeholder="Nome do Servidor (Detectado ou Digite)"
-                    className="flex-1 bg-[#050505] border border-white/10 px-3.5 py-2 text-orange-400 font-bold text-xs focus:outline-none focus:border-orange-500"
+                    className="flex-1 bg-[#050505] border border-white/10 px-3.5 py-2 text-sky-400 font-bold text-xs focus:outline-none focus:border-blue-500"
                   />
                   <button
                     type="button"
@@ -622,7 +622,7 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
               {/* Canal Padrão da Campanha */}
               <div>
                 <label className="block text-[11px] text-white/70 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                  <Hash className="h-3.5 w-3.5 text-orange-500" />
+                  <Hash className="h-3.5 w-3.5 text-sky-400" />
                   ID do Canal Padrão da Campanha (Geral / Chat)
                 </label>
                 <div className="flex gap-2">
@@ -631,7 +631,7 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
                     value={defaultChannelId}
                     onChange={(e) => setDefaultChannelId(e.target.value)}
                     placeholder="Ex: 1234567890123456789"
-                    className="flex-1 bg-[#050505] border border-white/10 px-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-orange-500 font-mono"
+                    className="flex-1 bg-[#050505] border border-white/10 px-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-blue-500 font-mono"
                   />
                   <button
                     type="button"
@@ -650,7 +650,7 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
               {/* Canais Individuais por Personagem / Jogador */}
               <div className="space-y-3 pt-4 border-t border-white/10">
                 <h4 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-2">
-                  <User className="h-3.5 w-3.5 text-orange-500" />
+                  <User className="h-3.5 w-3.5 text-sky-400" />
                   Canais do Discord por Jogador (Notebook Privado):
                 </h4>
                 
@@ -683,7 +683,7 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
                                 value={chanVal}
                                 onChange={(e) => handlePlayerChannelChange(key, e.target.value)}
                                 placeholder="ID do Canal no Discord"
-                                className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                                className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-blue-500"
                               />
                             </div>
                             <button
@@ -740,7 +740,7 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
                 type="button"
                 onClick={handleSaveConfig}
                 disabled={saving}
-                className="px-6 py-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs uppercase tracking-widest transition flex items-center gap-2 shadow-lg disabled:opacity-50"
+                className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-widest transition flex items-center gap-2 shadow-lg disabled:opacity-50"
               >
                 {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : 'Salvar Alterações'}
               </button>

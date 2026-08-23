@@ -352,7 +352,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
       // Blockquote
       if (line.startsWith('> ')) {
         return (
-          <div key={lineIdx} className="border-l-4 border-orange-500/80 bg-black/40 pl-3 py-1 my-1 text-orange-200 font-sans text-xs shadow-inner">
+          <div key={lineIdx} className="border-l-4 border-blue-500/80 bg-black/40 pl-3 py-1 my-1 text-sky-200 font-sans text-xs shadow-inner">
             {parseInlineMarkdown(line.substring(2), msgId, lineIdx)}
           </div>
         );
@@ -361,7 +361,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
       if (line.startsWith('- ') || line.startsWith('* ')) {
         return (
           <div key={lineIdx} className="flex items-start gap-2 ml-2 my-0.5">
-            <span className="text-orange-500 font-bold">•</span>
+            <span className="text-sky-400 font-bold">•</span>
             <span>{parseInlineMarkdown(line.substring(2), msgId, lineIdx)}</span>
           </div>
         );
@@ -445,7 +445,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
       const underlineMatch = remaining.match(/^__([^_]+)__/);
       if (underlineMatch) {
         parts.push(
-          <span key={`${msgId}-${lineIdx}-${keyCounter++}`} className="underline decoration-orange-500 decoration-1 underline-offset-2">
+          <span key={`${msgId}-${lineIdx}-${keyCounter++}`} className="underline decoration-blue-500 decoration-1 underline-offset-2">
             {highlightSearch(underlineMatch[1], `${msgId}-${lineIdx}-${keyCounter}`)}
           </span>
         );
@@ -518,12 +518,12 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-sm font-black uppercase tracking-tight text-white flex items-center gap-1.5">
                   <span>NOTEBOOK DISCORD:</span>
-                  <span className="text-orange-400 font-mono">{activeTargetName}</span>
+                  <span className="text-sky-400 font-mono">{activeTargetName}</span>
                 </h3>
                 
                 {channelConfig.guildName && (
                   <span className="bg-white/10 text-white/90 text-[10px] font-mono px-2 py-0.5 rounded border border-white/15 flex items-center gap-1">
-                    <Server className="h-3 w-3 text-orange-400" />
+                    <Server className="h-3 w-3 text-sky-400" />
                     <span>{channelConfig.guildName}</span>
                   </span>
                 )}
@@ -638,7 +638,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
 
             {/* Active search match count */}
             {searchQuery.trim() && (
-              <span className="text-[11px] text-orange-400 font-mono font-bold bg-orange-500/10 border border-orange-500/20 px-2 py-0.5 rounded">
+              <span className="text-[11px] text-sky-400 font-mono font-bold bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded">
                 {filteredMessages.length} resultado{filteredMessages.length === 1 ? '' : 's'}
               </span>
             )}
@@ -918,10 +918,10 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
             <button
               type="button"
               onClick={() => setShowMentionRollModal(true)}
-              className="ml-1 px-2 py-1 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 border border-orange-500/30 rounded text-[11px] font-black uppercase tracking-wider flex items-center gap-1 transition shadow-sm"
+              className="ml-1 px-2 py-1 bg-blue-500/20 hover:bg-blue-500/30 text-sky-400 border border-blue-500/30 rounded text-[11px] font-black uppercase tracking-wider flex items-center gap-1 transition shadow-sm"
               title="Mencionar uma rolagem do Rollem ou do Chat"
             >
-              <Dices className="h-3.5 w-3.5 text-orange-400" />
+              <Dices className="h-3.5 w-3.5 text-sky-400" />
               <span>Mencionar Rolagem</span>
             </button>
           </div>
@@ -941,7 +941,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
               className="flex items-center gap-1 text-[11px] font-bold text-[#b5bac1] hover:text-white bg-[#2b2d31] hover:bg-[#404249] px-2.5 py-1 rounded transition"
               title="Upload de foto / anexo para o Discord"
             >
-              <Paperclip className="h-3.5 w-3.5 text-orange-400" />
+              <Paperclip className="h-3.5 w-3.5 text-sky-400" />
               <span>Anexar Imagem</span>
             </button>
             <input
@@ -964,7 +964,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
                 setPendingCropImage(attachedImage);
                 setShowCropModal(true);
               }}
-              className="absolute bottom-1 right-1 bg-black/80 hover:bg-orange-500 text-white rounded p-1 text-[9px] font-mono flex items-center gap-0.5 border border-white/20"
+              className="absolute bottom-1 right-1 bg-black/80 hover:bg-blue-600 text-white rounded p-1 text-[9px] font-mono flex items-center gap-0.5 border border-white/20"
               title="Ajustar e focar imagem"
             >
               <Crop className="h-2.5 w-2.5" />
@@ -1022,7 +1022,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
             
             <div className="flex items-center justify-between p-4 border-b border-white/10 bg-black">
               <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-orange-500/10 border border-orange-500/30 text-orange-500">
+                <div className="p-1.5 bg-blue-500/10 border border-blue-500/30 text-sky-400">
                   <Dices className="h-4 w-4" />
                 </div>
                 <div>
@@ -1062,9 +1062,9 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
                       key={pIdx}
                       type="button"
                       onClick={() => handleInsertRollMention(preset)}
-                      className="p-2 bg-black border border-white/10 hover:border-orange-500/50 hover:bg-orange-500/10 text-left text-xs text-white font-mono rounded transition flex flex-col justify-between"
+                      className="p-2 bg-black border border-white/10 hover:border-blue-500/50 hover:bg-blue-500/10 text-left text-xs text-white font-mono rounded transition flex flex-col justify-between"
                     >
-                      <span className="text-[9px] text-orange-400 font-bold">Preset #{pIdx + 1}</span>
+                      <span className="text-[9px] text-sky-400 font-bold">Preset #{pIdx + 1}</span>
                       <span className="truncate">{preset}</span>
                     </button>
                   ))}
@@ -1088,12 +1088,12 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters }: Discor
                         key={msg.id || rIdx}
                         type="button"
                         onClick={() => handleInsertRollMention(msg.content, msg.authorName)}
-                        className="w-full p-2.5 bg-black border border-white/10 hover:border-orange-500 hover:bg-orange-500/5 text-left text-xs transition flex items-start gap-2.5 group"
+                        className="w-full p-2.5 bg-black border border-white/10 hover:border-blue-500 hover:bg-blue-500/5 text-left text-xs transition flex items-start gap-2.5 group"
                       >
-                        <Dices className="h-4 w-4 text-orange-500 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                        <Dices className="h-4 w-4 text-sky-400 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between text-[10px] text-white/50 font-mono mb-0.5">
-                            <span className="font-bold text-orange-400">{msg.authorName}</span>
+                            <span className="font-bold text-sky-400">{msg.authorName}</span>
                             <span>{msg.createdAt?.toDate ? msg.createdAt.toDate().toLocaleTimeString() : 'Recente'}</span>
                           </div>
                           <p className="text-white/90 font-mono text-xs truncate">

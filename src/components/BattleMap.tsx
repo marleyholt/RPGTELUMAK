@@ -186,7 +186,7 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
           key={`${x}-${y}`}
           onClick={() => isGridInteractive && handleCellClick(x, y)}
           className={`border border-white/10 aspect-square relative flex items-center justify-center transition-all duration-150 ${
-            isGridInteractive ? 'cursor-pointer hover:bg-orange-500/15' : 'cursor-default'
+            isGridInteractive ? 'cursor-pointer hover:bg-blue-500/20' : 'cursor-default'
           }`}
         >
           {cellTokens.map(tk => {
@@ -211,7 +211,7 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
                 }}
                 className={`absolute top-0 left-0 z-20 transition-all select-none flex items-center justify-center p-0.5 ${
                   userCanControl ? 'cursor-pointer hover:scale-105' : 'cursor-default'
-                } ${isSelected ? 'scale-105 ring-2 ring-orange-500 z-30' : ''}`}
+                } ${isSelected ? 'scale-105 ring-2 ring-blue-500 z-30' : ''}`}
                 title={`${tk.name} (${tk.type}) - ${sqm}x${sqm} SQM ${userCanControl ? '(Clique para mover)' : ''}`}
               >
                 <div className="relative w-full h-full">
@@ -242,7 +242,7 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
       {/* Header Controls Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 bg-[#0a0a0a] border border-white/10 p-5 rounded-none shadow-2xl">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-orange-500/10 border border-orange-500/30 text-orange-500">
+          <div className="p-2 bg-blue-500/10 border border-blue-500/30 text-sky-400">
             <PlaySquare className="h-5 w-5" />
           </div>
           <div>
@@ -250,7 +250,7 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
               <h3 className="text-sm font-black uppercase tracking-tight text-white">Arena Tática Realtime</h3>
               <span className={`text-[9px] font-mono font-bold uppercase px-2 py-0.5 border ${
                 isGM 
-                  ? 'bg-orange-500/20 text-orange-400 border-orange-500/40' 
+                  ? 'bg-blue-500/20 text-sky-400 border-blue-500/40' 
                   : 'bg-white/5 text-white/50 border-white/10'
               }`}>
                 {isGM ? '👑 Controle Total do Mestre' : '👁️ Visualização de Jogador'}
@@ -277,7 +277,7 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
 
             <button
               onClick={() => setShowSpawn(!showSpawn)}
-              className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs py-2 px-5 transition-colors uppercase tracking-widest shadow-lg"
+              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs py-2 px-5 transition-colors uppercase tracking-widest shadow-lg"
             >
               <Plus className="h-4 w-4 stroke-[3]" />
               Novo Token
@@ -289,7 +289,7 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
       {/* GM Config Overlay Panel (Background Upload & Dimensions) */}
       {showConfig && isGM && (
         <div className="bg-black border border-white/10 p-6 space-y-4 shadow-2xl animate-in fade-in">
-          <p className="text-xs font-black text-orange-500 uppercase tracking-widest block italic">
+          <p className="text-xs font-black text-sky-400 uppercase tracking-widest block italic">
             Configurar Fundo do Mapa da Arena
           </p>
           
@@ -315,7 +315,7 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
                   onClick={() => handleUpdateBg('https://images.unsplash.com/photo-1547891654-e66ed7edd96c?auto=format&fit=crop&w=1200&q=80')}
                   className="bg-[#0c0c0c] hover:bg-[#181818] text-white p-3 border border-white/10 text-left transition"
                 >
-                  <span className="block text-xs font-black uppercase text-orange-400">Floresta Sombria</span>
+                  <span className="block text-xs font-black uppercase text-sky-400">Floresta Sombria</span>
                   <span className="text-[9px] text-white/40 font-mono">Vegetação densa</span>
                 </button>
                 <button
@@ -323,7 +323,7 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
                   onClick={() => handleUpdateBg('https://images.unsplash.com/photo-1519074069444-1ba4fff66d16?auto=format&fit=crop&w=1200&q=80')}
                   className="bg-[#0c0c0c] hover:bg-[#181818] text-white p-3 border border-white/10 text-left transition"
                 >
-                  <span className="block text-xs font-black uppercase text-orange-400">Taberna Telumak</span>
+                  <span className="block text-xs font-black uppercase text-sky-400">Taberna Telumak</span>
                   <span className="text-[9px] text-white/40 font-mono">Interior rústico</span>
                 </button>
               </div>
@@ -335,7 +335,7 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
       {/* GM Spawn Token Overlay */}
       {showSpawn && isGM && (
         <form onSubmit={handleSpawnToken} className="bg-black border border-white/10 p-6 space-y-5 shadow-2xl animate-in fade-in">
-          <p className="text-xs font-black text-orange-500 uppercase tracking-widest block italic">
+          <p className="text-xs font-black text-sky-400 uppercase tracking-widest block italic">
             Adicionar Token ao Grid (com Tamanho SQM)
           </p>
 
@@ -347,7 +347,7 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
                 onClick={() => setSpawnType(ty)}
                 className={`py-1.5 px-4 text-[10px] font-black uppercase tracking-widest border transition-all ${
                   spawnType === ty
-                    ? 'bg-[#151515] text-orange-500 border-orange-500/30'
+                    ? 'bg-[#151515] text-sky-400 border-blue-500/40'
                     : 'bg-white/5 text-white/40 border-white/10 hover:bg-white/10 hover:text-white'
                 }`}
               >
@@ -365,7 +365,7 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
                 <select
                   value={spawnCharId}
                   onChange={(e) => setSpawnCharId(e.target.value)}
-                  className="w-full bg-[#050505] border border-white/10 px-3 py-2.5 text-white text-xs focus:border-orange-500 focus:outline-none uppercase tracking-wider"
+                  className="w-full bg-[#050505] border border-white/10 px-3 py-2.5 text-white text-xs focus:border-blue-500 focus:outline-none uppercase tracking-wider"
                   required
                 >
                   <option value="" className="text-black">-- Selecionar da Ficha (Apenas na Mesa) --</option>
@@ -385,7 +385,7 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
                     value={spawnName}
                     onChange={(e) => setSpawnName(e.target.value)}
                     placeholder="Ex: Dragão Titan, Chefe Orc, Baú"
-                    className="w-full bg-[#050505] border border-white/10 px-3 py-2.5 text-white text-xs focus:border-orange-500 focus:outline-none font-sans"
+                    className="w-full bg-[#050505] border border-white/10 px-3 py-2.5 text-white text-xs focus:border-blue-500 focus:outline-none font-sans"
                     required
                   />
                 </div>
@@ -408,7 +408,7 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
               <select
                 value={spawnSqm}
                 onChange={(e) => setSpawnSqm(Number(e.target.value))}
-                className="w-full bg-[#050505] border border-white/10 px-3 py-2.5 text-white text-xs focus:border-orange-500 focus:outline-none font-mono"
+                className="w-full bg-[#050505] border border-white/10 px-3 py-2.5 text-white text-xs focus:border-blue-500 focus:outline-none font-mono"
               >
                 <option value={1} className="text-black">1x1 SQM (Padrão - Médio / Humanoide)</option>
                 <option value={2} className="text-black">2x2 SQM (Grande - Cavalo, Ogro, Fera)</option>
@@ -428,7 +428,7 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-black uppercase tracking-widest transition shadow"
+              className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black uppercase tracking-widest transition shadow"
             >
               Spawnar na Arena
             </button>
@@ -438,13 +438,13 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
 
       {/* Token Action Bar when Selected by GM */}
       {selectedToken && isGM && (
-        <div className="bg-[#080808] border border-orange-500/40 p-4 flex flex-wrap items-center justify-between gap-3 shadow-lg">
+        <div className="bg-[#080808] border border-blue-500/40 p-4 flex flex-wrap items-center justify-between gap-3 shadow-lg">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full overflow-hidden border border-orange-500 shrink-0">
+            <div className="w-8 h-8 rounded-full overflow-hidden border border-blue-500 shrink-0">
               <img src={selectedToken.img} alt={selectedToken.name} className="w-full h-full object-cover" />
             </div>
             <div>
-              <span className="text-xs font-mono text-orange-500 uppercase tracking-tight font-black block">
+              <span className="text-xs font-mono text-sky-400 uppercase tracking-tight font-black block">
                 PEÃO SELECIONADO: <span className="text-white font-sans uppercase font-extrabold">{selectedToken.name}</span>
               </span>
               <span className="text-[10px] text-white/40 font-mono">
@@ -463,7 +463,7 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
                   onClick={() => handleUpdateTokenSqm(selectedToken.id, s)}
                   className={`px-2 py-1 text-xs font-mono font-bold border transition ${
                     (selectedToken.sqm || 1) === s
-                      ? 'bg-orange-500 text-white border-orange-500'
+                      ? 'bg-blue-600 text-white border-blue-500'
                       : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10'
                   }`}
                 >

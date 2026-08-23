@@ -42,8 +42,8 @@ export function DiscordBotGuideModal({ isOpen, onClose }: DiscordBotGuideModalPr
           
           {/* Step 1 */}
           <div className="bg-black border border-white/10 p-4 space-y-2">
-            <div className="flex items-center gap-2 text-orange-400 font-black uppercase tracking-wider text-xs">
-              <span className="w-5 h-5 rounded-full bg-orange-500 text-black flex items-center justify-center text-[11px] font-bold">1</span>
+            <div className="flex items-center gap-2 text-sky-400 font-black uppercase tracking-wider text-xs">
+              <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[11px] font-bold">1</span>
               <span>Criar a Aplicação no Portal de Desenvolvedores do Discord</span>
             </div>
             <p className="text-white/70 leading-relaxed font-sans pl-7">
@@ -52,7 +52,7 @@ export function DiscordBotGuideModal({ isOpen, onClose }: DiscordBotGuideModalPr
                 href="https://discord.com/developers/applications"
                 target="_blank"
                 rel="noreferrer"
-                className="text-[#5865f2] hover:underline font-bold inline-flex items-center gap-1"
+                className="text-sky-400 hover:underline font-bold inline-flex items-center gap-1"
               >
                 discord.com/developers/applications <ExternalLink className="h-3 w-3 inline" />
               </a>
@@ -62,8 +62,8 @@ export function DiscordBotGuideModal({ isOpen, onClose }: DiscordBotGuideModalPr
 
           {/* Step 2 */}
           <div className="bg-black border border-white/10 p-4 space-y-2">
-            <div className="flex items-center gap-2 text-orange-400 font-black uppercase tracking-wider text-xs">
-              <span className="w-5 h-5 rounded-full bg-orange-500 text-black flex items-center justify-center text-[11px] font-bold">2</span>
+            <div className="flex items-center gap-2 text-sky-400 font-black uppercase tracking-wider text-xs">
+              <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[11px] font-bold">2</span>
               <span>Criar o Bot, Obter o Token e Ativar as Intents</span>
             </div>
             <div className="pl-7 space-y-2 font-sans text-white/70">
@@ -74,7 +74,7 @@ export function DiscordBotGuideModal({ isOpen, onClose }: DiscordBotGuideModalPr
                 <li>
                   Clique no botão <strong>"Reset Token"</strong> (ou "Copy") para copiar o <strong>Token do Bot</strong>. Esse é o código secreto que dá vida ao bot.
                 </li>
-                <li className="text-amber-300 font-semibold">
+                <li className="text-cyan-300 font-semibold">
                   ⚠️ <strong>IMPORTANTE:</strong> Role a página até a seção <strong>"Privileged Gateway Intents"</strong> e marque como <strong>ATIVAS (ON)</strong> as seguintes opções:
                   <div className="ml-4 mt-1 space-y-1 text-xs text-white">
                     <div>✓ <strong>Presence Intent</strong></div>
@@ -89,8 +89,8 @@ export function DiscordBotGuideModal({ isOpen, onClose }: DiscordBotGuideModalPr
 
           {/* Step 3 */}
           <div className="bg-black border border-white/10 p-4 space-y-2">
-            <div className="flex items-center gap-2 text-orange-400 font-black uppercase tracking-wider text-xs">
-              <span className="w-5 h-5 rounded-full bg-orange-500 text-black flex items-center justify-center text-[11px] font-bold">3</span>
+            <div className="flex items-center gap-2 text-sky-400 font-black uppercase tracking-wider text-xs">
+              <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[11px] font-bold">3</span>
               <span>Convidar o Bot para o seu Servidor Discord</span>
             </div>
             <div className="pl-7 space-y-2 font-sans text-white/70">
@@ -98,8 +98,8 @@ export function DiscordBotGuideModal({ isOpen, onClose }: DiscordBotGuideModalPr
                 No menu lateral esquerdo da página do Discord, clique em <strong>"OAuth2"</strong> &gt; <strong>"URL Generator"</strong>:
               </p>
               <ul className="list-disc list-inside space-y-1 text-white/80">
-                <li>Em <strong>SCOPES</strong>, marque: <code className="bg-[#1e1f22] text-orange-400 px-1 py-0.5 rounded">bot</code></li>
-                <li>Em <strong>BOT PERMISSIONS</strong>, marque: <code className="bg-[#1e1f22] text-orange-400 px-1 py-0.5 rounded">Administrator</code> (ou <em>Send Messages, Read Messages/View Channels, Attach Files, Read Message History</em>).</li>
+                <li>Em <strong>SCOPES</strong>, marque: <code className="bg-[#1e1f22] text-sky-400 px-1 py-0.5 rounded">bot</code></li>
+                <li>Em <strong>BOT PERMISSIONS</strong>, marque: <code className="bg-[#1e1f22] text-sky-400 px-1 py-0.5 rounded">Administrator</code> (ou <em>Send Messages, Read Messages/View Channels, Attach Files, Read Message History</em>).</li>
                 <li>Copie a URL gerada no final da página, abra em uma nova aba do navegador e selecione o seu <strong>Servidor de RPG</strong> para autorizar o bot!</li>
               </ul>
             </div>
@@ -107,8 +107,8 @@ export function DiscordBotGuideModal({ isOpen, onClose }: DiscordBotGuideModalPr
 
           {/* Step 4 */}
           <div className="bg-black border border-white/10 p-4 space-y-2">
-            <div className="flex items-center gap-2 text-orange-400 font-black uppercase tracking-wider text-xs">
-              <span className="w-5 h-5 rounded-full bg-orange-500 text-black flex items-center justify-center text-[11px] font-bold">4</span>
+            <div className="flex items-center gap-2 text-sky-400 font-black uppercase tracking-wider text-xs">
+              <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[11px] font-bold">4</span>
               <span>Copiar os IDs dos Canais no Discord</span>
             </div>
             <div className="pl-7 space-y-2 font-sans text-white/70">
@@ -125,13 +125,13 @@ export function DiscordBotGuideModal({ isOpen, onClose }: DiscordBotGuideModalPr
 
           {/* Step 5 */}
           <div className="bg-black border border-white/10 p-4 space-y-2">
-            <div className="flex items-center gap-2 text-orange-400 font-black uppercase tracking-wider text-xs">
-              <span className="w-5 h-5 rounded-full bg-orange-500 text-black flex items-center justify-center text-[11px] font-bold">5</span>
+            <div className="flex items-center gap-2 text-sky-400 font-black uppercase tracking-wider text-xs">
+              <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[11px] font-bold">5</span>
               <span>Usando o Bot Rollem para Rolagens de Dados</span>
             </div>
             <div className="pl-7 space-y-1.5 font-sans text-white/70">
               <p>
-                Você pode convidar o bot <strong>Rollem</strong> (<a href="https://rollem.rocks" target="_blank" rel="noreferrer" className="text-[#5865f2] font-bold hover:underline">rollem.rocks</a>) para o mesmo canal do Discord.
+                Você pode convidar o bot <strong>Rollem</strong> (<a href="https://rollem.rocks" target="_blank" rel="noreferrer" className="text-sky-400 font-bold hover:underline">rollem.rocks</a>) para o mesmo canal do Discord.
               </p>
               <p>
                 Quando você ou seus jogadores rolarem dados com o Rollem (ex: <code className="bg-[#1e1f22] text-emerald-400 px-1 py-0.5">4d10+12</code> ou <code className="bg-[#1e1f22] text-emerald-400 px-1 py-0.5">1d20</code>), a rolagem será refletida instantaneamente no <strong>Notebook</strong> e você poderá usar o botão <strong>"🎲 Mencionar Rolagem"</strong> para citá-la em suas anotações!
@@ -146,7 +146,7 @@ export function DiscordBotGuideModal({ isOpen, onClose }: DiscordBotGuideModalPr
           <button
             type="button"
             onClick={onClose}
-            className="px-6 py-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs uppercase tracking-wider transition"
+            className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-wider transition"
           >
             Entendido
           </button>

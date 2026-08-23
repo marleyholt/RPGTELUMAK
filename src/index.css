@@ -16,11 +16,11 @@
   background: #050505;
 }
 .custom-scroll::-webkit-scrollbar-thumb {
-  background: rgba(249, 115, 22, 0.2);
-  border: 1px solid rgba(249, 115, 22, 0.4);
+  background: rgba(59, 130, 246, 0.25);
+  border: 1px solid rgba(59, 130, 246, 0.45);
 }
 .custom-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(249, 115, 22, 0.8);
+  background: rgba(59, 130, 246, 0.8);
 }
 
 /* Custom RPG typography details */

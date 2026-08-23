@@ -352,7 +352,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
           <div className="bg-black border border-white/10 p-5 shadow-2xl space-y-5">
             
             {/* Character Artwork (Aspect 10:17 Portrait) */}
-            <div className="relative bg-[#070707] border-2 border-orange-500/40 overflow-hidden shadow-2xl group" style={{ aspectRatio: '10/17' }}>
+            <div className="relative bg-[#070707] border-2 border-blue-500/40 overflow-hidden shadow-2xl group" style={{ aspectRatio: '10/17' }}>
               <img
                 src={activeAvatarUrl}
                 alt={character.nome}
@@ -364,7 +364,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
 
               {/* Transformation Flame Badge */}
               {activeVersion && (
-                <div className="absolute top-2 right-2 bg-orange-500 p-1 shadow-lg" title="Forma Transformada Ativa!">
+                <div className="absolute top-2 right-2 bg-blue-600 p-1 shadow-lg" title="Forma Transformada Ativa!">
                   <Flame className="h-4 w-4 text-white animate-pulse" />
                 </div>
               )}
@@ -372,7 +372,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
               {/* Status Badge watermark on art */}
               <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between pointer-events-none">
                 <div>
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-orange-400 bg-black/90 border border-orange-500/30 px-2 py-0.5">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-sky-400 bg-black/90 border border-blue-500/30 px-2 py-0.5">
                     Nível {rNivel}
                   </span>
                 </div>
@@ -398,19 +398,19 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="bg-orange-500 text-black text-[10px] font-black uppercase px-2 py-0.5 font-mono">
+                <span className="bg-blue-600 text-white text-[10px] font-black uppercase px-2 py-0.5 font-mono">
                   Nível {rNivel}
                 </span>
                 {character.cla && (
                   <span className="text-[10px] bg-white/5 border border-white/10 text-white/70 font-mono px-2 py-0.5 uppercase">
-                    Clã: <strong className="text-orange-400">{character.cla}</strong>
+                    Clã: <strong className="text-sky-400">{character.cla}</strong>
                   </span>
                 )}
               </div>
 
               {character.ocupacao && (
                 <p className="text-[11px] text-white/60 font-mono uppercase tracking-wider">
-                  Ocupação: <span className="text-orange-400 font-bold">{character.ocupacao}</span>
+                  Ocupação: <span className="text-sky-400 font-bold">{character.ocupacao}</span>
                 </p>
               )}
             </div>
@@ -422,7 +422,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                 className="w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white font-bold text-xs py-2.5 px-4 border border-white/10 transition uppercase tracking-wider"
                 title="Salvar como PDF / Imprimir Ficha no Padrão Sankötei"
               >
-                <Printer className="h-3.5 w-3.5 text-orange-400" />
+                <Printer className="h-3.5 w-3.5 text-sky-400" />
                 <span>Exportar Ficha em PDF (Sankötei)</span>
               </button>
 
@@ -430,7 +430,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                 <>
                   <button
                     onClick={startEditTexts}
-                    className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs py-2.5 px-4 transition uppercase tracking-wider shadow-lg"
+                    className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs py-2.5 px-4 transition uppercase tracking-wider shadow-lg"
                   >
                     <Edit className="h-3.5 w-3.5" />
                     <span>Editar Ficha, Atributos & Marcadores</span>
@@ -454,7 +454,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
               <div className="pt-3 border-t border-white/5 text-[10px] font-mono text-white/40 space-y-1">
                 <div className="flex items-center justify-between">
                   <span>Dono da Ficha:</span>
-                  <span className="text-orange-400 font-bold truncate max-w-[160px]">{character.email_dono || 'Sem Dono (Mestre)'}</span>
+                  <span className="text-sky-400 font-bold truncate max-w-[160px]">{character.email_dono || 'Sem Dono (Mestre)'}</span>
                 </div>
               </div>
             )}
@@ -652,62 +652,62 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               
               {/* FÍSICO */}
-              <div className="bg-black border border-white/10 hover:border-orange-500/40 p-4 transition-all flex flex-col justify-between">
+              <div className="bg-black border border-white/10 hover:border-blue-500/40 p-4 transition-all flex flex-col justify-between">
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-xs font-black uppercase tracking-wider text-white">Físico</span>
-                  <span className="text-[9px] font-mono text-orange-400 bg-orange-500/10 px-1.5 py-0.2 border border-orange-500/20">FIS</span>
+                  <span className="text-[9px] font-mono text-sky-400 bg-blue-500/10 px-1.5 py-0.2 border border-blue-500/20">FIS</span>
                 </div>
                 <div className="my-2">
                   <span className="text-3xl font-black text-white font-mono">{rFis}</span>
                 </div>
                 <div className="pt-2 border-t border-white/5 flex justify-between items-center text-[10px] font-mono">
                   <span className="text-white/40">Mod:</span>
-                  <span className="text-orange-400 font-bold">+{character.ferramenta_fisico}</span>
+                  <span className="text-sky-400 font-bold">+{character.ferramenta_fisico}</span>
                 </div>
               </div>
 
               {/* DESTREZA */}
-              <div className="bg-black border border-white/10 hover:border-orange-500/40 p-4 transition-all flex flex-col justify-between">
+              <div className="bg-black border border-white/10 hover:border-blue-500/40 p-4 transition-all flex flex-col justify-between">
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-xs font-black uppercase tracking-wider text-white">Destreza</span>
-                  <span className="text-[9px] font-mono text-orange-400 bg-orange-500/10 px-1.5 py-0.2 border border-orange-500/20">DES</span>
+                  <span className="text-[9px] font-mono text-sky-400 bg-blue-500/10 px-1.5 py-0.2 border border-blue-500/20">DES</span>
                 </div>
                 <div className="my-2">
                   <span className="text-3xl font-black text-white font-mono">{rDes}</span>
                 </div>
                 <div className="pt-2 border-t border-white/5 flex justify-between items-center text-[10px] font-mono">
                   <span className="text-white/40">Mod:</span>
-                  <span className="text-orange-400 font-bold">+{character.ferramenta_destreza}</span>
+                  <span className="text-sky-400 font-bold">+{character.ferramenta_destreza}</span>
                 </div>
               </div>
 
               {/* COGNIÇÃO */}
-              <div className="bg-black border border-white/10 hover:border-orange-500/40 p-4 transition-all flex flex-col justify-between">
+              <div className="bg-black border border-white/10 hover:border-blue-500/40 p-4 transition-all flex flex-col justify-between">
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-xs font-black uppercase tracking-wider text-white">Cognição</span>
-                  <span className="text-[9px] font-mono text-orange-400 bg-orange-500/10 px-1.5 py-0.2 border border-orange-500/20">COG</span>
+                  <span className="text-[9px] font-mono text-sky-400 bg-blue-500/10 px-1.5 py-0.2 border border-blue-500/20">COG</span>
                 </div>
                 <div className="my-2">
                   <span className="text-3xl font-black text-white font-mono">{rCog}</span>
                 </div>
                 <div className="pt-2 border-t border-white/5 flex justify-between items-center text-[10px] font-mono">
                   <span className="text-white/40">Mod:</span>
-                  <span className="text-orange-400 font-bold">+{character.ferramenta_cognicao}</span>
+                  <span className="text-sky-400 font-bold">+{character.ferramenta_cognicao}</span>
                 </div>
               </div>
 
               {/* CARISMA */}
-              <div className="bg-black border border-white/10 hover:border-orange-500/40 p-4 transition-all flex flex-col justify-between">
+              <div className="bg-black border border-white/10 hover:border-blue-500/40 p-4 transition-all flex flex-col justify-between">
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-xs font-black uppercase tracking-wider text-white">Carisma</span>
-                  <span className="text-[9px] font-mono text-orange-400 bg-orange-500/10 px-1.5 py-0.2 border border-orange-500/20">CAR</span>
+                  <span className="text-[9px] font-mono text-sky-400 bg-blue-500/10 px-1.5 py-0.2 border border-blue-500/20">CAR</span>
                 </div>
                 <div className="my-2">
                   <span className="text-3xl font-black text-white font-mono">{rCar}</span>
                 </div>
                 <div className="pt-2 border-t border-white/5 flex justify-between items-center text-[10px] font-mono">
                   <span className="text-white/40">Mod:</span>
-                  <span className="text-orange-400 font-bold">+{character.ferramenta_carisma}</span>
+                  <span className="text-sky-400 font-bold">+{character.ferramenta_carisma}</span>
                 </div>
               </div>
 
@@ -734,17 +734,17 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
           </div>
 
           {/* 2.4 COMBAT TOOLS (Ferramentas de Combate & Contadores de Uso) */}
-          <div className="space-y-3 bg-[#080808] border border-orange-500/30 p-4 shadow-xl">
+          <div className="space-y-3 bg-[#080808] border border-blue-500/30 p-4 shadow-xl">
             <div className="flex items-center justify-between">
-              <p className="text-[11px] text-orange-400 uppercase font-black tracking-widest flex items-center gap-1.5">
-                <Swords className="h-4 w-4 text-orange-500" />
+              <p className="text-[11px] text-sky-400 uppercase font-black tracking-widest flex items-center gap-1.5">
+                <Swords className="h-4 w-4 text-sky-400" />
                 <span>Ferramentas de Combate & Contadores de Uso</span>
               </p>
               {isGM && (
                 <button
                   type="button"
                   onClick={handleRestoreAllTools}
-                  className="flex items-center gap-1 text-[10px] bg-orange-950/40 hover:bg-orange-900/60 text-orange-300 border border-orange-500/30 px-2.5 py-1 font-mono uppercase font-bold transition"
+                  className="flex items-center gap-1 text-[10px] bg-blue-950/40 hover:bg-blue-900/60 text-sky-300 border border-blue-500/30 px-2.5 py-1 font-mono uppercase font-bold transition"
                   title="Restaurar todos os contadores de ferramentas para o valor máximo"
                 >
                   <RotateCcw className="h-3 w-3" />
@@ -760,7 +760,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-[8px] text-white/50 uppercase font-bold tracking-tight">RESISTIR | ESMAGAR</p>
-                    <p className="text-[10px] text-orange-400 font-mono font-bold">Físico</p>
+                    <p className="text-[10px] text-sky-400 font-mono font-bold">Físico</p>
                   </div>
                   <span className="text-sm font-black text-white font-mono bg-white/5 px-2 py-0.5 border border-white/10">
                     +{character.ferramenta_fisico || 0}
@@ -781,7 +781,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                         <Minus className="h-2.5 w-2.5" />
                       </button>
                     )}
-                    <span className="font-mono font-bold text-xs text-orange-400">
+                    <span className="font-mono font-bold text-xs text-sky-400">
                       {character.ferramenta_fisico_atual ?? character.ferramenta_fisico_max ?? 2}
                       <span className="text-white/40 font-normal">/{character.ferramenta_fisico_max ?? 2}</span>
                     </span>
@@ -813,7 +813,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                           <Minus className="h-2.5 w-2.5" />
                         </button>
                       )}
-                      <span className="font-mono font-bold text-xs text-orange-400">
+                      <span className="font-mono font-bold text-xs text-sky-400">
                         {character.ferramenta_fisico_sec_atual ?? character.ferramenta_fisico_sec_max ?? 3}
                         <span className="text-white/40 font-normal">/{character.ferramenta_fisico_sec_max ?? 3}</span>
                       </span>
@@ -837,7 +837,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-[8px] text-white/50 uppercase font-bold tracking-tight">EVADIR | ABDICAR</p>
-                    <p className="text-[10px] text-orange-400 font-mono font-bold">Destreza</p>
+                    <p className="text-[10px] text-sky-400 font-mono font-bold">Destreza</p>
                   </div>
                   <span className="text-sm font-black text-white font-mono bg-white/5 px-2 py-0.5 border border-white/10">
                     +{character.ferramenta_destreza || 0}
@@ -857,7 +857,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                         <Minus className="h-2.5 w-2.5" />
                       </button>
                     )}
-                    <span className="font-mono font-bold text-xs text-orange-400">
+                    <span className="font-mono font-bold text-xs text-sky-400">
                       {character.ferramenta_destreza_atual ?? character.ferramenta_destreza_max ?? 0}
                       <span className="text-white/40 font-normal">/{character.ferramenta_destreza_max ?? 0}</span>
                     </span>
@@ -880,7 +880,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-[8px] text-white/50 uppercase font-bold tracking-tight">PREVER | CONCENTRAR</p>
-                    <p className="text-[10px] text-orange-400 font-mono font-bold">Cognição</p>
+                    <p className="text-[10px] text-sky-400 font-mono font-bold">Cognição</p>
                   </div>
                   <span className="text-sm font-black text-white font-mono bg-white/5 px-2 py-0.5 border border-white/10">
                     +{character.ferramenta_cognicao || 0}
@@ -900,7 +900,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                         <Minus className="h-2.5 w-2.5" />
                       </button>
                     )}
-                    <span className="font-mono font-bold text-xs text-orange-400">
+                    <span className="font-mono font-bold text-xs text-sky-400">
                       {character.ferramenta_cognicao_atual ?? character.ferramenta_cognicao_max ?? 0}
                       <span className="text-white/40 font-normal">/{character.ferramenta_cognicao_max ?? 0}</span>
                     </span>
@@ -923,7 +923,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-[8px] text-white/50 uppercase font-bold tracking-tight">RECUPERAR | INTIMIDAR</p>
-                    <p className="text-[10px] text-orange-400 font-mono font-bold">Carisma</p>
+                    <p className="text-[10px] text-sky-400 font-mono font-bold">Carisma</p>
                   </div>
                   <span className="text-sm font-black text-white font-mono bg-white/5 px-2 py-0.5 border border-white/10">
                     +{character.ferramenta_carisma || 0}
@@ -943,7 +943,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                         <Minus className="h-2.5 w-2.5" />
                       </button>
                     )}
-                    <span className="font-mono font-bold text-xs text-orange-400">
+                    <span className="font-mono font-bold text-xs text-sky-400">
                       {character.ferramenta_carisma_atual ?? character.ferramenta_carisma_max ?? 1}
                       <span className="text-white/40 font-normal">/{character.ferramenta_carisma_max ?? 1}</span>
                     </span>
@@ -966,9 +966,9 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
 
           {/* 2.5 COMPLETE SHEET & ATTRIBUTES EDITING MODAL (WHEN GM CLICKS EDIT) */}
           {isEditingTexts && isGM && (
-            <div className="bg-[#0c0c0c] border-2 border-orange-500/80 p-5 space-y-5 shadow-2xl animate-in fade-in">
+            <div className="bg-[#0c0c0c] border-2 border-blue-500/80 p-5 space-y-5 shadow-2xl animate-in fade-in">
               <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                <h3 className="text-xs font-black text-orange-400 uppercase tracking-widest flex items-center gap-2">
+                <h3 className="text-xs font-black text-sky-400 uppercase tracking-widest flex items-center gap-2">
                   <Edit className="h-4 w-4" />
                   <span>Editor de Ficha, Atributos Máximos & Marcadores (Mestre GM)</span>
                 </h3>
@@ -983,7 +983,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
 
               {/* Section 1: Identity, Level & Finances */}
               <div className="space-y-2">
-                <span className="text-[10px] font-mono uppercase font-bold text-orange-400 block tracking-wider">
+                <span className="text-[10px] font-mono uppercase font-bold text-sky-400 block tracking-wider">
                   1. Identidade Sankötei, Nível & Finanças
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-black p-3 border border-white/10">
@@ -995,7 +995,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       type="text"
                       value={eNome}
                       onChange={(e) => setENome(e.target.value)}
-                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-bold focus:outline-none focus:border-orange-500"
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-bold focus:outline-none focus:border-blue-500"
                     />
                   </div>
                   <div>
@@ -1006,7 +1006,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       type="number"
                       value={eNivel}
                       onChange={(e) => setENivel(Number(e.target.value))}
-                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-blue-500"
                     />
                   </div>
                   <div>
@@ -1017,7 +1017,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       type="text"
                       value={eCla}
                       onChange={(e) => setECla(e.target.value)}
-                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-blue-500"
                     />
                   </div>
                   <div>
@@ -1028,7 +1028,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       type="text"
                       value={eOcupacao}
                       onChange={(e) => setEOcupacao(e.target.value)}
-                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-blue-500"
                     />
                   </div>
                   <div>
@@ -1039,7 +1039,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       type="text"
                       value={eCidadania}
                       onChange={(e) => setECidadania(e.target.value)}
-                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-blue-500"
                     />
                   </div>
                   <div>
@@ -1050,7 +1050,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       type="text"
                       value={eSeguimento}
                       onChange={(e) => setESeguimento(e.target.value)}
-                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-blue-500"
                     />
                   </div>
                   <div className="sm:col-span-2">
@@ -1062,7 +1062,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       value={eNivelamentoAlma}
                       onChange={(e) => setENivelamentoAlma(e.target.value)}
                       placeholder="Ex: 05 (68). Alma: Reihao (17) 2x"
-                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-blue-500"
                     />
                   </div>
                   
@@ -1108,8 +1108,8 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
               {/* Section 2: Dynamic Health Avatars (Saudável, Ferido, Muito Ferido) */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono uppercase font-bold text-orange-400 flex items-center gap-1.5 tracking-wider">
-                    <ImageIcon className="h-3.5 w-3.5 text-orange-400" />
+                  <span className="text-[10px] font-mono uppercase font-bold text-sky-400 flex items-center gap-1.5 tracking-wider">
+                    <ImageIcon className="h-3.5 w-3.5 text-sky-400" />
                     <span>2. Avatares Dinâmicos por Estado de Saúde (GM)</span>
                   </span>
                   <span className="text-[9px] text-white/40 font-mono">
@@ -1240,7 +1240,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
 
               {/* Section 4: Primary Attributes & Primordio */}
               <div className="space-y-2">
-                <span className="text-[10px] font-mono uppercase font-bold text-orange-400 block tracking-wider">
+                <span className="text-[10px] font-mono uppercase font-bold text-sky-400 block tracking-wider">
                   4. Atributos Primários & Primórdio
                 </span>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 bg-black p-3 border border-white/10">
@@ -1252,7 +1252,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       type="number"
                       value={eFisico}
                       onChange={(e) => setEFisico(Number(e.target.value))}
-                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-blue-500"
                     />
                   </div>
                   <div>
@@ -1263,7 +1263,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       type="number"
                       value={eDestreza}
                       onChange={(e) => setEDestreza(Number(e.target.value))}
-                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-blue-500"
                     />
                   </div>
                   <div>
@@ -1274,7 +1274,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       type="number"
                       value={eCognicao}
                       onChange={(e) => setECognicao(Number(e.target.value))}
-                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-blue-500"
                     />
                   </div>
                   <div>
@@ -1285,7 +1285,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       type="number"
                       value={eCarisma}
                       onChange={(e) => setECarisma(Number(e.target.value))}
-                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-blue-500"
                     />
                   </div>
                   <div className="col-span-2 sm:col-span-1 bg-violet-950/20 border border-violet-500/30 p-1.5 space-y-1">
@@ -1311,7 +1311,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
 
               {/* Section 5: Combat Tools Modifiers & Max Usages */}
               <div className="space-y-2">
-                <span className="text-[10px] font-mono uppercase font-bold text-orange-400 block tracking-wider">
+                <span className="text-[10px] font-mono uppercase font-bold text-sky-400 block tracking-wider">
                   5. Ferramentas de Combate (Modificadores & Contadores de Uso Máximos)
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-black p-3 border border-white/10">
@@ -1327,7 +1327,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                         type="number"
                         value={eFerramentaFisico}
                         onChange={(e) => setEFerramentaFisico(Number(e.target.value))}
-                        className="w-full bg-[#050505] border border-white/10 px-2 py-1 text-orange-400 text-xs font-mono"
+                        className="w-full bg-[#050505] border border-white/10 px-2 py-1 text-sky-400 text-xs font-mono"
                       />
                     </div>
                     <div className="flex items-center gap-1">
@@ -1381,7 +1381,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                         type="number"
                         value={eFerramentaDestreza}
                         onChange={(e) => setEFerramentaDestreza(Number(e.target.value))}
-                        className="w-full bg-[#050505] border border-white/10 px-2 py-1 text-orange-400 text-xs font-mono"
+                        className="w-full bg-[#050505] border border-white/10 px-2 py-1 text-sky-400 text-xs font-mono"
                       />
                     </div>
                     <div className="flex items-center gap-1">
@@ -1415,7 +1415,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                         type="number"
                         value={eFerramentaCognicao}
                         onChange={(e) => setEFerramentaCognicao(Number(e.target.value))}
-                        className="w-full bg-[#050505] border border-white/10 px-2 py-1 text-orange-400 text-xs font-mono"
+                        className="w-full bg-[#050505] border border-white/10 px-2 py-1 text-sky-400 text-xs font-mono"
                       />
                     </div>
                     <div className="flex items-center gap-1">
@@ -1449,7 +1449,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                         type="number"
                         value={eFerramentaCarisma}
                         onChange={(e) => setEFerramentaCarisma(Number(e.target.value))}
-                        className="w-full bg-[#050505] border border-white/10 px-2 py-1 text-orange-400 text-xs font-mono"
+                        className="w-full bg-[#050505] border border-white/10 px-2 py-1 text-sky-400 text-xs font-mono"
                       />
                     </div>
                     <div className="flex items-center gap-1">
@@ -1477,7 +1477,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
 
               {/* Section 6: Marcadores de Campo */}
               <div className="space-y-2">
-                <span className="text-[10px] font-mono uppercase font-bold text-orange-400 block tracking-wider">
+                <span className="text-[10px] font-mono uppercase font-bold text-sky-400 block tracking-wider">
                   6. Marcadores de Campo Sankötei
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-black p-3 border border-white/10">
@@ -1490,7 +1490,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       value={eAlcance}
                       onChange={(e) => setEAlcance(e.target.value)}
                       placeholder="03 (6) | 15 (30) metros"
-                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-blue-500"
                     />
                   </div>
                   <div>
@@ -1502,7 +1502,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       value={eMovimento}
                       onChange={(e) => setEMovimento(e.target.value)}
                       placeholder="03 | 15 metros"
-                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-blue-500"
                     />
                   </div>
                   <div>
@@ -1514,7 +1514,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       value={eFortitude}
                       onChange={(e) => setEFortitude(e.target.value)}
                       placeholder="29+4 | 33 equipados"
-                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-blue-500"
                     />
                   </div>
                   <div>
@@ -1526,7 +1526,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       value={eTecnicas}
                       onChange={(e) => setETecnicas(e.target.value)}
                       placeholder="02 | 00 equipada"
-                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-orange-500"
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-blue-500"
                     />
                   </div>
                 </div>
@@ -1534,7 +1534,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
 
               {/* Section 7: 4 Text Blocks */}
               <div className="space-y-2">
-                <span className="text-[10px] font-mono uppercase font-bold text-orange-400 block tracking-wider">
+                <span className="text-[10px] font-mono uppercase font-bold text-sky-400 block tracking-wider">
                   7. Conteúdo e Habilidades (Suporta formatação HTML &lt;strong&gt;, &lt;b&gt;, etc.)
                 </span>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1546,7 +1546,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       rows={4}
                       value={eAtaques}
                       onChange={(e) => setEAtaques(e.target.value)}
-                      className="w-full bg-black border border-white/10 p-3 text-xs text-white font-mono focus:outline-none focus:border-orange-500"
+                      className="w-full bg-black border border-white/10 p-3 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
                     />
                   </div>
 
@@ -1558,7 +1558,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       rows={4}
                       value={eDons}
                       onChange={(e) => setEDons(e.target.value)}
-                      className="w-full bg-black border border-white/10 p-3 text-xs text-white font-mono focus:outline-none focus:border-orange-500"
+                      className="w-full bg-black border border-white/10 p-3 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
                     />
                   </div>
 
@@ -1570,7 +1570,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       rows={4}
                       value={eEquipamentos}
                       onChange={(e) => setEEquipamentos(e.target.value)}
-                      className="w-full bg-black border border-white/10 p-3 text-xs text-white font-mono focus:outline-none focus:border-orange-500"
+                      className="w-full bg-black border border-white/10 p-3 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
                     />
                   </div>
 
@@ -1582,7 +1582,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       rows={4}
                       value={eDefesa}
                       onChange={(e) => setEDefesa(e.target.value)}
-                      className="w-full bg-black border border-white/10 p-3 text-xs text-white font-mono focus:outline-none focus:border-orange-500"
+                      className="w-full bg-black border border-white/10 p-3 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
                     />
                   </div>
                 </div>
@@ -1599,7 +1599,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                 <button
                   type="button"
                   onClick={handleSaveTextBlocks}
-                  className="px-6 py-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs uppercase tracking-wider transition flex items-center gap-1.5 shadow"
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-wider transition flex items-center gap-1.5 shadow"
                 >
                   <Check className="h-4 w-4" />
                   Salvar Alterações
@@ -1617,7 +1617,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                 onClick={() => setActiveTab('ataques')}
                 className={`px-5 py-3.5 text-xs font-black uppercase tracking-widest transition flex items-center gap-2 border-b-2 shrink-0 ${
                   activeTab === 'ataques'
-                    ? 'border-orange-500 text-orange-500 bg-white/[0.03]'
+                    ? 'border-blue-500 text-sky-400 bg-white/[0.03]'
                     : 'border-transparent text-white/40 hover:text-white'
                 }`}
               >
@@ -1629,7 +1629,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                 onClick={() => setActiveTab('dons')}
                 className={`px-5 py-3.5 text-xs font-black uppercase tracking-widest transition flex items-center gap-2 border-b-2 shrink-0 ${
                   activeTab === 'dons'
-                    ? 'border-orange-500 text-orange-500 bg-white/[0.03]'
+                    ? 'border-blue-500 text-sky-400 bg-white/[0.03]'
                     : 'border-transparent text-white/40 hover:text-white'
                 }`}
               >
@@ -1641,7 +1641,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                 onClick={() => setActiveTab('equip')}
                 className={`px-5 py-3.5 text-xs font-black uppercase tracking-widest transition flex items-center gap-2 border-b-2 shrink-0 ${
                   activeTab === 'equip'
-                    ? 'border-orange-500 text-orange-500 bg-white/[0.03]'
+                    ? 'border-blue-500 text-sky-400 bg-white/[0.03]'
                     : 'border-transparent text-white/40 hover:text-white'
                 }`}
               >
@@ -1653,7 +1653,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                 onClick={() => setActiveTab('defesa')}
                 className={`px-5 py-3.5 text-xs font-black uppercase tracking-widest transition flex items-center gap-2 border-b-2 shrink-0 ${
                   activeTab === 'defesa'
-                    ? 'border-orange-500 text-orange-500 bg-white/[0.03]'
+                    ? 'border-blue-500 text-sky-400 bg-white/[0.03]'
                     : 'border-transparent text-white/40 hover:text-white'
                 }`}
               >
@@ -1665,7 +1665,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                 onClick={() => setActiveTab('versoes')}
                 className={`px-5 py-3.5 text-xs font-black uppercase tracking-widest transition flex items-center gap-2 border-b-2 shrink-0 ${
                   activeTab === 'versoes'
-                    ? 'border-orange-500 text-orange-500 bg-white/[0.03]'
+                    ? 'border-blue-500 text-sky-400 bg-white/[0.03]'
                     : 'border-transparent text-white/40 hover:text-white'
                 }`}
               >

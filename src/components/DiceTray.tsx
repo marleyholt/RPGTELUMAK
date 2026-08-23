@@ -102,18 +102,18 @@ export function DiceTray({ onSendRoll }: DiceTrayProps) {
     } else if (res.isFumble) {
       statusLabel = `<span class="px-2 py-0.5 text-[9px] font-black text-red-500 bg-red-950/20 border border-red-500/30 uppercase tracking-widest ml-2">Falha Crítica!</span>`;
     } else if (res.exploded) {
-      statusLabel = `<span class="px-2 py-0.5 text-[9px] font-black text-orange-500 bg-orange-950/20 border border-orange-500/30 uppercase tracking-widest ml-2">Explosivo!</span>`;
+      statusLabel = `<span class="px-2 py-0.5 text-[9px] font-black text-sky-400 bg-blue-950/20 border border-blue-500/30 uppercase tracking-widest ml-2">Explosivo!</span>`;
     }
 
     return `
-      <div class="dice-roll-block leading-normal p-1 border-l-2 border-orange-500/60 pl-3">
-        <div class="flex flex-wrap items-center text-orange-400 font-sans font-black text-xs uppercase tracking-widest mb-1.5">
+      <div class="dice-roll-block leading-normal p-1 border-l-2 border-blue-500/60 pl-3">
+        <div class="flex flex-wrap items-center text-sky-400 font-sans font-black text-xs uppercase tracking-widest mb-1.5">
           <span>Rolou: <strong class="text-white font-mono bg-[#111111] px-2 py-0.5 border border-white/10 ml-1 select-all">${res.formula}</strong></span>
           ${statusLabel}
         </div>
         <div class="text-[11px] text-white/50 break-all leading-tight mb-2 font-mono">${rollDetail}</div>
         <div class="text-xl font-black text-white uppercase tracking-wider font-sans italic">
-          Resultado: <span class="text-orange-500 font-mono text-2xl">${res.total}</span>
+          Resultado: <span class="text-sky-400 font-mono text-2xl">${res.total}</span>
         </div>
       </div>
     `;
@@ -123,7 +123,7 @@ export function DiceTray({ onSendRoll }: DiceTrayProps) {
 
   return (
     <div className="bg-[#080808] border border-white/10 p-5 rounded-none shadow-xl">
-      <h3 className="text-xs font-black text-orange-500 uppercase tracking-widest mb-4 flex items-center gap-1.5 italic">
+      <h3 className="text-xs font-black text-sky-400 uppercase tracking-widest mb-4 flex items-center gap-1.5 italic">
         <Sparkles className="h-4 w-4 stroke-[3]" />
         Rolador de Dados
       </h3>
@@ -134,7 +134,7 @@ export function DiceTray({ onSendRoll }: DiceTrayProps) {
             key={faces}
             onClick={() => handleRoll(`1d${faces}`)}
             disabled={isRolling}
-            className="bg-[#0d0d0d] border border-white/10 hover:border-orange-500/50 hover:bg-white/[0.02] text-white/80 font-mono font-black text-center py-2.5 px-1 rounded-none transition uppercase tracking-wider text-xs focus:outline-none"
+            className="bg-[#0d0d0d] border border-white/10 hover:border-blue-500/50 hover:bg-white/[0.02] text-white/80 font-mono font-black text-center py-2.5 px-1 rounded-none transition uppercase tracking-wider text-xs focus:outline-none"
           >
             D{faces}
           </button>
@@ -147,13 +147,13 @@ export function DiceTray({ onSendRoll }: DiceTrayProps) {
           value={customFormula}
           onChange={(e) => setCustomFormula(e.target.value)}
           placeholder="Ex: 2d10!9 + 5"
-          className="flex-1 bg-black border border-white/10 focus:border-orange-500 focus:outline-none text-white text-xs px-3.5 py-2.5 rounded-none font-mono placeholder-white/20"
+          className="flex-1 bg-black border border-white/10 focus:border-blue-500 focus:outline-none text-white text-xs px-3.5 py-2.5 rounded-none font-mono placeholder-white/20"
           onKeyDown={(e) => e.key === 'Enter' && handleRoll(customFormula)}
         />
         <button
           onClick={() => handleRoll(customFormula)}
           disabled={!customFormula || isRolling}
-          className="bg-orange-500 hover:bg-orange-600 disabled:bg-orange-500/50 disabled:cursor-not-allowed text-white font-black px-5 rounded-none text-xs transition uppercase tracking-widest flex items-center justify-center min-w-[80px]"
+          className="bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/50 disabled:cursor-not-allowed text-white font-black px-5 rounded-none text-xs transition uppercase tracking-widest flex items-center justify-center min-w-[80px]"
         >
           {isRolling ? 'Rolando...' : 'Rolar'}
         </button>
@@ -162,7 +162,7 @@ export function DiceTray({ onSendRoll }: DiceTrayProps) {
       {lastResult && (
         <div className="mt-4 p-4 bg-black/60 border border-white/5 rounded-none text-center">
           <p className="text-[9px] text-white/40 uppercase tracking-widest font-black mb-1">Último Resultado Local</p>
-          <div className="text-3xl font-black text-orange-500 font-mono tracking-tight">
+          <div className="text-3xl font-black text-sky-400 font-mono tracking-tight">
             {lastResult.total}
           </div>
           <p className="text-[10px] text-white/30 font-mono mt-1.5 w-full truncate">

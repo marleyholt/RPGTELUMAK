@@ -94,7 +94,7 @@ export function ImageUploadField({
               <button
                 type="button"
                 onClick={handleOpenCropForCurrent}
-                className="text-[10px] bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 font-bold uppercase tracking-wider py-1 px-2.5 transition flex items-center gap-1 border border-orange-500/30"
+                className="text-[10px] bg-blue-500/20 hover:bg-blue-500/30 text-sky-400 font-bold uppercase tracking-wider py-1 px-2.5 transition flex items-center gap-1 border border-blue-500/30"
                 title="Focar, dar zoom e ajustar posição"
               >
                 <Crop className="h-2.5 w-2.5" />
@@ -127,19 +127,19 @@ export function ImageUploadField({
           onClick={() => inputRef.current?.click()}
           className={`border-2 border-dashed transition-all cursor-pointer p-4 flex flex-col items-center justify-center text-center ${
             dragOver
-              ? 'border-orange-500 bg-orange-500/10'
+              ? 'border-blue-500 bg-blue-500/10'
               : 'border-white/15 bg-black/40 hover:border-white/30 hover:bg-white/[0.02]'
           }`}
         >
           {isProcessing ? (
-            <div className="flex items-center gap-2 text-xs text-orange-400 font-mono">
+            <div className="flex items-center gap-2 text-xs text-sky-400 font-mono">
               <RefreshCw className="h-4 w-4 animate-spin" />
               <span>Otimizando imagem...</span>
             </div>
           ) : (
             <>
               <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center mb-1.5 text-white/60">
-                <Upload className="h-4 w-4 text-orange-500" />
+                <Upload className="h-4 w-4 text-sky-400" />
               </div>
               <p className="text-[11px] font-bold text-white uppercase tracking-wider">
                 Clique para enviar foto ou arraste aqui

@@ -123,14 +123,14 @@ export function PlayerConfigModal({
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-white/10 bg-black">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-orange-500/10 border border-orange-500/30 text-orange-500">
+            <div className="p-2 bg-blue-500/10 border border-blue-500/30 text-sky-400">
               <User className="h-4 w-4" />
             </div>
             <div>
               <h2 className="text-xs font-black uppercase tracking-tight text-white">
                 Meu Perfil & Configurações de Jogador
               </h2>
-              <p className="text-[9px] text-white/50 font-mono">
+              <p className="text-[9px] text-sky-200/50 font-mono">
                 Altere seu nome, avatar, senha e credenciais de acesso
               </p>
             </div>
@@ -160,13 +160,13 @@ export function PlayerConfigModal({
                 <p className="text-xs font-black text-white uppercase tracking-wider truncate">
                   {userProfile.displayName}
                 </p>
-                <p className="text-[10px] text-white/40 font-mono truncate">
+                <p className="text-[10px] text-sky-400 font-mono truncate">
                   {userProfile.email}
                 </p>
               </div>
             </div>
             <div className="text-right">
-              <span className="text-[9px] font-mono font-bold bg-orange-500/10 text-orange-400 border border-orange-500/20 px-2 py-0.5 uppercase">
+              <span className="text-[9px] font-mono font-bold bg-blue-500/15 text-sky-400 border border-blue-500/30 px-2 py-0.5 uppercase">
                 {isGoogleLogin ? 'Google Auth' : 'E-mail / Senha'}
               </span>
             </div>
@@ -174,7 +174,7 @@ export function PlayerConfigModal({
 
           {/* Form 1: Edit Profile (Username & Avatar with Crop tool) */}
           <form onSubmit={handleUpdateProfileData} className="space-y-4 bg-black border border-white/10 p-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-orange-400 flex items-center gap-1.5">
+            <h3 className="text-xs font-black uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
               <User className="h-3.5 w-3.5" />
               Identidade do Jogador
             </h3>
@@ -193,7 +193,7 @@ export function PlayerConfigModal({
             )}
 
             <div>
-              <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">
+              <label className="block text-[10px] text-sky-200/70 font-bold uppercase tracking-wider mb-1">
                 Nome de Usuário / Nickname
               </label>
               <input
@@ -201,7 +201,7 @@ export function PlayerConfigModal({
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="Ex: Aldor O Valente"
-                className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs font-sans focus:outline-none focus:border-orange-500"
+                className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs font-sans focus:outline-none focus:border-blue-500"
                 required
               />
             </div>
@@ -219,7 +219,7 @@ export function PlayerConfigModal({
               <button
                 type="submit"
                 disabled={savingProfile}
-                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs uppercase tracking-wider transition flex items-center gap-1.5 shadow disabled:opacity-50"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-wider transition flex items-center gap-1.5 shadow disabled:opacity-50"
               >
                 {savingProfile ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                 Salvar Identidade
@@ -229,7 +229,7 @@ export function PlayerConfigModal({
 
           {/* Form 2: Change Password (if email auth) */}
           <form onSubmit={handleChangePassword} className="space-y-4 bg-black border border-white/10 p-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-orange-400 flex items-center gap-1.5">
+            <h3 className="text-xs font-black uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
               <Key className="h-3.5 w-3.5" />
               Segurança & Troca de Senha
             </h3>
@@ -249,7 +249,7 @@ export function PlayerConfigModal({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">
+                <label className="block text-[10px] text-sky-200/70 font-bold uppercase tracking-wider mb-1">
                   Nova Senha
                 </label>
                 <input
@@ -257,11 +257,11 @@ export function PlayerConfigModal({
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Mínimo 6 caracteres"
-                  className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs focus:outline-none focus:border-orange-500"
+                  className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">
+                <label className="block text-[10px] text-sky-200/70 font-bold uppercase tracking-wider mb-1">
                   Confirmar Nova Senha
                 </label>
                 <input
@@ -269,7 +269,7 @@ export function PlayerConfigModal({
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Repita a senha"
-                  className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs focus:outline-none focus:border-orange-500"
+                  className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500"
                 />
               </div>
             </div>
