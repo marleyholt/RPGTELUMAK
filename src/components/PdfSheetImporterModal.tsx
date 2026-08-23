@@ -1,8 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Character } from '../types';
 import { 
   FileText, Upload, Sparkles, Check, AlertTriangle, 
-  Loader2, X, RefreshCw, Layers, Shield, Swords, Zap, Heart, Star, Coins
+  Loader2, X, RefreshCw, Layers, Shield, Swords, Zap, Heart, Star, Coins,
+  Terminal, CheckCircle2, ArrowRight, Info
 } from 'lucide-react';
 import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -16,6 +17,15 @@ interface PdfSheetImporterModalProps {
   onSuccess?: (charId: string) => void;
 }
 
+interface ImportStatusLog {
+  id: string;
+  time: string;
+  type: 'info' | 'progress' | 'success' | 'error';
+  message: string;
+}
+
+type ImportStep = 'idle' | 'reading' | 'gemini_analyzing' | 'parsing_sankotei' | 'success' | 'error';
+
 export function PdfSheetImporterModal({
   isOpen,
   onClose,
@@ -25,12 +35,29 @@ export function PdfSheetImporterModal({
 }: PdfSheetImporterModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [statusMessage, setStatusMessage] = useState('');
+  const [currentStep, setCurrentStep] = useState<ImportStep>('idle');
+  const [progressPercent, setProgressPercent] = useState(0);
+  const [statusLogs, setStatusLogs] = useState<ImportStatusLog[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [extractedData, setExtractedData] = useState<any | null>(null);
   const [rawTextFallback, setRawTextFallback] = useState('');
   const [showRawTextInput, setShowRawTextInput] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const logsEndRef = useRef<HTMLDivElement>(null);
+
+  const addLog = (type: 'info' | 'progress' | 'success' | 'error', message: string) => {
+    const newLog: ImportStatusLog = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      time: new Date().toLocaleTimeString(),
+      type,
+      message
+    };
+    setStatusLogs(prev => [...prev, newLog]);
+  };
+
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [statusLogs]);
 
   if (!isOpen) return null;
 
@@ -46,10 +73,16 @@ export function PdfSheetImporterModal({
   const processFile = async (uploadedFile: File) => {
     setIsProcessing(true);
     setError(null);
-    setStatusMessage('Lendo arquivo PDF...');
+    setExtractedData(null);
+    setStatusLogs([]);
+    setCurrentStep('reading');
+    setProgressPercent(15);
+
+    addLog('info', `Arquivo selecionado: ${uploadedFile.name} (${(uploadedFile.size / 1024).toFixed(1)} KB)`);
+    addLog('progress', 'Lendo e codificando arquivo PDF da Ficha...');
 
     try {
-      // Convert file to base64
+      // Step 1: Read file to base64
       const reader = new FileReader();
       const base64Promise = new Promise<string>((resolve, reject) => {
         reader.onload = () => resolve(reader.result as string);
@@ -58,7 +91,13 @@ export function PdfSheetImporterModal({
       reader.readAsDataURL(uploadedFile);
       const base64Data = await base64Promise;
 
-      setStatusMessage('Analisando ficha Sankötei com IA...');
+      // Step 2: Sending to Gemini AI
+      setCurrentStep('gemini_analyzing');
+      setProgressPercent(45);
+      addLog('progress', 'Transmitindo documento para análise multimodal da IA Gemini...');
+
+      // Small delay for visual feedback
+      await new Promise(r => setTimeout(r, 400));
 
       const response = await fetch('/api/characters/import-pdf', {
         method: 'POST',
@@ -69,6 +108,11 @@ export function PdfSheetImporterModal({
           filename: uploadedFile.name
         })
       });
+
+      // Step 3: Parsing Sankötei structure
+      setCurrentStep('parsing_sankotei');
+      setProgressPercent(80);
+      addLog('progress', 'Recebendo resposta da IA e mapeando atributos, vitalidade e perícias Sankötei...');
 
       const responseText = await response.text();
       let resData: any = {};
@@ -82,11 +126,24 @@ export function PdfSheetImporterModal({
         throw new Error(resData.error || 'Falha ao processar PDF.');
       }
 
-      setExtractedData(resData.data);
-      setStatusMessage('Dados extraídos com sucesso!');
+      const data = resData.data;
+      setExtractedData(data);
+      setCurrentStep('success');
+      setProgressPercent(100);
+
+      addLog('success', `Ficha extraída com sucesso! Personagem: ${data.nome || 'Aventureiro'} ${data.cla ? `(${data.cla})` : ''} • Nível ${data.nivel || 1}`);
+      addLog('info', `HP: ${data.hp_atual ?? data.hp_max}/${data.hp_max} | Éter: ${data.ether_atual ?? data.ether_max}/${data.ether_max} | Destino: ${data.destino_atual ?? data.destino_max}/${data.destino_max}`);
+      addLog('info', `Atributos identificados: FIS ${data.fisico} | DES ${data.destreza} | COG ${data.cognicao} | CAR ${data.carisma} | PRI ${data.primordio}`);
+      if (data.ryo_dourado !== undefined) {
+        addLog('info', `Finanças: ${data.ryo_dourado} Ryo Dourado, ${data.ryo_prateado || 0} Prateado, ${data.ryo_bronze || 0} Bronze.`);
+      }
+
     } catch (err: any) {
       console.error("Erro ao importar PDF:", err);
-      setError(err?.message || 'Falha na importação do PDF. Verifique se o arquivo é uma ficha Sankötei válida.');
+      const errMsg = err?.message || 'Falha na importação do PDF. Verifique se o arquivo é uma ficha Sankötei válida.';
+      setError(errMsg);
+      setCurrentStep('error');
+      addLog('error', `Falha no processamento: ${errMsg}`);
     } finally {
       setIsProcessing(false);
     }
@@ -96,9 +153,18 @@ export function PdfSheetImporterModal({
     if (!rawTextFallback.trim()) return;
     setIsProcessing(true);
     setError(null);
-    setStatusMessage('Processando texto da ficha...');
+    setExtractedData(null);
+    setStatusLogs([]);
+    setCurrentStep('reading');
+    setProgressPercent(20);
+
+    addLog('info', 'Processando texto inserido manualmente...');
 
     try {
+      setCurrentStep('gemini_analyzing');
+      setProgressPercent(50);
+      addLog('progress', 'Enviando conteúdo para estruturação via IA Gemini...');
+
       const response = await fetch('/api/characters/import-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -106,6 +172,10 @@ export function PdfSheetImporterModal({
           textContent: rawTextFallback
         })
       });
+
+      setCurrentStep('parsing_sankotei');
+      setProgressPercent(80);
+      addLog('progress', 'Mapeando regras, atributos e estatísticas da ficha Sankötei...');
 
       const responseText = await response.text();
       let resData: any = {};
@@ -119,11 +189,19 @@ export function PdfSheetImporterModal({
         throw new Error(resData.error || 'Falha ao processar texto.');
       }
 
-      setExtractedData(resData.data);
-      setStatusMessage('Dados extraídos com sucesso!');
+      const data = resData.data;
+      setExtractedData(data);
+      setCurrentStep('success');
+      setProgressPercent(100);
+
+      addLog('success', `Ficha extraída com sucesso! Personagem: ${data.nome || 'Aventureiro'} ${data.cla ? `(${data.cla})` : ''} • Nível ${data.nivel || 1}`);
+      addLog('info', `HP: ${data.hp_atual ?? data.hp_max}/${data.hp_max} | Éter: ${data.ether_atual ?? data.ether_max}/${data.ether_max} | Destino: ${data.destino_atual ?? data.destino_max}/${data.destino_max}`);
     } catch (err: any) {
       console.error("Erro ao importar por texto:", err);
-      setError(err?.message || 'Falha ao processar texto da ficha.');
+      const errMsg = err?.message || 'Falha ao processar texto da ficha.';
+      setError(errMsg);
+      setCurrentStep('error');
+      addLog('error', `Falha no processamento: ${errMsg}`);
     } finally {
       setIsProcessing(false);
     }
@@ -132,7 +210,7 @@ export function PdfSheetImporterModal({
   const handleApplyToExistingCharacter = async () => {
     if (!targetCharacter || !extractedData) return;
     setIsProcessing(true);
-    setStatusMessage('Salvando dados na ficha...');
+    addLog('progress', `Gravando dados na ficha existente "${targetCharacter.nome}"...`);
 
     try {
       const charRef = doc(db, 'characters', targetCharacter.id);
@@ -191,7 +269,7 @@ export function PdfSheetImporterModal({
 
         ferramenta_carisma: Number(extractedData.ferramenta_carisma) ?? 0,
         ferramenta_carisma_max: Number(extractedData.ferramenta_carisma_max) ?? 1,
-        ferramenta_carisma_atual: Number(extractedData.ferramenta_carisma_atual) ?? 1
+        ferramenta_carisma_atual: Number(extractedData.ferramenta_carisma_atual) ?? 1,
       };
 
       if (extractedData.html_ataques) payload.html_ataques = extractedData.html_ataques;
@@ -200,19 +278,20 @@ export function PdfSheetImporterModal({
       if (extractedData.html_defesa) payload.html_defesa = extractedData.html_defesa;
 
       await updateDoc(charRef, payload);
-
-      if (onApplyToQuickStats) {
-        onApplyToQuickStats(extractedData);
-      }
-
+      addLog('success', 'Ficha atualizada no banco de dados com sucesso!');
+      
       if (onSuccess) {
         onSuccess(targetCharacter.id);
       }
 
-      onClose();
+      setTimeout(() => {
+        onClose();
+      }, 500);
     } catch (err: any) {
-      console.error("Erro ao aplicar ficha:", err);
-      setError(err?.message || "Falha ao gravar ficha no Firestore.");
+      console.error("Erro ao atualizar ficha:", err);
+      const errMsg = err?.message || "Falha ao gravar ficha.";
+      setError(errMsg);
+      addLog('error', `Falha ao salvar: ${errMsg}`);
     } finally {
       setIsProcessing(false);
     }
@@ -221,14 +300,15 @@ export function PdfSheetImporterModal({
   const handleCreateNewCharacter = async () => {
     if (!extractedData) return;
     setIsProcessing(true);
-    setStatusMessage('Criando nova ficha a partir do PDF...');
+    addLog('progress', 'Criando novo personagem Sankötei no banco de dados...');
 
     try {
-      const newId = `char_${Date.now()}`;
+      const newId = `char-${Date.now()}`;
+      
       const newChar: Character = {
         id: newId,
+        nome: extractedData.nome || 'Novo Aventureiro',
         email_dono: '',
-        nome: extractedData.nome || 'Novo Personagem Sankötei',
         cla: extractedData.cla || '',
         ocupacao: extractedData.ocupacao || '',
         posicao_social: extractedData.posicao_social || '',
@@ -295,15 +375,20 @@ export function PdfSheetImporterModal({
       };
 
       await setDoc(doc(db, 'characters', newId), newChar);
+      addLog('success', `Personagem "${newChar.nome}" cadastrado com sucesso!`);
 
       if (onSuccess) {
         onSuccess(newId);
       }
 
-      onClose();
+      setTimeout(() => {
+        onClose();
+      }, 500);
     } catch (err: any) {
       console.error("Erro ao criar nova ficha:", err);
-      setError(err?.message || "Falha ao gravar nova ficha.");
+      const errMsg = err?.message || "Falha ao gravar nova ficha.";
+      setError(errMsg);
+      addLog('error', `Falha ao criar: ${errMsg}`);
     } finally {
       setIsProcessing(false);
     }
@@ -371,10 +456,15 @@ export function PdfSheetImporterModal({
                 />
 
                 {isProcessing ? (
-                  <div className="flex flex-col items-center gap-2 py-4 text-blue-400">
+                  <div className="flex flex-col items-center gap-2 py-2 text-blue-400">
                     <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
-                    <p className="font-bold text-sm">{statusMessage || 'Processando PDF da Ficha...'}</p>
-                    <p className="text-[11px] text-white/50 font-mono">Extraindo marcadores, atributos, finanças e combate...</p>
+                    <p className="font-bold text-sm">
+                      {currentStep === 'reading' && 'Lendo arquivo PDF...'}
+                      {currentStep === 'gemini_analyzing' && 'Analisando documento com IA Gemini...'}
+                      {currentStep === 'parsing_sankotei' && 'Mapeando regras e atributos Sankötei...'}
+                      {currentStep === 'idle' && 'Aguardando processamento...'}
+                    </p>
+                    <p className="text-[11px] text-white/50 font-mono">Veja os detalhes na janela de status abaixo</p>
                   </div>
                 ) : (
                   <>
@@ -395,19 +485,19 @@ export function PdfSheetImporterModal({
               </div>
 
               {/* Raw Text Fallback Accordion */}
-              <div className="pt-2">
+              <div className="pt-1">
                 <button
                   type="button"
                   onClick={() => setShowRawTextInput(!showRawTextInput)}
                   className="text-[11px] text-white/40 hover:text-sky-300 flex items-center gap-1 font-mono underline decoration-dotted"
                 >
-                  <span>{showRawTextInput ? 'Ocultar' : 'Ou colar o texto / OCR da ficha manualmente'}</span>
+                  <span>{showRawTextInput ? 'Ocultar inserção manual de texto' : 'Ou colar o texto / OCR da ficha manualmente'}</span>
                 </button>
 
                 {showRawTextInput && (
                   <div className="mt-2 space-y-2 animate-in fade-in">
                     <textarea
-                      rows={5}
+                      rows={4}
                       value={rawTextFallback}
                       onChange={e => setRawTextFallback(e.target.value)}
                       placeholder="Cole aqui o texto copiado da ficha (Nome e Clã, Atributos, Combate, etc.)..."
@@ -428,14 +518,111 @@ export function PdfSheetImporterModal({
             </div>
           )}
 
-          {/* Error Message */}
-          {error && (
-            <div className="p-3 bg-rose-950/40 border border-rose-500/40 rounded text-rose-300 text-xs flex items-start gap-2 animate-in fade-in">
-              <AlertTriangle className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-bold">Erro no processamento</p>
-                <p className="opacity-90">{error}</p>
+          {/* DEDICATED REAL-TIME IMPORT STATUS WINDOW */}
+          {(statusLogs.length > 0 || isProcessing || error) && (
+            <div className="bg-[#05070d] border border-blue-500/30 rounded-lg p-3.5 shadow-xl space-y-3 animate-in fade-in">
+              
+              {/* Status Header */}
+              <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <Terminal className="h-4 w-4 text-sky-400" />
+                  <span className="font-mono text-xs font-bold uppercase tracking-wider text-white">Status da Importação</span>
+                  
+                  {/* Active Indicator Badge */}
+                  {isProcessing && (
+                    <span className="flex items-center gap-1.5 bg-blue-950 text-sky-300 border border-blue-500/40 text-[9px] font-mono px-2 py-0.5 rounded-full">
+                      <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping"></span>
+                      Em andamento...
+                    </span>
+                  )}
+                  {currentStep === 'success' && (
+                    <span className="flex items-center gap-1 bg-emerald-950 text-emerald-300 border border-emerald-500/40 text-[9px] font-mono px-2 py-0.5 rounded-full">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Concluído com Sucesso
+                    </span>
+                  )}
+                  {currentStep === 'error' && (
+                    <span className="flex items-center gap-1 bg-rose-950 text-rose-300 border border-rose-500/40 text-[9px] font-mono px-2 py-0.5 rounded-full">
+                      <AlertTriangle className="h-3 w-3" />
+                      Falha na Extração
+                    </span>
+                  )}
+                </div>
+
+                <span className="text-[10px] font-mono text-white/40">
+                  {progressPercent}%
+                </span>
               </div>
+
+              {/* Progress Bar */}
+              <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full transition-all duration-300 ${
+                    currentStep === 'error' ? 'bg-rose-500' : currentStep === 'success' ? 'bg-emerald-500' : 'bg-gradient-to-r from-blue-600 to-sky-400'
+                  }`}
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+
+              {/* Steps Visual Check */}
+              <div className="grid grid-cols-4 gap-1 text-[10px] font-mono pt-1">
+                <div className={`p-1.5 rounded text-center border ${
+                  progressPercent >= 15 ? 'bg-blue-950/40 border-blue-500/40 text-sky-300' : 'bg-white/[0.02] border-white/5 text-white/30'
+                }`}>
+                  1. Leitura
+                </div>
+                <div className={`p-1.5 rounded text-center border ${
+                  progressPercent >= 45 ? 'bg-blue-950/40 border-blue-500/40 text-sky-300' : 'bg-white/[0.02] border-white/5 text-white/30'
+                }`}>
+                  2. IA Gemini
+                </div>
+                <div className={`p-1.5 rounded text-center border ${
+                  progressPercent >= 80 ? 'bg-blue-950/40 border-blue-500/40 text-sky-300' : 'bg-white/[0.02] border-white/5 text-white/30'
+                }`}>
+                  3. Atributos
+                </div>
+                <div className={`p-1.5 rounded text-center border ${
+                  progressPercent === 100 && currentStep === 'success' ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300' : 'bg-white/[0.02] border-white/5 text-white/30'
+                }`}>
+                  4. Conclusão
+                </div>
+              </div>
+
+              {/* Console Logs list */}
+              <div className="bg-black/70 border border-white/10 rounded p-2.5 max-h-36 overflow-y-auto font-mono text-[11px] space-y-1.5 custom-scroll">
+                {statusLogs.map((log) => (
+                  <div key={log.id} className="flex items-start gap-2 leading-relaxed">
+                    <span className="text-white/30 shrink-0 select-none">[{log.time}]</span>
+                    {log.type === 'progress' && <span className="text-sky-400 font-bold shrink-0">⏳</span>}
+                    {log.type === 'info' && <span className="text-blue-400 font-bold shrink-0">ℹ️</span>}
+                    {log.type === 'success' && <span className="text-emerald-400 font-bold shrink-0">✅</span>}
+                    {log.type === 'error' && <span className="text-rose-400 font-bold shrink-0">❌</span>}
+                    
+                    <span className={
+                      log.type === 'error' ? 'text-rose-300' :
+                      log.type === 'success' ? 'text-emerald-300 font-semibold' :
+                      log.type === 'progress' ? 'text-sky-200' : 'text-white/70'
+                    }>
+                      {log.message}
+                    </span>
+                  </div>
+                ))}
+                <div ref={logsEndRef} />
+              </div>
+
+              {/* Helpful error diagnostic tip */}
+              {error && (
+                <div className="p-2 bg-rose-950/30 border border-rose-500/30 rounded text-[11px] text-rose-300 flex items-start gap-2">
+                  <Info className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold">Dica de solução:</p>
+                    <p className="text-white/70">
+                      Caso o PDF seja uma digitalização em imagem (scan) sem camada de texto, tente colar o conteúdo na opção "Ou colar o texto / OCR da ficha manualmente".
+                    </p>
+                  </div>
+                </div>
+              )}
+
             </div>
           )}
 
@@ -446,18 +633,21 @@ export function PdfSheetImporterModal({
               <div className="flex items-center justify-between border-b border-white/10 pb-2">
                 <div className="flex items-center gap-2 text-emerald-400 font-bold">
                   <Check className="h-4 w-4" />
-                  <span>Ficha Detectada: {extractedData.nome} {extractedData.cla ? `(${extractedData.cla})` : ''}</span>
+                  <span>Ficha Reconhecida: {extractedData.nome} {extractedData.cla ? `(${extractedData.cla})` : ''}</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => {
                     setExtractedData(null);
                     setFile(null);
+                    setStatusLogs([]);
+                    setCurrentStep('idle');
+                    setProgressPercent(0);
                   }}
                   className="text-[11px] text-white/50 hover:text-white flex items-center gap-1 font-mono"
                 >
                   <RefreshCw className="h-3 w-3" />
-                  <span>Outro arquivo</span>
+                  <span>Novo arquivo</span>
                 </button>
               </div>
 
@@ -585,7 +775,7 @@ export function PdfSheetImporterModal({
                     }}
                     className="px-3 py-2 bg-white/10 hover:bg-white/15 text-sky-300 text-xs font-bold uppercase tracking-wider rounded border border-sky-500/30"
                   >
-                    Preencher Apenas no Ajuste Rápido
+                    Preencher no Ajuste Rápido
                   </button>
                   <button
                     type="button"
