@@ -927,7 +927,7 @@ export default function App() {
 
       {/* TACTICAL BATTLE MAP TAB */}
       {currentTab === 'arena' && (
-        <div className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 no-print">
+        <div className="flex-1 w-full h-[calc(100vh-64px)] p-2 sm:p-3 overflow-hidden flex flex-col no-print">
           {isPlayerActiveOnTable ? (
             <BattleMap
               isGM={isGM}

@@ -4,6 +4,9 @@ export interface UserProfile {
   displayName: string;
   photoURL?: string | null;
   role: "GM" | "PLAYER";
+  discordDisplayName?: string;
+  discordTag?: string;
+  discordAvatar?: string;
 }
 
 export interface Character {

@@ -11,12 +11,16 @@ import {
   MessageSquareQuote, Volume2, Mic, MicOff, Headphones, ChevronDown, 
   ChevronRight, Plus, Download, FileText, Lock, Edit2, Check, Radio, UserCheck, Shield,
   Smile, Terminal, AlertTriangle, CheckCircle2, Info, Bug, ShieldAlert, Cpu, ArrowUp,
-  Bot, Sparkles, ExternalLink
+  Bot, Sparkles, ExternalLink, Sliders
 } from 'lucide-react';
 import { processImageFile } from '../utils/imageUpload';
 import { ImageCropModal } from './ImageCropModal';
 import { DiscordBotGuideModal } from './DiscordBotGuideModal';
 import { trackRead, trackWrite, trackDelete } from '../utils/firebaseUsageTracker';
+import { parseAndRollDice, extractDiceRollsFromMessage } from '../utils/diceRoller';
+
+// Discord Free tier message character limit
+const DISCORD_FREE_MAX_CHARS = 2000;
 
 interface DiscordNotebookProps {
   isGM: boolean;
@@ -45,6 +49,13 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
   const [showChannelModal, setShowChannelModal] = useState(false);
   const [channelToEdit, setChannelToEdit] = useState<DiscordChannelItem | null>(null);
   const [showGuideModal, setShowGuideModal] = useState(false);
+
+  // Identity Modal state (Custom Name & #tag for GM & Players)
+  const [showIdentityModal, setShowIdentityModal] = useState(false);
+  const [identityName, setIdentityName] = useState('');
+  const [identityTag, setIdentityTag] = useState('');
+  const [identityAvatar, setIdentityAvatar] = useState('');
+  const [isSavingIdentity, setIsSavingIdentity] = useState(false);
 
   // Auto-detection state for Discord channel
   const [isDetectingChannel, setIsDetectingChannel] = useState(false);
@@ -305,6 +316,64 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
     }
   };
 
+  // Effective Discord Identity for User (GM / Player)
+  const effectiveDiscordName = useMemo(() => {
+    if (currentUserProfile?.discordDisplayName?.trim()) {
+      return currentUserProfile.discordDisplayName.trim();
+    }
+    if (isGM) return 'Alex AP (Mestre)';
+    const senderChar = characters.find(c => c.email_dono === currentUserProfile?.email);
+    return senderChar?.nome || currentUserProfile?.displayName || 'Jogador';
+  }, [currentUserProfile, isGM, characters]);
+
+  const effectiveDiscordTag = useMemo(() => {
+    if (currentUserProfile?.discordTag?.trim()) {
+      const tag = currentUserProfile.discordTag.trim();
+      return tag.startsWith('#') ? tag : `#${tag}`;
+    }
+    return isGM ? '#mestre' : (currentUserProfile?.email ? `#${currentUserProfile.email.split('@')[0]}` : '#0001');
+  }, [currentUserProfile, isGM]);
+
+  const effectiveDiscordAvatar = useMemo(() => {
+    if (currentUserProfile?.discordAvatar?.trim()) {
+      return currentUserProfile.discordAvatar.trim();
+    }
+    const senderChar = characters.find(c => c.email_dono === currentUserProfile?.email);
+    return senderChar?.img_saudavel || currentUserProfile?.photoURL || 'https://cdn.discordapp.com/embed/avatars/0.png';
+  }, [currentUserProfile, characters]);
+
+  // Save Identity Modal changes to Firestore
+  const handleSaveIdentity = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUserProfile?.uid) {
+      alert('Usuário não autenticado.');
+      return;
+    }
+
+    setIsSavingIdentity(true);
+    try {
+      const formattedTag = identityTag.trim().startsWith('#') 
+        ? identityTag.trim() 
+        : (identityTag.trim() ? `#${identityTag.trim()}` : '#0001');
+
+      await updateDoc(doc(db, 'users', currentUserProfile.uid), {
+        discordDisplayName: identityName.trim() || effectiveDiscordName,
+        discordTag: formattedTag,
+        discordAvatar: identityAvatar.trim() || null,
+        displayName: identityName.trim() || currentUserProfile.displayName
+      });
+      trackWrite('users', 1);
+
+      setShowIdentityModal(false);
+      logEvent('success', 'Identidade do Discord atualizada com sucesso!');
+    } catch (err: any) {
+      console.error("Erro ao salvar identidade:", err);
+      alert(`Erro ao salvar perfil: ${err?.message || err}`);
+    } finally {
+      setIsSavingIdentity(false);
+    }
+  };
+
   // Markdown formatters
   const insertFormatting = (prefix: string, suffix: string = prefix) => {
     const textarea = textareaRef.current;
@@ -323,10 +392,16 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
     }, 50);
   };
 
-  // Send message
+  // Send message with integrated Telumak RPG / Rollem dice roller
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if ((!inputText.trim() && !attachedImage) || !activeChannelId || isSending) return;
+
+    // Check if input exceeded max characters limit
+    if (inputText.length > DISCORD_FREE_MAX_CHARS) {
+      alert(`Sua mensagem ultrapassou o limite do Discord (${inputText.length}/${DISCORD_FREE_MAX_CHARS} caracteres). Por favor, divida o texto.`);
+      return;
+    }
 
     setIsSending(true);
     const contentToSend = inputText.trim();
@@ -335,19 +410,43 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
     setInputText('');
     setAttachedImage(null);
 
-    const senderChar = characters.find(c => c.email_dono === currentUserProfile?.email);
-    const senderName = isGM 
-      ? `Alex AP` 
-      : (senderChar?.nome || currentUserProfile?.displayName || 'Jogador');
-    const senderAvatar = senderChar?.img_saudavel || currentUserProfile?.photoURL || 'https://cdn.discordapp.com/embed/avatars/0.png';
+    const senderName = effectiveDiscordName;
+    const senderAvatar = effectiveDiscordAvatar;
 
-    logEvent('info', `Enviando mensagem para canal #${activeChannel?.name || activeChannelId}`, {
-      canal: activeChannel?.name,
-      canalId: activeChannelId,
-      discordChannelId: activeChannel?.discordChannelId || 'Nenhum',
-      autor: senderName,
-      temImagem: !!imageToSend
-    });
+    // Check if the input is a dice roll expression (e.g. 4+2d10!9 or /r 1d20+5 or !r 3d6)
+    const diceCheck = extractDiceRollsFromMessage(contentToSend);
+    let finalContent = contentToSend;
+
+    if (diceCheck.isRoll && diceCheck.results.length > 0) {
+      const roll = diceCheck.results[0];
+      const rollsDisplay = roll.rolls.join(', ');
+      
+      let explodeInfo = '';
+      if (roll.explodeThreshold !== null) {
+        explodeInfo = ` (Críticos >= ${roll.explodeThreshold}${roll.explodedRollsCount > 0 ? ` • +${roll.explodedRollsCount} dado(s) extra` : ''})`;
+      }
+
+      // Build rich formatted roll message
+      finalContent = `🎲 **Rolagem de Dados:** \`${roll.formattedFormula}\`${explodeInfo}\n` +
+        `> **Dados Rolados:** [ ${rollsDisplay} ]\n` +
+        `> **Cálculo:** ${roll.formattedDetails}\n` +
+        `> 🏆 **Resultado Total = ${roll.total}**`;
+      
+      logEvent('info', `Rolagem de dados executada: ${roll.formattedFormula} = ${roll.total}`, {
+        autor: senderName,
+        formula: roll.formattedFormula,
+        dados: roll.rolls,
+        total: roll.total
+      });
+    } else {
+      logEvent('info', `Enviando mensagem para canal #${activeChannel?.name || activeChannelId}`, {
+        canal: activeChannel?.name,
+        canalId: activeChannelId,
+        discordChannelId: activeChannel?.discordChannelId || 'Nenhum',
+        autor: senderName,
+        temImagem: !!imageToSend
+      });
+    }
 
     try {
       // Build safe payload with NO undefined values (Firestore rejects undefined)
@@ -356,7 +455,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
         authorName: senderName,
         authorAvatar: senderAvatar,
         authorEmail: currentUserProfile?.email || '',
-        content: contentToSend,
+        content: finalContent,
         isFromDiscord: false,
         pinned: false,
         createdAt: serverTimestamp()
@@ -371,7 +470,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
       logEvent('success', `Mensagem gravada no Firestore com sucesso!`, {
         docId: docRef.id,
         canal: activeChannel?.name,
-        conteudo: contentToSend.substring(0, 50)
+        conteudo: finalContent.substring(0, 50)
       });
     } catch (err: any) {
       console.error("Erro ao salvar mensagem:", err);
@@ -898,36 +997,62 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
         </div>
 
         {/* Bottom User Controls Widget */}
-        <div className="h-14 bg-[#232428] px-3 flex items-center justify-between shrink-0 border-t border-[#1f2023]">
-          <div className="flex items-center gap-2 overflow-hidden">
-            <div className="relative">
+        <div className="h-14 bg-[#232428] px-2.5 flex items-center justify-between shrink-0 border-t border-[#1f2023]">
+          <button
+            type="button"
+            onClick={() => {
+              setIdentityName(effectiveDiscordName);
+              setIdentityTag(effectiveDiscordTag);
+              setIdentityAvatar(currentUserProfile?.discordAvatar || currentUserProfile?.photoURL || '');
+              setShowIdentityModal(true);
+            }}
+            className="flex items-center gap-2 overflow-hidden hover:bg-[#35373c]/70 p-1.5 rounded transition text-left group flex-1 min-w-0"
+            title="Editar seu Nome de Exibição, #tag e Avatar no Discord"
+          >
+            <div className="relative shrink-0">
               <div className="w-8 h-8 rounded-full bg-[#1e1f22] overflow-hidden border border-white/10 flex items-center justify-center font-bold text-white text-xs">
-                {currentUserProfile?.photoURL ? (
-                  <img src={currentUserProfile.photoURL} alt="Avatar" className="w-full h-full object-cover" />
+                {effectiveDiscordAvatar ? (
+                  <img src={effectiveDiscordAvatar} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
-                  <span>{currentUserProfile?.displayName?.[0] || (isGM ? 'GM' : 'U')}</span>
+                  <span>{effectiveDiscordName?.[0] || (isGM ? 'GM' : 'U')}</span>
                 )}
               </div>
               <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#23a55a] rounded-full border-2 border-[#232428]" />
             </div>
-            <div className="overflow-hidden">
-              <p className="text-xs font-bold text-white truncate leading-tight">
-                {isGM ? 'Alex AP (Mestre)' : (currentUserProfile?.displayName || 'Jogador')}
-              </p>
+            <div className="overflow-hidden min-w-0 flex-1">
+              <div className="flex items-center gap-1">
+                <p className="text-xs font-bold text-white truncate leading-tight group-hover:text-[#5865f2] transition">
+                  {effectiveDiscordName}
+                </p>
+                <Edit2 className="h-2.5 w-2.5 text-white/30 group-hover:text-[#5865f2] shrink-0 opacity-0 group-hover:opacity-100 transition" />
+              </div>
               <p className="text-[10px] text-[#949ba4] font-mono truncate leading-tight">
-                {isGM ? '#mestre' : (currentUserProfile?.email?.split('@')[0] || '#online')}
+                {effectiveDiscordTag}
               </p>
             </div>
-          </div>
+          </button>
 
-          <div className="flex items-center gap-0.5 text-[#b5bac1]">
+          <div className="flex items-center gap-0.5 text-[#b5bac1] shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setIdentityName(effectiveDiscordName);
+                setIdentityTag(effectiveDiscordTag);
+                setIdentityAvatar(currentUserProfile?.discordAvatar || currentUserProfile?.photoURL || '');
+                setShowIdentityModal(true);
+              }}
+              className="p-1.5 rounded hover:bg-[#35373c] hover:text-white transition"
+              title="Configurar Perfil e Identidade no Discord"
+            >
+              <Sliders className="h-3.5 w-3.5" />
+            </button>
             <button
               type="button"
               onClick={() => setIsMicMuted(!isMicMuted)}
               className={`p-1.5 rounded hover:bg-[#35373c] transition ${isMicMuted ? 'text-rose-400' : 'hover:text-white'}`}
               title={isMicMuted ? "Desmutar Microfone" : "Mutar Microfone"}
             >
-              {isMicMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              {isMicMuted ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
             </button>
             <button
               type="button"
@@ -935,7 +1060,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
               className={`p-1.5 rounded hover:bg-[#35373c] transition ${isHeadsetDeafened ? 'text-rose-400' : 'hover:text-white'}`}
               title={isHeadsetDeafened ? "Desativar Áudio" : "Ensurdecer"}
             >
-              <Headphones className="h-4 w-4" />
+              <Headphones className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
@@ -1395,55 +1520,92 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
               </div>
             )}
 
-            <form onSubmit={handleSendMessage} className="bg-[#383a40] rounded-lg px-4 py-2.5 flex items-end gap-2 focus-within:ring-1 focus-within:ring-[#5865f2] transition">
+            <form onSubmit={handleSendMessage} className="bg-[#383a40] rounded-lg p-3 flex flex-col gap-2 focus-within:ring-1 focus-within:ring-[#5865f2] transition shadow-inner">
               
-              {/* Attachment Plus button */}
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleAttachImage}
-                accept="image/*"
-                className="hidden"
-              />
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="p-1.5 bg-[#4e5058] hover:bg-[#6d6f78] text-white rounded-full transition shrink-0 mb-0.5"
-                title="Anexar Imagem"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-
-              {/* Textarea */}
-              <textarea
-                ref={textareaRef}
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
-                placeholder={`Conversar em #${activeChannel.name}...`}
-                rows={1}
-                className="flex-1 bg-transparent text-white text-xs placeholder-[#80848e] focus:outline-none resize-none max-h-32 min-h-[22px] py-1 custom-scroll"
-              />
-
-              {/* Send button */}
-              <div className="flex items-center gap-1.5 shrink-0 text-[#b5bac1]">
+              {/* Textarea container with flexible vertical resize */}
+              <div className="flex items-start gap-2">
+                {/* Attachment Plus button */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleAttachImage}
+                  accept="image/*"
+                  className="hidden"
+                />
                 <button
-                  type="submit"
-                  disabled={(!inputText.trim() && !attachedImage) || isSending}
-                  className={`p-1.5 rounded-full transition ${
-                    (inputText.trim() || attachedImage) && !isSending 
-                      ? 'bg-[#5865f2] hover:bg-[#4752c4] text-white shadow' 
-                      : 'text-white/20 cursor-not-allowed'
-                  }`}
-                  title="Enviar mensagem (Enter)"
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-2 bg-[#4e5058] hover:bg-[#6d6f78] text-white rounded-full transition shrink-0 mt-0.5"
+                  title="Anexar Imagem"
                 >
-                  {isSending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  <Plus className="h-4 w-4" />
                 </button>
+
+                {/* Resizable Textarea */}
+                <textarea
+                  ref={textareaRef}
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  placeholder={`Conversar em #${activeChannel.name}... (ou digite uma rolagem como 4+2d10!9)`}
+                  rows={3}
+                  className="flex-1 bg-transparent text-white text-xs placeholder-[#80848e] focus:outline-none resize-y min-h-[56px] max-h-96 py-1 px-1 custom-scroll leading-relaxed"
+                />
+              </div>
+
+              {/* Input Bottom Utility Bar: Character counter & Action buttons */}
+              <div className="flex items-center justify-between pt-1 border-t border-white/5 text-[#b5bac1]">
+                
+                {/* Discord Character Limit Indicator */}
+                <div className="flex items-center gap-2">
+                  <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded transition ${
+                    inputText.length > DISCORD_FREE_MAX_CHARS 
+                      ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 font-black animate-pulse' 
+                      : inputText.length > DISCORD_FREE_MAX_CHARS * 0.9
+                        ? 'bg-amber-500/20 text-amber-300'
+                        : 'text-[#949ba4]'
+                  }`}>
+                    {inputText.length} / {DISCORD_FREE_MAX_CHARS}
+                  </span>
+                  
+                  {inputText.length > DISCORD_FREE_MAX_CHARS && (
+                    <span className="text-[10px] text-rose-400 font-bold hidden sm:inline">
+                      Limite gratuito excedido!
+                    </span>
+                  )}
+                </div>
+
+                {/* Send button */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="submit"
+                    disabled={(!inputText.trim() && !attachedImage) || isSending || inputText.length > DISCORD_FREE_MAX_CHARS}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                      (inputText.trim() || attachedImage) && !isSending && inputText.length <= DISCORD_FREE_MAX_CHARS
+                        ? 'bg-[#5865f2] hover:bg-[#4752c4] text-white shadow' 
+                        : 'bg-white/5 text-white/20 cursor-not-allowed'
+                    }`}
+                    title="Enviar mensagem (Enter)"
+                  >
+                    {isSending ? (
+                      <>
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                        <span>Enviando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-3.5 w-3.5" />
+                        <span>Enviar</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
               </div>
 
             </form>
@@ -1764,14 +1926,14 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
         </div>
       )}
 
-      {/* Mention Roll Modal */}
+      {/* Mention Existing Message / Quick Dice Roller Modal */}
       {showMentionRollModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#313338] border border-[#232428] rounded-xl w-full max-w-md overflow-hidden shadow-2xl text-[#dbdee1]">
+          <div className="bg-[#313338] border border-[#232428] rounded-xl w-full max-w-lg overflow-hidden shadow-2xl text-[#dbdee1] animate-fade-in">
             <div className="px-6 py-4 bg-[#2b2d31] border-b border-[#1f2023] flex items-center justify-between">
               <h3 className="text-sm font-black text-white flex items-center gap-2">
                 <Dices className="h-4 w-4 text-[#5865f2]" />
-                Mencionar Rolagem de Dados
+                Rolador de Dados & Menções (Rollem)
               </h3>
               <button
                 type="button"
@@ -1782,35 +1944,88 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
               </button>
             </div>
 
-            <div className="p-4 space-y-3 text-xs">
-              <p className="text-[#949ba4]">
-                Escolha um atalho rápido de rolagem para citar no seu texto:
-              </p>
-
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  '1d20 + 5 (Ataque Físico)',
-                  '2d10 + 3 (Conhecimento)',
-                  '1d100 (Teste de Sorte)',
-                  '4d6 (Dano Elemental)',
-                  '1d20 (Iniciativa)',
-                  '3d8 (Cura / Recuperação)'
-                ].map((formula, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => {
-                      const quote = `\n> 🎲 **Rolagem Rollem:** ${formula}\n`;
-                      setInputText(prev => prev + quote);
-                      setShowMentionRollModal(false);
-                    }}
-                    className="p-2.5 bg-[#2b2d31] hover:bg-[#35373c] text-white rounded text-left border border-white/5 transition"
-                  >
-                    <span className="font-bold block text-[#5865f2]">{formula.split(' ')[0]}</span>
-                    <span className="text-[10px] text-[#949ba4]">{formula.substring(formula.indexOf(' ') + 1)}</span>
-                  </button>
-                ))}
+            <div className="p-5 space-y-4 text-xs">
+              {/* Formula explanation */}
+              <div className="p-3 bg-[#1e1f22] border border-white/5 rounded-lg space-y-1.5">
+                <span className="text-[11px] font-black text-white block uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                  Sintaxe de Rolagem Telumak: `a + xdy!z`
+                </span>
+                <p className="text-[#949ba4] text-[11px] leading-relaxed">
+                  Digite qualquer fórmula no chat para rolar dados em tempo real. Críticos com <code className="text-amber-300 font-bold">!z</code> explodem e rolam mais dados sucessivamente!
+                </p>
+                <div className="grid grid-cols-2 gap-1.5 text-[10px] text-[#dbdee1] pt-1">
+                  <div><strong className="text-sky-400">a:</strong> Modificador (+/- fixo)</div>
+                  <div><strong className="text-sky-400">x:</strong> Quantidade de dados</div>
+                  <div><strong className="text-sky-400">y:</strong> Faces do dado (ex: d10)</div>
+                  <div><strong className="text-amber-400">!z:</strong> Explosão no crítico (ex: !9)</div>
+                </div>
               </div>
+
+              <div>
+                <span className="text-[10px] font-black uppercase text-[#949ba4] tracking-wider block mb-2">
+                  Atalhos Rápidos de Rolagem (Clique para inserir ou rolar)
+                </span>
+
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { formula: '4+2d10!9', label: 'Exemplo Telumak (Crítico >= 9)' },
+                    { formula: '2d10!10', label: 'Teste Padrão d10 (Crítico 10)' },
+                    { formula: '1d20!20+5', label: 'Ataque d20 com Explosão' },
+                    { formula: '3d6', label: 'Atributo 3d6 Clássico' },
+                    { formula: '4d10!8+2', label: 'Golpe Crítico Letal (!8)' },
+                    { formula: '1d100', label: 'Teste Percentual (d100)' }
+                  ].map((item, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setInputText(item.formula);
+                        setShowMentionRollModal(false);
+                        textareaRef.current?.focus();
+                      }}
+                      className="p-2.5 bg-[#2b2d31] hover:bg-[#35373c] hover:border-[#5865f2] text-white rounded text-left border border-white/5 transition group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono font-bold text-sky-400 group-hover:text-white text-xs">{item.formula}</span>
+                        <Dices className="h-3 w-3 text-sky-400 opacity-50 group-hover:opacity-100" />
+                      </div>
+                      <span className="text-[10px] text-[#949ba4] block mt-0.5">{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Mensagens recentes para citação rápida */}
+              {messages.length > 0 && (
+                <div className="pt-2 border-t border-white/5">
+                  <span className="text-[10px] font-black uppercase text-[#949ba4] tracking-wider block mb-2">
+                    Citar Mensagem Existente do Canal
+                  </span>
+                  <div className="max-h-36 overflow-y-auto space-y-1.5 custom-scroll">
+                    {messages.slice(-5).reverse().map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => {
+                          handleQuoteMessage(m);
+                          setShowMentionRollModal(false);
+                        }}
+                        className="w-full p-2 bg-[#2b2d31] hover:bg-[#35373c] rounded text-left border border-white/5 transition flex items-start gap-2"
+                      >
+                        <MessageSquareQuote className="h-3.5 w-3.5 text-[#5865f2] shrink-0 mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-white text-[11px] truncate">{m.authorName}</span>
+                            <span className="text-[9px] text-[#949ba4]">{m.createdAt ? 'Enviada' : ''}</span>
+                          </div>
+                          <p className="text-[10px] text-[#949ba4] truncate">{m.content}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1831,6 +2046,133 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
             setPendingCropImage(null);
           }}
         />
+      )}
+
+      {/* Discord Identity Customization Modal (GM & Player Name & #tag) */}
+      {showIdentityModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#313338] border border-[#232428] rounded-xl w-full max-w-md overflow-hidden shadow-2xl animate-fade-in text-[#dbdee1]">
+            
+            <div className="px-6 py-4 bg-[#2b2d31] border-b border-[#1f2023] flex items-center justify-between">
+              <h3 className="text-base font-black text-white flex items-center gap-2">
+                <Sliders className="h-5 w-5 text-[#5865f2]" />
+                Personalizar Perfil no Discord
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowIdentityModal(false)}
+                className="text-[#949ba4] hover:text-white transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveIdentity} className="p-6 space-y-4 text-xs">
+              <p className="text-[11px] text-[#949ba4] leading-relaxed">
+                Configure como seu nome, tag discriminador (<code className="text-sky-400 font-mono">#tag</code>) e avatar aparecerão nas mensagens e na barra de canais do Discord.
+              </p>
+
+              {/* Live Preview Card */}
+              <div className="bg-[#232428] p-3.5 rounded-lg border border-white/10 space-y-2">
+                <span className="text-[10px] uppercase font-black tracking-wider text-[#949ba4] block">
+                  Pré-visualização em Tempo Real
+                </span>
+                <div className="flex items-center gap-3 bg-[#2b2d31] p-2.5 rounded border border-white/5">
+                  <div className="w-10 h-10 rounded-full bg-[#1e1f22] overflow-hidden border border-[#5865f2]/40 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                    {identityAvatar ? (
+                      <img src={identityAvatar} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <span>{identityName?.[0]?.toUpperCase() || (isGM ? 'GM' : 'U')}</span>
+                    )}
+                  </div>
+                  <div className="overflow-hidden min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-white text-sm truncate">
+                        {identityName || (isGM ? 'Alex AP (Mestre)' : 'Jogador')}
+                      </span>
+                      <span className="text-[10px] font-mono text-[#5865f2] bg-[#5865f2]/10 px-1.5 py-0.5 rounded font-bold border border-[#5865f2]/30">
+                        {identityTag.startsWith('#') ? identityTag : (identityTag ? `#${identityTag}` : '#0001')}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#949ba4] truncate mt-0.5">
+                      {isGM ? '👑 Mestre da Sessão' : '⚔️ Jogador de Telumak RPG'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Nome de Exibição */}
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-wider text-[#949ba4] mb-1.5">
+                  Nome de Exibição no Discord *
+                </label>
+                <input
+                  type="text"
+                  value={identityName}
+                  onChange={(e) => setIdentityName(e.target.value)}
+                  placeholder={isGM ? "ex: Alex AP, Mestre Supremo" : "ex: Gabriel, Kaelen, Arthur"}
+                  required
+                  className="w-full bg-[#1e1f22] text-white px-3 py-2 rounded border border-white/10 text-xs focus:outline-none focus:border-[#5865f2]"
+                />
+              </div>
+
+              {/* Tag Discriminador (#) */}
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-wider text-[#949ba4] mb-1.5">
+                  Tag Discriminador Personalizada (#) *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-[#949ba4] font-mono font-bold">#</span>
+                  <input
+                    type="text"
+                    value={identityTag.replace(/^#/, '')}
+                    onChange={(e) => setIdentityTag(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''))}
+                    placeholder={isGM ? "mestre" : "0001"}
+                    maxLength={16}
+                    required
+                    className="w-full bg-[#1e1f22] text-white pl-7 pr-3 py-2 rounded border border-white/10 font-mono text-xs focus:outline-none focus:border-[#5865f2]"
+                  />
+                </div>
+                <span className="text-[10px] text-[#949ba4] block mt-1">
+                  Exemplos: <code className="text-[#5865f2]">mestre</code>, <code className="text-[#5865f2]">0001</code>, <code className="text-[#5865f2]">gm</code>, <code className="text-[#5865f2]">boss</code>
+                </span>
+              </div>
+
+              {/* Foto / Avatar */}
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-wider text-[#949ba4] mb-1.5">
+                  URL do Avatar Personalizado (Opcional)
+                </label>
+                <input
+                  type="url"
+                  value={identityAvatar}
+                  onChange={(e) => setIdentityAvatar(e.target.value)}
+                  placeholder="https://..."
+                  className="w-full bg-[#1e1f22] text-white px-3 py-2 rounded border border-white/10 text-xs focus:outline-none focus:border-[#5865f2]"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-[#1f2023]">
+                <button
+                  type="button"
+                  onClick={() => setShowIdentityModal(false)}
+                  className="px-4 py-2 bg-transparent hover:underline text-[#dbdee1] text-xs font-semibold"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingIdentity || !identityName.trim()}
+                  className="px-5 py-2 bg-[#5865f2] hover:bg-[#4752c4] disabled:opacity-50 text-white text-xs font-bold rounded shadow transition flex items-center gap-1.5"
+                >
+                  {isSavingIdentity ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                  <span>Salvar Identidade</span>
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
       )}
 
       {/* Discord Bot Setup Tutorial Guide Modal */}
