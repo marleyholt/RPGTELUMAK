@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { doc, updateDoc, collection, onSnapshot } from 'firebase/firestore';
+import { doc, updateDoc, setDoc, collection, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Character, UserProfile } from '../types';
 import { 
   Sliders, X, Shield, Check, RefreshCw, 
-  Search, Link as LinkIcon, Unlink, Crown, Users, Scroll, Plus, FileText
+  Search, Link as LinkIcon, Unlink, Crown, Users, Scroll, Plus, FileText,
+  Image as ImageIcon
 } from 'lucide-react';
+import { ImageUploadField } from './ImageUploadField';
 import { handleFirestoreError, OperationType } from '../utils/errors';
 
 interface GMConfigModalProps {
@@ -24,8 +26,23 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
   const [accountActionMessage, setAccountActionMessage] = useState<string | null>(null);
   const [charLinkSelection, setCharLinkSelection] = useState<{ [uid: string]: string }>({});
 
+  // System Logo Branding State
+  const [systemLogo, setSystemLogo] = useState<string>('/telumak-logo.svg');
+  const [isSavingLogo, setIsSavingLogo] = useState(false);
+
   useEffect(() => {
     if (!isOpen) return;
+
+    // Subscribe to branding config
+    const unsubLogo = onSnapshot(doc(db, 'config', 'branding'), (snap) => {
+      if (snap.exists() && snap.data()?.logoUrl) {
+        setSystemLogo(snap.data().logoUrl);
+      } else {
+        setSystemLogo('/telumak-logo.svg');
+      }
+    }, (err) => {
+      console.warn("Erro ao buscar branding:", err);
+    });
 
     // Subscribe to all registered users
     setLoadingUsers(true);
@@ -48,8 +65,46 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
       setLoadingUsers(false);
     });
 
-    return () => unsubUsers();
+    return () => {
+      unsubLogo();
+      unsubUsers();
+    };
   }, [isOpen]);
+
+  const handleSaveLogo = async (newLogoUrl: string) => {
+    if (!newLogoUrl) return;
+    setIsSavingLogo(true);
+    try {
+      await setDoc(doc(db, 'config', 'branding'), {
+        logoUrl: newLogoUrl,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      setAccountActionMessage('✓ Logo do RPG Telumak atualizado com sucesso em todo o sistema!');
+      setTimeout(() => setAccountActionMessage(null), 4000);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, 'config/branding');
+    } finally {
+      setIsSavingLogo(false);
+    }
+  };
+
+  const handleResetLogo = async () => {
+    const confirmReset = window.confirm("Deseja restaurar o logo padrão oficial do RPG Telumak?");
+    if (!confirmReset) return;
+    setIsSavingLogo(true);
+    try {
+      await setDoc(doc(db, 'config', 'branding'), {
+        logoUrl: '/telumak-logo.svg',
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      setAccountActionMessage('✓ Logo padrão oficial restaurado com sucesso!');
+      setTimeout(() => setAccountActionMessage(null), 4000);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, 'config/branding');
+    } finally {
+      setIsSavingLogo(false);
+    }
+  };
 
   // User Accounts & Role Management Actions
   const handleToggleUserRole = async (u: UserProfile) => {
@@ -205,6 +260,73 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
                   <span className="text-[9px] text-sky-300/80 font-mono">Ficha Sankötei Antiga</span>
                 </button>
               )}
+            </div>
+
+            {/* System Logo Customization (Branding) */}
+            <div className="bg-[#080808] border border-blue-500/30 p-4 space-y-4 shadow-lg">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-2">
+                    <ImageIcon className="h-4 w-4 text-sky-400" />
+                    Identidade Visual & Logo do RPG TELUMAK
+                  </h3>
+                  <p className="text-[10px] text-white/50 font-mono mt-0.5">
+                    Altere o logo oficial exibido na barra superior do navegador (favicon), na lateral do nome RPG TELUMAK e na tela de login.
+                  </p>
+                </div>
+
+                {systemLogo && systemLogo !== '/telumak-logo.svg' && (
+                  <button
+                    type="button"
+                    disabled={isSavingLogo}
+                    onClick={handleResetLogo}
+                    className="text-[10px] font-mono text-rose-400 hover:text-rose-300 hover:underline flex items-center gap-1 transition"
+                    title="Restaurar arquivo padrão telumak-logo.svg"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    <span>Restaurar Logo Padrão</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                <ImageUploadField
+                  label="Upload / Substituição do Logo (PNG, SVG, JPG, WEBP)"
+                  value={systemLogo || '/telumak-logo.svg'}
+                  onChange={handleSaveLogo}
+                  maxWidth={512}
+                  maxHeight={512}
+                  aspectRatio="square"
+                  helperText="Envie uma imagem com fundo transparente ou escuro. Ao enviar, o logo atualiza em tempo real para todos os jogadores, na barra do navegador e na barra de navegação."
+                />
+
+                {/* Live Preview Card */}
+                <div className="bg-black/60 border border-white/10 p-3.5 flex flex-col items-center justify-center text-center space-y-2.5">
+                  <span className="text-[9px] font-mono text-white/40 uppercase tracking-widest">
+                    Pré-visualização no Cabeçalho & Barra Superior
+                  </span>
+                  <div className="flex items-center gap-3 bg-[#0a0a0a] border border-blue-500/30 px-4 py-2.5 rounded shadow-lg">
+                    <div className="w-10 h-10 rounded-full border border-blue-500/40 p-0.5 bg-black shrink-0 flex items-center justify-center overflow-hidden shadow-lg shadow-blue-500/10">
+                      <img
+                        src={systemLogo || '/telumak-logo.svg'}
+                        alt="Logo Preview"
+                        className="w-full h-full object-contain rounded-full"
+                      />
+                    </div>
+                    <div className="text-left">
+                      <span className="text-base font-black tracking-tighter uppercase italic text-white flex items-center gap-1 leading-none">
+                        <span>RPG</span> <span className="text-blue-500">TELUMAK</span>
+                      </span>
+                      <span className="text-[8px] text-sky-400 font-mono tracking-widest mt-1 block">
+                        👑 ESCUDO DO MESTRE • SISTEMA DIGITAL
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[9px] text-emerald-400/80 font-mono">
+                    ✓ Sincronização automática no Firestore & Favicon
+                  </span>
+                </div>
+              </div>
             </div>
 
             {/* Accounts Search & List */}

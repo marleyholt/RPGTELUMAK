@@ -153,6 +153,42 @@ export default function App() {
   const [showPdfImporterModal, setShowPdfImporterModal] = useState(false);
   const [pdfTargetChar, setPdfTargetChar] = useState<Character | null>(null);
 
+  // System Logo Branding state
+  const [systemLogo, setSystemLogo] = useState<string>('/telumak-logo.svg');
+
+  // Real-time branding sync for system logo
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'config', 'branding'), (snap) => {
+      trackRead('config', 1);
+      if (snap.exists() && snap.data()?.logoUrl) {
+        setSystemLogo(snap.data().logoUrl);
+      } else {
+        setSystemLogo('/telumak-logo.svg');
+      }
+    }, (err) => {
+      console.warn("Branding sync warning:", err);
+    });
+
+    return () => unsub();
+  }, []);
+
+  // Update browser tab favicon dynamically whenever systemLogo updates
+  useEffect(() => {
+    if (systemLogo) {
+      const iconLinks = document.querySelectorAll("link[rel*='icon']");
+      if (iconLinks.length > 0) {
+        iconLinks.forEach((el) => {
+          (el as HTMLLinkElement).href = systemLogo;
+        });
+      } else {
+        const link = document.createElement('link');
+        link.rel = 'icon';
+        link.href = systemLogo;
+        document.head.appendChild(link);
+      }
+    }
+  }, [systemLogo]);
+
   // Auth monitoring listener
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -656,7 +692,7 @@ export default function App() {
           <div className="text-center mb-8 flex flex-col items-center">
             <div className="w-20 h-20 rounded-full border-2 border-blue-500/40 p-1 bg-black/80 shadow-2xl mb-3 flex items-center justify-center">
               <img 
-                src="/telumak-logo.svg" 
+                src={systemLogo || "/telumak-logo.svg"} 
                 alt="RPG Telumak" 
                 className="w-full h-full object-contain rounded-full"
                 referrerPolicy="no-referrer"
@@ -820,7 +856,7 @@ export default function App() {
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full border border-blue-500/40 p-0.5 bg-black shrink-0 shadow-lg shadow-blue-500/10 flex items-center justify-center">
               <img 
-                src="/telumak-logo.svg" 
+                src={systemLogo || "/telumak-logo.svg"} 
                 alt="RPG Telumak Logo" 
                 className="w-full h-full object-contain rounded-full"
                 referrerPolicy="no-referrer"

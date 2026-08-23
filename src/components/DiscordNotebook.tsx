@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { processImageFile } from '../utils/imageUpload';
 import { ImageCropModal } from './ImageCropModal';
+import { ImageUploadField } from './ImageUploadField';
 import { DiscordBotGuideModal } from './DiscordBotGuideModal';
 import { trackRead, trackWrite, trackDelete } from '../utils/firebaseUsageTracker';
 import { parseAndRollDice, extractDiceRollsFromMessage } from '../utils/diceRoller';
@@ -2169,17 +2170,37 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
                 </span>
               </div>
 
-              {/* Foto / Avatar */}
-              <div>
-                <label className="block text-[11px] font-black uppercase tracking-wider text-[#949ba4] mb-1.5">
-                  URL do Avatar Personalizado (Opcional)
-                </label>
-                <input
-                  type="url"
+              {/* Foto / Avatar com Upload */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-[#949ba4]">
+                    Avatar do Discord (Upload / Recorte)
+                  </label>
+                  {(() => {
+                    const senderChar = characters.find(c => c.email_dono === currentUserProfile?.email);
+                    if (senderChar?.img_saudavel) {
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => setIdentityAvatar(senderChar.img_saudavel)}
+                          className="text-[10px] text-sky-400 hover:text-sky-300 underline font-mono flex items-center gap-1"
+                        >
+                          Usar Foto da Ficha ({senderChar.nome})
+                        </button>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+                
+                <ImageUploadField
+                  label=""
                   value={identityAvatar}
-                  onChange={(e) => setIdentityAvatar(e.target.value)}
-                  placeholder="https://..."
-                  className="w-full bg-[#1e1f22] text-white px-3 py-2 rounded border border-white/10 text-xs focus:outline-none focus:border-[#5865f2]"
+                  onChange={(val) => setIdentityAvatar(val)}
+                  maxWidth={400}
+                  maxHeight={400}
+                  aspectRatio="square"
+                  helperText="Envie um arquivo PNG, JPG ou WEBP. Você pode arrastar, enviar e recortar a imagem perfeitamente."
                 />
               </div>
 
