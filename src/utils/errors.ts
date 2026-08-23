@@ -1,4 +1,5 @@
 import { auth } from '../firebase';
+import { logTelemetry } from './auditTelemetry';
 
 export enum OperationType {
   CREATE = 'create',
@@ -27,8 +28,11 @@ export interface FirestoreErrorInfo {
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
+  const errMessage = error instanceof Error ? error.message : String(error);
+  const errCode = (error as any)?.code || 'unknown';
+  
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errMessage,
     authInfo: {
       userId: auth.currentUser?.uid || null,
       email: auth.currentUser?.email || null,
@@ -43,6 +47,17 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   };
+
+  // Automatically broadcast to real-time Telemetry Monitor
+  logTelemetry(
+    'error',
+    `Erro Firestore (${operationType.toUpperCase()} /${path || ''}): ${errCode}`,
+    errInfo,
+    'FirestoreService',
+    error instanceof Error ? error.stack : undefined
+  );
+
   console.error('Firestore Hardened Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
+

@@ -3,6 +3,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Character, CustomStatusType, CharVersion } from '../types';
 import { handleFirestoreError, OperationType } from '../utils/errors';
+import { logAudit } from '../utils/auditTelemetry';
 import { SheetVersions } from './SheetVersions';
 import { ImageUploadField } from './ImageUploadField';
 import { PrintableSankoteiSheet } from './PrintableSankoteiSheet';

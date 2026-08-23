@@ -14,7 +14,7 @@ import {
 } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { 
-  Plus, Trash2, LogOut, Heart, Shield, Swords, User as UserIcon, Send, EyeOff, Eye, LayoutGrid, Scroll, Flame, RefreshCw, Sparkles, BookOpen, UserPlus, Star, Sliders, Lock, HelpCircle, Settings, MessageSquareText, Bell, X, ShieldAlert, Users, FileText
+  Plus, Trash2, LogOut, Heart, Shield, Swords, User as UserIcon, Send, EyeOff, Eye, LayoutGrid, Scroll, Flame, RefreshCw, Sparkles, BookOpen, UserPlus, Star, Sliders, Lock, HelpCircle, Settings, MessageSquareText, Bell, X, ShieldAlert, Users, FileText, History, Activity
 } from 'lucide-react';
 
 import { Character, CustomStatusType, ChatMessage, CharVersion, UserProfile } from './types';
@@ -25,9 +25,19 @@ import { DiscordNotebook } from './components/DiscordNotebook';
 import { GMConfigModal } from './components/GMConfigModal';
 import { PlayerConfigModal } from './components/PlayerConfigModal';
 import { ImageUploadField } from './components/ImageUploadField';
-import { DiagnosticModal, GlobalLogEntry } from './components/DiagnosticModal';
+import { AuditModal } from './components/AuditModal';
+import { TelemetryModal } from './components/TelemetryModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { PdfSheetImporterModal } from './components/PdfSheetImporterModal';
 import { trackRead, trackWrite, trackDelete } from './utils/firebaseUsageTracker';
+import { 
+  logAudit, 
+  logTelemetry, 
+  subscribeToAuditLogs, 
+  subscribeToTelemetryLogs, 
+  AuditLogEntry, 
+  TelemetryLogEntry 
+} from './utils/auditTelemetry';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -40,27 +50,23 @@ export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [versionsMap, setVersionsMap] = useState<{ [charId: string]: CharVersion[] }>({});
 
-  // Global Diagnostics / Error Logs State
-  const [showDiagnosticModal, setShowDiagnosticModal] = useState(false);
-  const [globalLogs, setGlobalLogs] = useState<GlobalLogEntry[]>([
-    {
-      id: 'init-1',
-      time: new Date().toLocaleTimeString(),
-      type: 'info',
-      title: 'Portal RPG Telumak Inicializado',
-      details: 'Sistemas carregados e prontos para a sessão.'
-    }
-  ]);
+  // Global Separate Modals State: 1. Audit Trail (Actions) and 2. Telemetry (Errors & Quota)
+  const [showAuditModal, setShowAuditModal] = useState(false);
+  const [showTelemetryModal, setShowTelemetryModal] = useState(false);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [telemetryLogs, setTelemetryLogs] = useState<TelemetryLogEntry[]>([]);
+
+  useEffect(() => {
+    const unsubAudit = subscribeToAuditLogs((logs) => setAuditLogs(logs));
+    const unsubTelemetry = subscribeToTelemetryLogs((logs) => setTelemetryLogs(logs));
+    return () => {
+      unsubAudit();
+      unsubTelemetry();
+    };
+  }, []);
 
   const addGlobalLog = (type: 'info' | 'success' | 'warn' | 'error', title: string, details?: any) => {
-    const entry: GlobalLogEntry = {
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-      time: new Date().toLocaleTimeString(),
-      type,
-      title,
-      details: typeof details === 'object' ? JSON.stringify(details, null, 2) : (details ? String(details) : undefined)
-    };
-    setGlobalLogs(prev => [entry, ...prev.slice(0, 99)]);
+    logTelemetry(type, title, details, 'AppGlobal');
   };
 
   // Global Error Listeners (with filter for Vite HMR sandbox reconnection)
@@ -70,12 +76,12 @@ export default function App() {
       const file = event.filename || '';
       if (msg.includes('@vite') || file.includes('@vite')) return;
 
-      addGlobalLog('error', `Erro de Interface: ${msg || 'Erro desconhecido'}`, {
+      logTelemetry('error', `Erro de Interface: ${msg || 'Erro desconhecido'}`, {
         arquivo: file,
         linha: event.lineno,
         coluna: event.colno,
         stack: event.error?.stack
-      });
+      }, 'WindowError', event.error?.stack);
     };
 
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
@@ -83,10 +89,10 @@ export default function App() {
       // Filter out harmless Vite HMR dev socket noise
       if (msg.includes('WebSocket closed without opened') || msg.includes('@vite')) return;
 
-      addGlobalLog('error', `Promise Rejeitada: ${msg || 'Erro assíncrono'}`, {
+      logTelemetry('error', `Promise Rejeitada: ${msg || 'Erro assíncrono'}`, {
         motivo: event.reason,
         stack: event.reason?.stack
-      });
+      }, 'UnhandledRejection', event.reason?.stack);
     };
 
     window.addEventListener('error', handleGlobalError);
@@ -96,6 +102,7 @@ export default function App() {
       window.removeEventListener('unhandledrejection', handleUnhandledRejection);
     };
   }, []);
+
 
   // Navigation State
   const [currentTab, setCurrentTab] = useState<'personagens' | 'arena' | 'discord'>('personagens');
@@ -240,7 +247,9 @@ export default function App() {
     }
     try {
       await signInWithEmailAndPassword(auth, authEmail.trim(), authPassword);
+      logAudit('AUTENTICACAO', `Usuário realizou login (${authEmail.trim()})`, { email: authEmail.trim() });
     } catch (err: any) {
+      logTelemetry('error', `Falha de autenticação (Login): ${err?.message}`, { code: err?.code }, 'Auth');
       setAuthError(translateAuthError(err?.code || err?.message || 'Erro desconhecido'));
     }
   };
@@ -270,8 +279,10 @@ export default function App() {
         };
         await setDoc(userRef, profile);
         setUserProfile(profile);
+        logAudit('AUTENTICACAO', `Novo usuário registrado (${profile.displayName} - ${profile.role})`, { profile });
       }
     } catch (err: any) {
+      logTelemetry('error', `Falha no cadastro: ${err?.message}`, { code: err?.code }, 'Auth');
       setAuthError(translateAuthError(err?.code || err?.message || 'Erro desconhecido'));
     }
   };
@@ -511,6 +522,13 @@ export default function App() {
     try {
       await setDoc(doc(db, 'characters', id), newChar);
       trackWrite('characters', 1);
+      logAudit('PERSONAGEM', `Criou a ficha ${newCharNome.trim()} (${newCharCla.trim() || 'Sem clã'})`, {
+        charId: id,
+        nome: newCharNome.trim(),
+        cla: newCharCla.trim(),
+        nivel: newCharNivel,
+        dono: newCharEmail.trim()
+      });
       setNewCharNome('');
       setNewCharEmail('');
       setNewCharCla('');
@@ -526,11 +544,16 @@ export default function App() {
 
   const handleToggleCombatOnBoard = async (char: Character) => {
     const docPath = `characters/${char.id}`;
+    const nextStatus = !char.ativo_na_mesa;
     try {
       await updateDoc(doc(db, 'characters', char.id), {
-        ativo_na_mesa: !char.ativo_na_mesa
+        ativo_na_mesa: nextStatus
       });
       trackWrite('characters', 1);
+      logAudit('COMBATE', `${nextStatus ? 'Escalou para a Mesa de Combate' : 'Removeu da Mesa de Combate'}: ${char.nome}`, {
+        charId: char.id,
+        ativoNaMesa: nextStatus
+      });
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, docPath);
     }
@@ -565,6 +588,10 @@ export default function App() {
     try {
       await addDoc(collection(db, 'messages'), newMessage);
       trackWrite('messages', 1);
+      logAudit('DISCORD', `Enviou mensagem no chat (${remetente} -> ${whisperTarget})`, {
+        tipo: type,
+        destinatario: whisperTarget
+      });
       if (!directText) setChatMessageText('');
       
       // Envia para o Discord se for mensagem pública
@@ -590,6 +617,7 @@ export default function App() {
       for (const msg of messages) {
         await deleteDoc(doc(db, 'messages', msg.id));
       }
+      logAudit('SISTEMA', `Apagou todo o histórico de mensagens do chat`);
     } catch (err) {
       handleFirestoreError(err, OperationType.DELETE, path);
     }
@@ -601,6 +629,7 @@ export default function App() {
       await updateDoc(doc(db, 'messages', msgId), {
         ocultada: !currentHiddenStatus
       });
+      logAudit('DISCORD', `${currentHiddenStatus ? 'Exibiu' : 'Ocultou'} mensagem do chat (ID: ${msgId})`);
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, docPath);
     }
@@ -637,11 +666,13 @@ export default function App() {
     if (data.ferramenta_destreza !== undefined) setEditToolDes(Number(data.ferramenta_destreza));
     if (data.ferramenta_cognicao !== undefined) setEditToolCog(Number(data.ferramenta_cognicao));
     if (data.ferramenta_carisma !== undefined) setEditToolCar(Number(data.ferramenta_carisma));
+    logAudit('PERSONAGEM', `Aplicou atributos da ficha PDF (${data.nome || 'Ficha'})`, { data });
   };
 
   const handleSaveQuickStats = async () => {
     if (!editingStatsCharId) return;
     const path = `characters/${editingStatsCharId}`;
+    const targetChar = characters.find(c => c.id === editingStatsCharId);
     try {
       await updateDoc(doc(db, 'characters', editingStatsCharId), {
         hp_max: editHpMax,
@@ -657,6 +688,17 @@ export default function App() {
         ferramenta_cognicao: editToolCog,
         ferramenta_carisma: editToolCar,
         email_dono: editEmailDono.trim().toLowerCase()
+      });
+      logAudit('PERSONAGEM', `Ajustou atributos rápidos de ${targetChar?.nome || editingStatsCharId}`, {
+        hp_max: editHpMax,
+        ether_max: editEtherMax,
+        destino_max: editDestinoMax,
+        fis: editFis,
+        des: editDes,
+        cog: editCog,
+        car: editCar,
+        pri: editPri,
+        emailDono: editEmailDono.trim()
       });
       setEditingStatsCharId(null);
     } catch (err) {
@@ -917,20 +959,37 @@ export default function App() {
 
           {/* GM / Player Config & User Actions */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Global Diagnostic & Alert Bell Button */}
+            
+            {/* 1. Audit Trail Window Button (Ações Realizadas) */}
             <button
-              onClick={() => setShowDiagnosticModal(true)}
+              type="button"
+              onClick={() => setShowAuditModal(true)}
+              className="p-2 bg-[#151515] hover:bg-[#202020] border border-amber-500/30 text-amber-400 hover:text-amber-300 text-xs font-black uppercase tracking-wider transition shadow relative flex items-center justify-center"
+              title="Janela de Auditoria & Registro de Ações (Armazenado)"
+            >
+              <History className="h-4 w-4" />
+              {auditLogs.length > 0 && (
+                <span className="absolute -top-1 -right-1 px-1 py-0.2 bg-amber-500/90 text-black rounded-full text-[8px] flex items-center justify-center font-black">
+                  {auditLogs.length > 99 ? '99+' : auditLogs.length}
+                </span>
+              )}
+            </button>
+
+            {/* 2. Telemetry & Error Monitor Window Button (Erros & Diagnósticos) */}
+            <button
+              type="button"
+              onClick={() => setShowTelemetryModal(true)}
               className={`p-2 bg-[#151515] hover:bg-[#202020] border text-xs font-black uppercase tracking-wider transition shadow relative flex items-center justify-center ${
-                globalLogs.filter(l => l.type === 'error').length > 0
+                telemetryLogs.filter(l => l.type === 'error').length > 0
                   ? 'border-rose-500 text-rose-400 animate-pulse'
                   : 'border-blue-500/30 text-sky-400 hover:text-white'
               }`}
-              title="Diagnóstico, Consumo de Banco e Alertas"
+              title="Janela de Telemetria & Monitor de Erros em Tempo Real"
             >
-              <Bell className="h-4 w-4" />
-              {globalLogs.filter(l => l.type === 'error').length > 0 && (
+              <Activity className="h-4 w-4" />
+              {telemetryLogs.filter(l => l.type === 'error').length > 0 && (
                 <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-600 text-white rounded-full text-[8px] flex items-center justify-center font-black">
-                  {globalLogs.filter(l => l.type === 'error').length}
+                  {telemetryLogs.filter(l => l.type === 'error').length}
                 </span>
               )}
             </button>
@@ -968,17 +1027,20 @@ export default function App() {
         </div>
       </nav>
 
-      {/* DISCORD TAB */}
-      {currentTab === 'discord' && (
-        <div className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 no-print">
-          <DiscordNotebook
-            isGM={isGM}
-            currentUserProfile={userProfile}
-            characters={characters}
-            onAddLog={addGlobalLog}
-          />
-        </div>
-      )}
+      {/* Main Tab Render inside ErrorBoundary for Real-Time Exception Telemetry */}
+      <ErrorBoundary onOpenTelemetry={() => setShowTelemetryModal(true)}>
+        
+        {/* DISCORD TAB */}
+        {currentTab === 'discord' && (
+          <div className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 no-print">
+            <DiscordNotebook
+              isGM={isGM}
+              currentUserProfile={userProfile}
+              characters={characters}
+              onAddLog={addGlobalLog}
+            />
+          </div>
+        )}
 
       {/* TACTICAL BATTLE MAP TAB */}
       {currentTab === 'arena' && (
@@ -1412,6 +1474,7 @@ export default function App() {
 
         </div>
       )}
+      </ErrorBoundary>
 
       {/* FLOATING 30-SECOND SHEET UPDATE NOTIFIER FOR PLAYERS */}
       {!isGM && hasSheetUpdateAlert && (
@@ -1462,13 +1525,16 @@ export default function App() {
         />
       )}
 
-      {/* GLOBAL SYSTEM DIAGNOSTIC & TELEMETRY MODAL */}
-      <DiagnosticModal
-        isOpen={showDiagnosticModal}
-        onClose={() => setShowDiagnosticModal(false)}
-        logs={globalLogs}
-        onClearLogs={() => setGlobalLogs([])}
-        onAddLog={addGlobalLog}
+      {/* 1. AUDIT TRAIL MODAL (Ações e Histórico Armazenado) */}
+      <AuditModal
+        isOpen={showAuditModal}
+        onClose={() => setShowAuditModal(false)}
+      />
+
+      {/* 2. TELEMETRY & ERROR MONITOR MODAL (Erros, Diagnóstico e Cota) */}
+      <TelemetryModal
+        isOpen={showTelemetryModal}
+        onClose={() => setShowTelemetryModal(false)}
         currentUserProfile={userProfile}
         characters={characters}
         currentTab={currentTab}
