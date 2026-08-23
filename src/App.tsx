@@ -14,7 +14,7 @@ import {
 } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { 
-  Plus, Trash2, LogOut, Heart, Shield, Swords, User as UserIcon, Send, EyeOff, Eye, LayoutGrid, Scroll, Flame, RefreshCw, Sparkles, BookOpen, UserPlus, Star, Sliders, Lock, HelpCircle, Settings, MessageSquareText, Bell, X, ShieldAlert, Users
+  Plus, Trash2, LogOut, Heart, Shield, Swords, User as UserIcon, Send, EyeOff, Eye, LayoutGrid, Scroll, Flame, RefreshCw, Sparkles, BookOpen, UserPlus, Star, Sliders, Lock, HelpCircle, Settings, MessageSquareText, Bell, X, ShieldAlert, Users, FileText
 } from 'lucide-react';
 
 import { Character, CustomStatusType, ChatMessage, CharVersion, UserProfile } from './types';
@@ -27,6 +27,7 @@ import { GMConfigModal } from './components/GMConfigModal';
 import { PlayerConfigModal } from './components/PlayerConfigModal';
 import { ImageUploadField } from './components/ImageUploadField';
 import { DiagnosticModal, GlobalLogEntry } from './components/DiagnosticModal';
+import { PdfSheetImporterModal } from './components/PdfSheetImporterModal';
 import { trackRead, trackWrite, trackDelete } from './utils/firebaseUsageTracker';
 
 export default function App() {
@@ -147,6 +148,10 @@ export default function App() {
   const [editToolCog, setEditToolCog] = useState(0);
   const [editToolCar, setEditToolCar] = useState(0);
   const [editEmailDono, setEditEmailDono] = useState('');
+
+  // PDF Sheet Importer modal state
+  const [showPdfImporterModal, setShowPdfImporterModal] = useState(false);
+  const [pdfTargetChar, setPdfTargetChar] = useState<Character | null>(null);
 
   // Auth monitoring listener
   useEffect(() => {
@@ -584,6 +589,21 @@ export default function App() {
     setEditEmailDono(char.email_dono || '');
   };
 
+  const handleApplyParsedPdfToQuickStats = (data: any) => {
+    if (data.hp_max !== undefined) setEditHpMax(Number(data.hp_max));
+    if (data.ether_max !== undefined) setEditEtherMax(Number(data.ether_max));
+    if (data.destino_max !== undefined) setEditDestinoMax(Number(data.destino_max));
+    if (data.fisico !== undefined) setEditFis(Number(data.fisico));
+    if (data.destreza !== undefined) setEditDes(Number(data.destreza));
+    if (data.cognicao !== undefined) setEditCog(Number(data.cognicao));
+    if (data.carisma !== undefined) setEditCar(Number(data.carisma));
+    if (data.primordio !== undefined) setEditPri(Number(data.primordio));
+    if (data.ferramenta_fisico !== undefined) setEditToolFis(Number(data.ferramenta_fisico));
+    if (data.ferramenta_destreza !== undefined) setEditToolDes(Number(data.ferramenta_destreza));
+    if (data.ferramenta_cognicao !== undefined) setEditToolCog(Number(data.ferramenta_cognicao));
+    if (data.ferramenta_carisma !== undefined) setEditToolCar(Number(data.ferramenta_carisma));
+  };
+
   const handleSaveQuickStats = async () => {
     if (!editingStatsCharId) return;
     const path = `characters/${editingStatsCharId}`;
@@ -1019,6 +1039,18 @@ export default function App() {
                     Mesa ({mestreMesaRoster.length})
                   </span>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPdfTargetChar(null);
+                    setShowPdfImporterModal(true);
+                  }}
+                  className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-600/20 hover:bg-blue-600/30 text-sky-300 border border-blue-500/40 text-[11px] font-bold uppercase transition"
+                  title="Importar Ficha Antiga via Arquivo PDF"
+                >
+                  <FileText className="h-3.5 w-3.5 text-blue-400" />
+                  <span>Importar PDF</span>
+                </button>
                 <span className="text-[10px] text-sky-200/50 font-mono hidden sm:inline uppercase">
                   Selecione para abrir a ficha:
                 </span>
@@ -1247,6 +1279,21 @@ export default function App() {
                     <X className="h-4 w-4" />
                   </button>
                 </div>
+
+                {/* PDF IMPORT BUTTON DIRECTLY IN QUICK ADJUST MODAL */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const char = characters.find(c => c.id === editingStatsCharId);
+                    setPdfTargetChar(char || null);
+                    setShowPdfImporterModal(true);
+                  }}
+                  className="w-full py-2.5 px-3 bg-gradient-to-r from-blue-900/60 via-indigo-950/80 to-blue-900/60 hover:from-blue-800/80 hover:to-indigo-900/90 border border-blue-500/50 rounded text-sky-200 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition shadow-lg group cursor-pointer"
+                >
+                  <FileText className="h-4 w-4 text-blue-400 group-hover:scale-110 transition-transform" />
+                  <span>📄 Enviar / Importar PDF da Ficha Antiga</span>
+                  <span className="text-[9px] bg-blue-500 text-white font-mono px-1.5 py-0.5 rounded font-normal">IA</span>
+                </button>
                 
                 <div className="grid grid-cols-3 gap-2">
                   <div>
@@ -1493,6 +1540,11 @@ export default function App() {
             setShowGMConfig(false);
             setShowCreateCharForm(true);
           }}
+          onOpenImportPdfModal={() => {
+            setShowGMConfig(false);
+            setPdfTargetChar(null);
+            setShowPdfImporterModal(true);
+          }}
         />
       )}
 
@@ -1518,6 +1570,20 @@ export default function App() {
         currentUserProfile={userProfile}
         characters={characters}
         currentTab={currentTab}
+      />
+
+      {/* PDF SHEET IMPORTER MODAL */}
+      <PdfSheetImporterModal
+        isOpen={showPdfImporterModal}
+        onClose={() => {
+          setShowPdfImporterModal(false);
+          setPdfTargetChar(null);
+        }}
+        targetCharacter={pdfTargetChar}
+        onApplyToQuickStats={handleApplyParsedPdfToQuickStats}
+        onSuccess={(charId) => {
+          setSelectedCharId(charId);
+        }}
       />
 
       {/* COMPACT FOOTER */}

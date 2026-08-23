@@ -4,7 +4,7 @@ import { db } from '../firebase';
 import { Character, UserProfile } from '../types';
 import { 
   Sliders, X, Shield, Check, RefreshCw, 
-  Search, Link as LinkIcon, Unlink, Crown, Users, Scroll, Plus
+  Search, Link as LinkIcon, Unlink, Crown, Users, Scroll, Plus, FileText
 } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../utils/errors';
 
@@ -13,9 +13,10 @@ interface GMConfigModalProps {
   onClose: () => void;
   characters: Character[];
   onOpenCreateCharModal?: () => void;
+  onOpenImportPdfModal?: () => void;
 }
 
-export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharModal }: GMConfigModalProps) {
+export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharModal, onOpenImportPdfModal }: GMConfigModalProps) {
   // Accounts and Permissions State
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
@@ -188,6 +189,20 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
                     <span>Nova Ficha</span>
                   </div>
                   <span className="text-[9px] text-white/80 font-mono">Criar Personagem</span>
+                </button>
+              )}
+
+              {onOpenImportPdfModal && (
+                <button
+                  type="button"
+                  onClick={onOpenImportPdfModal}
+                  className="bg-sky-900/60 hover:bg-sky-800/80 border border-sky-500/40 text-white p-3 flex flex-col items-center justify-center gap-1 transition shadow-lg text-center group"
+                >
+                  <div className="flex items-center gap-1.5 font-black text-xs uppercase tracking-wider text-sky-200">
+                    <FileText className="h-4 w-4 text-sky-400 transition-transform group-hover:scale-125" />
+                    <span>Importar PDF</span>
+                  </div>
+                  <span className="text-[9px] text-sky-300/80 font-mono">Ficha Sankötei Antiga</span>
                 </button>
               )}
             </div>

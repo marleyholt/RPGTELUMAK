@@ -119,8 +119,11 @@ export function parseAndRollDice(text: string): DiceRollResult | null {
     formattedFormula = dicePart;
   }
 
+  // Sort rolls descending (highest to lowest) for optimal readability
+  const sortedRolls = [...rolls].sort((a, b) => b - a);
+
   // Format rolls with bold markdown for any criticals
-  const formattedRolls = rolls.map(roll => {
+  const formattedRolls = sortedRolls.map(roll => {
     const isCritical = (explodeThreshold !== null && roll >= explodeThreshold) || (explodeThreshold === null && faces > 1 && roll === faces);
     return isCritical ? `**${roll}**` : `${roll}`;
   });

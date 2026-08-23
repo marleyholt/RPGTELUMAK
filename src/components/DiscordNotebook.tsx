@@ -419,7 +419,8 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
 
     if (diceCheck.isRoll && diceCheck.results.length > 0) {
       const roll = diceCheck.results[0];
-      const formattedRollArray = roll.rolls.map(r => {
+      const sortedRolls = [...roll.rolls].sort((a, b) => b - a);
+      const formattedRollArray = sortedRolls.map(r => {
         const isCrit = (roll.explodeThreshold !== null && r >= roll.explodeThreshold) || (roll.explodeThreshold === null && roll.faces > 1 && r === roll.faces);
         return isCrit ? `**${r}**` : `${r}`;
       });
