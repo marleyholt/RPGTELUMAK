@@ -476,6 +476,32 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
         canal: activeChannel?.name,
         conteudo: finalContent.substring(0, 50)
       });
+
+      // Se o canal estiver vinculado a um ID do Discord oficial, despacha para o bot enviar no Discord
+      const discordTargetId = activeChannel?.discordChannelId || (/^\d{17,20}$/.test(activeChannelId) ? activeChannelId : null);
+      if (discordTargetId) {
+        fetch('/api/discord/notebook/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            channelId: discordTargetId,
+            remetente: senderName,
+            conteudo: finalContent,
+            attachment: imageToSend || undefined
+          })
+        }).then(async (res) => {
+          if (res.ok) {
+            const data = await res.json().catch(() => ({}));
+            if (data.success) {
+              logEvent('success', `Mensagem sincronizada e enviada para o canal do Discord (#${discordTargetId})`);
+            } else if (data.botOffline) {
+              logEvent('info', `Mensagem salva localmente. O bot do Discord está offline.`);
+            }
+          }
+        }).catch(err => {
+          console.warn("Falha ao despachar mensagem para a API do Discord:", err);
+        });
+      }
     } catch (err: any) {
       console.error("Erro ao salvar mensagem:", err);
       logEvent('error', `Falha ao gravar mensagem no Firestore: ${err?.message || err}`, {
