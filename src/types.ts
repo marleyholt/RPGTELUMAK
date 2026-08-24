@@ -7,6 +7,7 @@ export interface UserProfile {
   discordDisplayName?: string;
   discordTag?: string;
   discordAvatar?: string;
+  quickSheetSections?: string[];
 }
 
 export interface Character {

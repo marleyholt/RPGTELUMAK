@@ -379,6 +379,19 @@ export default function App() {
     return () => unsub();
   }, [selectedCharId]);
 
+  // Listen for external requests to open the character sheet (e.g. from Discord Ficha Rapida)
+  useEffect(() => {
+    const handleOpenCharSheet = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail) {
+        setCurrentTab('personagens');
+        setSelectedCharId(customEvent.detail);
+      }
+    };
+    window.addEventListener('openCharacterSheet', handleOpenCharSheet);
+    return () => window.removeEventListener('openCharacterSheet', handleOpenCharSheet);
+  }, []);
+
   // 30s Polling Check for Player Character Sheet Changes
   useEffect(() => {
     if (userProfile?.role === 'GM' || !currentUser) return;

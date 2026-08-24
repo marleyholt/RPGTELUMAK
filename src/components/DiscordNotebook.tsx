@@ -18,6 +18,7 @@ import { ImageCropModal } from './ImageCropModal';
 import { ImageUploadField } from './ImageUploadField';
 import { DiscordBotGuideModal } from './DiscordBotGuideModal';
 import { DiscordExportModal } from './DiscordExportModal';
+import { QuickSheetPanel } from './QuickSheetPanel';
 import { trackRead, trackWrite, trackDelete } from '../utils/firebaseUsageTracker';
 import { parseAndRollDice, extractDiceRollsFromMessage } from '../utils/diceRoller';
 
@@ -57,7 +58,10 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
   const [identityName, setIdentityName] = useState('');
   const [identityTag, setIdentityTag] = useState('');
   const [identityAvatar, setIdentityAvatar] = useState('');
+  const [identityQuickSheet, setIdentityQuickSheet] = useState<string[]>([]);
   const [isSavingIdentity, setIsSavingIdentity] = useState(false);
+  
+  const [showQuickSheet, setShowQuickSheet] = useState(false);
 
   // Auto-detection state for Discord channel
   const [isDetectingChannel, setIsDetectingChannel] = useState(false);
@@ -225,6 +229,8 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
     return unsub;
   }, [activeChannelId, messageLimit, filterPinnedOnly, searchQuery]);
 
+  const myActiveCharacter = characters?.find(c => c.email_dono === currentUserProfile?.email && c.ativo_na_mesa && !c.arquivado);
+
   // Scroll tracking
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
@@ -363,7 +369,8 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
         discordDisplayName: identityName.trim() || effectiveDiscordName,
         discordTag: formattedTag,
         discordAvatar: identityAvatar.trim() || null,
-        displayName: identityName.trim() || currentUserProfile.displayName
+        displayName: identityName.trim() || currentUserProfile.displayName,
+        quickSheetSections: identityQuickSheet
       });
       trackWrite('users', 1);
 
@@ -1043,6 +1050,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
               setIdentityName(effectiveDiscordName);
               setIdentityTag(effectiveDiscordTag);
               setIdentityAvatar(currentUserProfile?.discordAvatar || currentUserProfile?.photoURL || '');
+              setIdentityQuickSheet(currentUserProfile?.quickSheetSections || ['indicadores']);
               setShowIdentityModal(true);
             }}
             className="flex items-center gap-2 overflow-hidden hover:bg-[#35373c]/70 p-1.5 rounded transition text-left group flex-1 min-w-0"
@@ -1072,12 +1080,23 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
           </button>
 
           <div className="flex items-center gap-0.5 text-[#b5bac1] shrink-0">
+            {myActiveCharacter && (
+            <button
+              type="button"
+              onClick={() => setShowQuickSheet(!showQuickSheet)}
+              className={`p-1.5 rounded transition ${showQuickSheet ? 'bg-indigo-500/20 text-indigo-400' : 'hover:bg-[#35373c] hover:text-white'}`}
+              title="Ficha Rápida (Pocket)"
+            >
+              <FileText className="h-3.5 w-3.5" />
+            </button>
+          )}
             <button
               type="button"
               onClick={() => {
                 setIdentityName(effectiveDiscordName);
                 setIdentityTag(effectiveDiscordTag);
                 setIdentityAvatar(currentUserProfile?.discordAvatar || currentUserProfile?.photoURL || '');
+                setIdentityQuickSheet(currentUserProfile?.quickSheetSections || ['indicadores']);
                 setShowIdentityModal(true);
               }}
               className="p-1.5 rounded hover:bg-[#35373c] hover:text-white transition"
@@ -2220,6 +2239,45 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
                   helperText="Envie um arquivo PNG, JPG ou WEBP. Você pode arrastar, enviar e recortar a imagem perfeitamente."
                 />
               </div>
+              
+              {/* Ficha Rápida config */}
+              <div className="pt-2">
+                <label className="block text-[11px] font-black uppercase tracking-wider text-[#949ba4] mb-2">
+                  Abas da Ficha Rápida (Máx 3)
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'indicadores', label: 'Indicadores & Primórdio' },
+                    { id: 'ataque', label: 'Ataque' },
+                    { id: 'defesa', label: 'Defesa' },
+                    { id: 'dons', label: 'Dons' },
+                    { id: 'equipamento', label: 'Equipamentos' }
+                  ].map(sec => {
+                    const isSelected = identityQuickSheet.includes(sec.id);
+                    return (
+                      <label key={sec.id} className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition ${isSelected ? 'bg-indigo-500/10 border-indigo-500/30 text-white' : 'bg-[#1e1f22] border-white/5 text-[#949ba4] hover:bg-[#2b2d31]'}`}>
+                        <input
+                          type="checkbox"
+                          className="hidden"
+                          checked={isSelected}
+                          onChange={() => {
+                            if (isSelected) {
+                              setIdentityQuickSheet(prev => prev.filter(x => x !== sec.id));
+                            } else {
+                              if (identityQuickSheet.length < 3) {
+                                setIdentityQuickSheet(prev => [...prev, sec.id]);
+                              }
+                            }
+                          }}
+                        />
+                        <span className="text-[11px] font-bold">{sec.label}</span>
+                        {isSelected && <Check className="h-3 w-3 ml-auto text-indigo-400" />}
+                      </label>
+                    );
+                  })}
+                </div>
+                {identityQuickSheet.length >= 3 && <p className="text-[10px] text-amber-400/80 mt-1">Límite de 3 abas atingido.</p>}
+              </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-[#1f2023]">
                 <button
@@ -2258,6 +2316,21 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
         channels={visibleChannels}
         isGM={isGM}
       />
+
+      {/* QUICK SHEET PANEL */}
+      {showQuickSheet && myActiveCharacter && (
+        <QuickSheetPanel
+          character={myActiveCharacter}
+          sections={identityQuickSheet.length > 0 ? identityQuickSheet : ['indicadores']}
+          onClose={() => setShowQuickSheet(false)}
+          onOpenFull={() => {
+            setShowQuickSheet(false);
+            // We use a custom event to tell App.tsx to switch tabs to 'fichas' and select this character
+            const event = new CustomEvent('openCharacterSheet', { detail: myActiveCharacter.id });
+            window.dispatchEvent(event);
+          }}
+        />
+      )}
     </div>
   );
 }
