@@ -8,6 +8,7 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 import { ImageUploadField } from './ImageUploadField';
+import { DataBackupSystem } from './DataBackupSystem';
 import { handleFirestoreError, OperationType } from '../utils/errors';
 
 interface GMConfigModalProps {
@@ -263,6 +264,8 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
             </div>
 
             {/* System Logo Customization (Branding) */}
+            <DataBackupSystem characters={characters} />
+
             <div className="bg-[#080808] border border-blue-500/30 p-4 space-y-4 shadow-lg">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
                 <div>
