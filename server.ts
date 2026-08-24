@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { Client, GatewayIntentBits, AttachmentBuilder } from 'discord.js';
@@ -32,6 +33,7 @@ const getFirebaseConfig = () => {
 
 async function startServer() {
   const app = express();
+  app.use(cors());
   const PORT = 3000;
 
   // Accept larger payloads for base64 PDF and image uploads

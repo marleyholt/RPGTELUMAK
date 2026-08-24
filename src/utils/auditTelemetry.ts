@@ -16,7 +16,7 @@ export interface AuditLogEntry {
   details?: any;
 }
 
-export type TelemetryType = 'error' | 'warn' | 'info' | 'network';
+export type TelemetryType = 'error' | 'warn' | 'info' | 'network' | 'success';
 
 export interface TelemetryLogEntry {
   id: string;

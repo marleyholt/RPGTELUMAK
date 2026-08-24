@@ -596,7 +596,7 @@ export default function App() {
       
       // Envia para o Discord se for mensagem pública
       if (type === 'CHAT') {
-        fetch('/api/discord/send', {
+        fetch(`${import.meta.env.VITE_API_URL || ''}/api/discord/send`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
