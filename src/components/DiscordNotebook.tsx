@@ -1050,7 +1050,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
               setIdentityName(effectiveDiscordName);
               setIdentityTag(effectiveDiscordTag);
               setIdentityAvatar(currentUserProfile?.discordAvatar || currentUserProfile?.photoURL || '');
-              setIdentityQuickSheet(currentUserProfile?.quickSheetSections || ['indicadores']);
+                              setIdentityQuickSheet(currentUserProfile?.quickSheetSections || []);
               setShowIdentityModal(true);
             }}
             className="flex items-center gap-2 overflow-hidden hover:bg-[#35373c]/70 p-1.5 rounded transition text-left group flex-1 min-w-0"
@@ -1096,7 +1096,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
                 setIdentityName(effectiveDiscordName);
                 setIdentityTag(effectiveDiscordTag);
                 setIdentityAvatar(currentUserProfile?.discordAvatar || currentUserProfile?.photoURL || '');
-                setIdentityQuickSheet(currentUserProfile?.quickSheetSections || ['indicadores']);
+                                setIdentityQuickSheet(currentUserProfile?.quickSheetSections || []);
                 setShowIdentityModal(true);
               }}
               className="p-1.5 rounded hover:bg-[#35373c] hover:text-white transition"
@@ -2242,41 +2242,41 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
               
               {/* Ficha Rápida config */}
               <div className="pt-2">
-                <label className="block text-[11px] font-black uppercase tracking-wider text-[#949ba4] mb-2">
-                  Abas da Ficha Rápida (Máx 3)
+                <label className="block text-[11px] font-black uppercase tracking-wider text-[#949ba4] mb-1">
+                  Ocultar Abas da Ficha Rápida
                 </label>
+                <p className="text-[10px] text-[#949ba4] mb-3 leading-tight">
+                  Por padrão, todas as abas são exibidas. Selecione abaixo as que você <strong>NÃO</strong> quer ver.
+                </p>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { id: 'indicadores', label: 'Indicadores & Primórdio' },
+                    { id: 'indicadores', label: 'Indicadores' },
                     { id: 'ataque', label: 'Ataque' },
                     { id: 'defesa', label: 'Defesa' },
                     { id: 'dons', label: 'Dons' },
                     { id: 'equipamento', label: 'Equipamentos' }
                   ].map(sec => {
-                    const isSelected = identityQuickSheet.includes(sec.id);
+                    const isHidden = identityQuickSheet.includes(sec.id);
                     return (
-                      <label key={sec.id} className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition ${isSelected ? 'bg-indigo-500/10 border-indigo-500/30 text-white' : 'bg-[#1e1f22] border-white/5 text-[#949ba4] hover:bg-[#2b2d31]'}`}>
+                      <label key={sec.id} className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition ${isHidden ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-[#1e1f22] border-white/5 text-[#949ba4] hover:bg-[#2b2d31]'}`}>
                         <input
                           type="checkbox"
                           className="hidden"
-                          checked={isSelected}
+                          checked={isHidden}
                           onChange={() => {
-                            if (isSelected) {
+                            if (isHidden) {
                               setIdentityQuickSheet(prev => prev.filter(x => x !== sec.id));
                             } else {
-                              if (identityQuickSheet.length < 3) {
-                                setIdentityQuickSheet(prev => [...prev, sec.id]);
-                              }
+                              setIdentityQuickSheet(prev => [...prev, sec.id]);
                             }
                           }}
                         />
-                        <span className="text-[11px] font-bold">{sec.label}</span>
-                        {isSelected && <Check className="h-3 w-3 ml-auto text-indigo-400" />}
+                        <span className="text-[11px] font-bold truncate">{sec.label}</span>
+                        {isHidden && <Check className="h-3 w-3 ml-auto text-rose-400 shrink-0" />}
                       </label>
                     );
                   })}
                 </div>
-                {identityQuickSheet.length >= 3 && <p className="text-[10px] text-amber-400/80 mt-1">Límite de 3 abas atingido.</p>}
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-[#1f2023]">
@@ -2321,7 +2321,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
       {showQuickSheet && myActiveCharacter && (
         <QuickSheetPanel
           character={myActiveCharacter}
-          sections={identityQuickSheet.length > 0 ? identityQuickSheet : ['indicadores']}
+          sections={identityQuickSheet || []}
           onClose={() => setShowQuickSheet(false)}
           onOpenFull={() => {
             setShowQuickSheet(false);
