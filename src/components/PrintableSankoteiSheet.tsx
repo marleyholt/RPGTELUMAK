@@ -9,15 +9,88 @@ interface PrintableSankoteiSheetProps {
 }
 
 
-// Converte textos brancos do editor rico para preto na impressão
+// Converte textos brancos ou muito claros do editor rico para preto na impressão
 const sanitizeHtmlForPrint = (html?: string) => {
   if (!html) return '';
-  let sanitized = html;
-  // Substitui style="color: white" 
-  sanitized = sanitized.replace(/color:\s*(?:#ffffff|#fff|white|rgb\(\s*255\s*,\s*255\s*,\s*255\s*\)|rgba\(\s*255\s*,\s*255\s*,\s*255\s*,\s*1\s*\))/gi, 'color: #000000');
-  // Substitui color="white" (muito comum em tabelas criadas no editor)
-  sanitized = sanitized.replace(/color=["'](?:#ffffff|#fff|white|rgb\(\s*255\s*,\s*255\s*,\s*255\s*\)|rgba\(\s*255\s*,\s*255\s*,\s*255\s*,\s*1\s*\))["']/gi, 'color="#000000"');
-  return sanitized;
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    
+    // Process <font> tags
+    const fontTags = doc.querySelectorAll('font[color]');
+    fontTags.forEach((el) => {
+      const color = el.getAttribute('color');
+      if (color) {
+        let isLight = false;
+        const c = color.toLowerCase().trim();
+        if (c === 'white' || c === 'transparent') isLight = true;
+        else if (c.startsWith('#')) {
+          if (c.length === 4) {
+            const r = parseInt(c[1], 16);
+            const g = parseInt(c[2], 16);
+            const b = parseInt(c[3], 16);
+            if (r > 10 && g > 10 && b > 10) isLight = true;
+          } else if (c.length === 7) {
+            const r = parseInt(c.substring(1, 3), 16);
+            const g = parseInt(c.substring(3, 5), 16);
+            const b = parseInt(c.substring(5, 7), 16);
+            if (r > 170 && g > 170 && b > 170) isLight = true;
+          }
+        } else if (c.startsWith('rgb')) {
+            const match = c.match(/\d+/g);
+            if (match && match.length >= 3) {
+              const r = parseInt(match[0], 10);
+              const g = parseInt(match[1], 10);
+              const b = parseInt(match[2], 10);
+              if (r > 170 && g > 170 && b > 170) isLight = true;
+            }
+        }
+        if (isLight) {
+          el.setAttribute('color', 'black');
+        }
+      }
+    });
+
+    // Process elements with inline styles
+    const styledElements = doc.querySelectorAll('[style]');
+    styledElements.forEach((el) => {
+      const htmlEl = el as HTMLElement;
+      if (htmlEl.style.color) {
+        let isLight = false;
+        const c = htmlEl.style.color.toLowerCase().trim();
+        if (c === 'white' || c === 'transparent') isLight = true;
+        else if (c.startsWith('rgb')) {
+            const match = c.match(/\d+/g);
+            if (match && match.length >= 3) {
+              const r = parseInt(match[0], 10);
+              const g = parseInt(match[1], 10);
+              const b = parseInt(match[2], 10);
+              if (r > 170 && g > 170 && b > 170) isLight = true;
+            }
+        } else if (c.startsWith('#')) {
+           if (c.length === 4) {
+            const r = parseInt(c[1], 16);
+            const g = parseInt(c[2], 16);
+            const b = parseInt(c[3], 16);
+            if (r > 10 && g > 10 && b > 10) isLight = true;
+          } else if (c.length === 7) {
+            const r = parseInt(c.substring(1, 3), 16);
+            const g = parseInt(c.substring(3, 5), 16);
+            const b = parseInt(c.substring(5, 7), 16);
+            if (r > 170 && g > 170 && b > 170) isLight = true;
+          }
+        }
+        if (isLight) {
+          htmlEl.style.color = 'black';
+        }
+      }
+    });
+
+    return doc.body.innerHTML;
+  } catch (e) {
+    // Fallback if DOMParser fails (should not happen in browser)
+    return html.replace(/color:\s*(?:#ffffff|#fff|white|rgb\(\s*255\s*,\s*255\s*,\s*255\s*\))/gi, 'color: #000000');
+  }
 };
 
 export function PrintableSankoteiSheet({
@@ -152,7 +225,7 @@ export function PrintableSankoteiSheet({
           .rich-content td, .rich-content th {
             border: 1px solid #ccc !important;
             padding: 4px !important;
-            color: #000000;
+            color: #000000 !important;
           }
           .rich-content th {
             background-color: #eee !important;
