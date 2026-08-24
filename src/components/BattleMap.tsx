@@ -30,6 +30,7 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const hasDragged = useRef(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -200,7 +201,7 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
       x: Math.floor(gridWidth / 2),
       y: Math.floor(gridHeight / 2),
       sqm: Number(spawnSqm) || 1,
-      charId: charId || undefined
+      ...(charId ? { charId } : {})
     };
 
     const path = `arena/default/tokens/${id}`;
@@ -249,6 +250,7 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
   };
 
   const handleCellClick = async (x: number, y: number) => {
+    if (hasDragged.current) return;
     if (selectedTokenId) {
       const token = tokens.find(t => t.id === selectedTokenId);
       if (!token || !canControlToken(token)) {
@@ -272,12 +274,14 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
     if (autoFit) return;
     if (e.button === 0 && (e.target as HTMLElement).tagName !== 'BUTTON') {
       setIsPanning(true);
+      hasDragged.current = false;
       setDragStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
     }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isPanning || autoFit) return;
+    hasDragged.current = true;
     setPanOffset({
       x: e.clientX - dragStart.x,
       y: e.clientY - dragStart.y
@@ -286,6 +290,7 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
 
   const handleMouseUp = () => {
     setIsPanning(false);
+    setTimeout(() => { hasDragged.current = false; }, 50);
   };
 
   const resetPanAndFit = () => {
@@ -334,6 +339,7 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
               <div
                 key={tk.id}
                 onClick={(e) => {
+                  if (hasDragged.current) return;
                   if (!userCanControl) return;
                   e.stopPropagation();
                   setSelectedTokenId(isSelected ? null : tk.id);
@@ -785,7 +791,7 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
             transform: !autoFit ? `translate(${panOffset.x}px, ${panOffset.y}px)` : 'none',
             transition: isPanning ? 'none' : 'transform 0.15s ease-out',
             backgroundImage: `url(${bg})`,
-            backgroundSize: 'cover',
+            backgroundSize: '100% 100%',
             backgroundPosition: 'center',
           }}
           className="relative shadow-2xl border border-white/20 select-none shrink-0"

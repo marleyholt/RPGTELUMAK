@@ -87,15 +87,15 @@ export function SheetVersions({ character, isGM, isOwner }: SheetVersionsProps) 
       destreza: Number(vDestreza),
       cognicao: Number(vCognicao),
       carisma: Number(vCarisma),
-      primordio: Number(vPrimordio),
-      img_saudavel: vImgSaudavel.trim() || undefined,
-      img_ferido: vImgFerido.trim() || undefined,
-      img_muito_ferido: vImgMuitoFerido.trim() || undefined,
-      html_ataques: vHtmlAtaques.trim() || undefined,
-      html_dons: vHtmlDons.trim() || undefined,
-      html_equipamentos: vHtmlEquipamentos.trim() || undefined,
-      html_defesa: vHtmlDefesa.trim() || undefined,
+      primordio: Number(vPrimordio)
     };
+    if (vImgSaudavel.trim()) newVersion.img_saudavel = vImgSaudavel.trim();
+    if (vImgFerido.trim()) newVersion.img_ferido = vImgFerido.trim();
+    if (vImgMuitoFerido.trim()) newVersion.img_muito_ferido = vImgMuitoFerido.trim();
+    if (vHtmlAtaques.trim()) newVersion.html_ataques = vHtmlAtaques.trim();
+    if (vHtmlDons.trim()) newVersion.html_dons = vHtmlDons.trim();
+    if (vHtmlEquipamentos.trim()) newVersion.html_equipamentos = vHtmlEquipamentos.trim();
+    if (vHtmlDefesa.trim()) newVersion.html_defesa = vHtmlDefesa.trim();
 
     try {
       await setDoc(doc(db, 'characters', character.id, 'versions', id), newVersion);
