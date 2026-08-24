@@ -17,6 +17,7 @@ import { processImageFile } from '../utils/imageUpload';
 import { ImageCropModal } from './ImageCropModal';
 import { ImageUploadField } from './ImageUploadField';
 import { DiscordBotGuideModal } from './DiscordBotGuideModal';
+import { DiscordExportModal } from './DiscordExportModal';
 import { trackRead, trackWrite, trackDelete } from '../utils/firebaseUsageTracker';
 import { parseAndRollDice, extractDiceRollsFromMessage } from '../utils/diceRoller';
 
@@ -96,6 +97,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
   const [isPinning, setIsPinning] = useState<string | null>(null);
   const [messageLimit, setMessageLimit] = useState(50);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatScrollContainerRef = useRef<HTMLDivElement>(null);
@@ -1136,6 +1138,16 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
           </div>
 
           <div className="flex items-center gap-2 text-[#b5bac1]">
+                        {/* Export Messages Button */}
+            <button
+              type="button"
+              onClick={() => setShowExportModal(true)}
+              className="text-[#b5bac1] hover:text-[#dbdee1] p-1 rounded hover:bg-[#3f4147] transition-colors flex items-center"
+              title="Exportar Mensagens"
+            >
+              <Download className="h-5 w-5" />
+            </button>
+            
             {/* Pinned Messages Filter Toggle */}
             <button
               type="button"
@@ -2238,6 +2250,14 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
         onClose={() => setShowGuideModal(false)}
       />
 
+
+      {/* EXPORT MODAL */}
+      <DiscordExportModal 
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        channels={visibleChannels}
+        isGM={isGM}
+      />
     </div>
   );
 }

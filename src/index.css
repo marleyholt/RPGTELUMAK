@@ -62,26 +62,32 @@ body {
 .rich-text-content, .rich-content {
   /* Provide some default styles for user content since tailwind resets them */
 }
-.rich-text-content, .rich-content ul {
+.rich-text-content li, .rich-content li {
+  display: list-item;
+  margin-left: 0.5rem;
+}
+.rich-text-content ul, .rich-content ul {
   list-style-type: disc;
+  list-style-position: inside;
   padding-left: 1.5rem;
   margin-bottom: 0.5rem;
 }
-.rich-text-content, .rich-content ol {
+.rich-text-content ol, .rich-content ol {
   list-style-type: decimal;
+  list-style-position: inside;
   padding-left: 1.5rem;
   margin-bottom: 0.5rem;
 }
-.rich-text-content, .rich-content strong, .rich-text-content, .rich-content b {
+.rich-text-content strong, .rich-content strong, .rich-text-content b, .rich-content b {
   font-weight: 700;
 }
-.rich-text-content, .rich-content em, .rich-text-content, .rich-content i {
+.rich-text-content em, .rich-content em, .rich-text-content i, .rich-content i {
   font-style: italic;
 }
-.rich-text-content, .rich-content u {
+.rich-text-content u, .rich-content u {
   text-decoration: underline;
 }
-.rich-text-content, .rich-content h1, .rich-text-content, .rich-content h2, .rich-text-content, .rich-content h3 {
+.rich-text-content h1, .rich-content h1, .rich-text-content h2, .rich-content h2, .rich-text-content h3, .rich-content h3 {
   font-weight: bold;
   margin-top: 0.5rem;
   margin-bottom: 0.25rem;
