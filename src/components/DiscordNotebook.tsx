@@ -419,32 +419,35 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
     let finalContent = contentToSend;
 
     if (diceCheck.isRoll && diceCheck.results.length > 0) {
-      const roll = diceCheck.results[0];
-      const sortedRolls = [...roll.rolls].sort((a, b) => b - a);
-      const formattedRollArray = sortedRolls.map(r => {
-        const isCrit = (roll.explodeThreshold !== null && r >= roll.explodeThreshold) || (roll.explodeThreshold === null && roll.faces > 1 && r === roll.faces);
-        return isCrit ? `**${r}**` : `${r}`;
+      const rollsStrArray = diceCheck.results.map(roll => {
+        const sortedRolls = [...roll.rolls].sort((a, b) => b - a);
+        const formattedRollArray = sortedRolls.map(r => {
+          const isCrit = (roll.explodeThreshold !== null && r >= roll.explodeThreshold) || (roll.explodeThreshold === null && roll.faces > 1 && r === roll.faces);
+          return isCrit ? `**${r}**` : `${r}`;
+        });
+        const rollsDisplay = formattedRollArray.join(', ');
+        
+        let explodeInfo = '';
+        if (roll.explodeThreshold !== null) {
+          explodeInfo = ` (Críticos >= ${roll.explodeThreshold}${roll.explodedRollsCount > 0 ? ` • +${roll.explodedRollsCount} dado(s) extra` : ''})`;
+        }
+
+        const forSuffix = roll.comment ? (roll.comment.toLowerCase().startsWith('para ') ? ` ${roll.comment}` : ` para ${roll.comment}`) : '';
+        return `🎲 **Rolagem:** \`${roll.formattedFormula}\`${explodeInfo}\n` +
+          `> **Dados Rolados:** [ ${rollsDisplay} ]\n` +
+          `> **Cálculo:** ${roll.formattedDetails}\n` +
+          `> 🏆 **Resultado Total = ${roll.total}**${forSuffix}`;
       });
-      const rollsDisplay = formattedRollArray.join(', ');
       
-      let explodeInfo = '';
-      if (roll.explodeThreshold !== null) {
-        explodeInfo = ` (Críticos >= ${roll.explodeThreshold}${roll.explodedRollsCount > 0 ? ` • +${roll.explodedRollsCount} dado(s) extra` : ''})`;
-      }
-
-      // Build rich formatted roll message
-      const forSuffix = roll.comment ? (roll.comment.toLowerCase().startsWith('para ') ? ` ${roll.comment}` : ` para ${roll.comment}`) : '';
-
-      finalContent = `🎲 **Rolagem de Dados:** \`${roll.formattedFormula}\`${explodeInfo}\n` +
-        `> **Dados Rolados:** [ ${rollsDisplay} ]\n` +
-        `> **Cálculo:** ${roll.formattedDetails}\n` +
-        `> 🏆 **Resultado Total = ${roll.total}**${forSuffix}`;
+      finalContent = rollsStrArray.join('\n\n');
       
-      logEvent('info', `Rolagem de dados executada: ${roll.formattedFormula} = ${roll.total}`, {
+      const firstRoll = diceCheck.results[0];
+      logEvent('info', `Rolagem de dados executada: ${firstRoll.formattedFormula} = ${firstRoll.total} ${diceCheck.results.length > 1 ? '(e outras)' : ''}`, {
         autor: senderName,
-        formula: roll.formattedFormula,
-        dados: roll.rolls,
-        total: roll.total
+        formula: firstRoll.formattedFormula,
+        dados: firstRoll.rolls,
+        total: firstRoll.total,
+        totalRolagens: diceCheck.results.length
       });
     } else {
       logEvent('info', `Enviando mensagem para canal #${activeChannel?.name || activeChannelId}`, {
@@ -993,7 +996,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
 
                               {/* Lock badge if private */}
                               {channel.isPrivate && (
-                                <Lock className="h-3 w-3 text-amber-400 shrink-0" title="Canal Privado" />
+                                <Lock className="h-3 w-3 text-amber-400 shrink-0" />
                               )}
                             </div>
 

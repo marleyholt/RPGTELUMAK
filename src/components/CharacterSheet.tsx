@@ -8,11 +8,12 @@ import { SheetVersions } from './SheetVersions';
 import { ImageUploadField } from './ImageUploadField';
 import { PrintableSankoteiSheet } from './PrintableSankoteiSheet';
 import { DeleteCharacterModal } from './DeleteCharacterModal';
+import RichTextEditor from "./RichTextEditor";
 import { 
   Heart, Zap, Star, Shield, Crosshair, Activity, Dumbbell, 
   Printer, Edit, Plus, Minus, Flame, Sparkles, Swords, 
   BookOpen, Backpack, Eye, Check, X, User, Image as ImageIcon,
-  Trash2, RotateCcw
+  Trash2, RotateCcw, History, Package
 } from 'lucide-react';
 
 interface CharacterSheetProps {
@@ -1536,55 +1537,35 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
               {/* Section 7: 4 Text Blocks */}
               <div className="space-y-2">
                 <span className="text-[10px] font-mono uppercase font-bold text-sky-400 block tracking-wider">
-                  7. Conteúdo e Habilidades (Suporta formatação HTML &lt;strong&gt;, &lt;b&gt;, etc.)
+                  7. Conteúdo e Habilidades (Formatação Rica e Colunas)
                 </span>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-6">
                   <div>
-                    <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">
+                    <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-2">
                       Ataques e Técnicas
                     </label>
-                    <textarea
-                      rows={4}
-                      value={eAtaques}
-                      onChange={(e) => setEAtaques(e.target.value)}
-                      className="w-full bg-black border border-white/10 p-3 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
-                    />
+                    <RichTextEditor value={eAtaques} onChange={setEAtaques} placeholder="Digite os ataques..." />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">
-                      Dons e Habilidades Mágicas
-                    </label>
-                    <textarea
-                      rows={4}
-                      value={eDons}
-                      onChange={(e) => setEDons(e.target.value)}
-                      className="w-full bg-black border border-white/10 p-3 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">
-                      Equipamento e Itens
-                    </label>
-                    <textarea
-                      rows={4}
-                      value={eEquipamentos}
-                      onChange={(e) => setEEquipamentos(e.target.value)}
-                      className="w-full bg-black border border-white/10 p-3 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">
+                    <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-2">
                       Defesa e Armaduras
                     </label>
-                    <textarea
-                      rows={4}
-                      value={eDefesa}
-                      onChange={(e) => setEDefesa(e.target.value)}
-                      className="w-full bg-black border border-white/10 p-3 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
-                    />
+                    <RichTextEditor value={eDefesa} onChange={setEDefesa} placeholder="Detalhes de defesa..." />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-2">
+                      Dons e Habilidades Mágicas
+                    </label>
+                    <RichTextEditor value={eDons} onChange={setEDons} placeholder="Digite os dons e habilidades..." />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-2">
+                      Equipamento e Itens
+                    </label>
+                    <RichTextEditor value={eEquipamentos} onChange={setEEquipamentos} placeholder="Lista de equipamentos..." />
                   </div>
                 </div>
               </div>
@@ -1627,6 +1608,18 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
               </button>
 
               <button
+                onClick={() => setActiveTab('defesa')}
+                className={`px-5 py-3.5 text-xs font-black uppercase tracking-widest transition flex items-center gap-2 border-b-2 shrink-0 ${
+                  activeTab === 'defesa'
+                    ? 'border-blue-500 text-sky-400 bg-white/[0.03]'
+                    : 'border-transparent text-white/40 hover:text-white'
+                }`}
+              >
+                <Shield className="h-3.5 w-3.5" />
+                Defesa
+              </button>
+
+              <button
                 onClick={() => setActiveTab('dons')}
                 className={`px-5 py-3.5 text-xs font-black uppercase tracking-widest transition flex items-center gap-2 border-b-2 shrink-0 ${
                   activeTab === 'dons'
@@ -1646,20 +1639,8 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                     : 'border-transparent text-white/40 hover:text-white'
                 }`}
               >
-                <Backpack className="h-3.5 w-3.5" />
+                <Package className="h-3.5 w-3.5" />
                 Equipamento
-              </button>
-
-              <button
-                onClick={() => setActiveTab('defesa')}
-                className={`px-5 py-3.5 text-xs font-black uppercase tracking-widest transition flex items-center gap-2 border-b-2 shrink-0 ${
-                  activeTab === 'defesa'
-                    ? 'border-blue-500 text-sky-400 bg-white/[0.03]'
-                    : 'border-transparent text-white/40 hover:text-white'
-                }`}
-              >
-                <Shield className="h-3.5 w-3.5" />
-                Defesa
               </button>
 
               <button
@@ -1670,8 +1651,8 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                     : 'border-transparent text-white/40 hover:text-white'
                 }`}
               >
-                <Flame className="h-3.5 w-3.5" />
-                Versões / Avatar ({versions.length})
+                <History className="h-3.5 w-3.5" />
+                Versões Salvas
               </button>
             </div>
 

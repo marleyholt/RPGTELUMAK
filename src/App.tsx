@@ -819,7 +819,7 @@ export default function App() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-[9px] text-sky-300/60 font-black uppercase tracking-widest flex items-center gap-1">Chave GM <HelpCircle className="h-2.5 w-2.5 text-sky-400" title="Insira 'TELUMAK_GM' para se registrar como Mestre de jogo instantaneamente." /></label>
+                  <label className="block text-[9px] text-sky-300/60 font-black uppercase tracking-widest flex items-center gap-1">Chave GM <HelpCircle className="h-2.5 w-2.5 text-sky-400" /></label>
                   <input
                     type="text"
                     value={gmSecretKey}
@@ -1107,7 +1107,7 @@ export default function App() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCurrentTab('notebook')}
+                  onClick={() => setCurrentTab('discord')}
                   className="px-6 py-2.5 bg-[#1a1a1a] hover:bg-[#252525] text-white/80 hover:text-white text-xs font-bold uppercase tracking-wider transition border border-white/10"
                 >
                   Abrir Notebook Discord

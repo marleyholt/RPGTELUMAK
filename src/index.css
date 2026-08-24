@@ -59,3 +59,71 @@ body {
   color: #ffffff;
 }
 
+.rich-text-content, .rich-content {
+  /* Provide some default styles for user content since tailwind resets them */
+}
+.rich-text-content, .rich-content ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+.rich-text-content, .rich-content ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+.rich-text-content, .rich-content strong, .rich-text-content, .rich-content b {
+  font-weight: 700;
+}
+.rich-text-content, .rich-content em, .rich-text-content, .rich-content i {
+  font-style: italic;
+}
+.rich-text-content, .rich-content u {
+  text-decoration: underline;
+}
+.rich-text-content, .rich-content h1, .rich-text-content, .rich-content h2, .rich-text-content, .rich-content h3 {
+  font-weight: bold;
+  margin-top: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+/* Mapeamento de Tamanhos de Fonte gerados pelo execCommand */
+.rich-text-content font[size="1"], .rich-content font[size="1"] { font-size: 0.70rem; }
+.rich-text-content font[size="2"], .rich-content font[size="2"] { font-size: 0.85rem; }
+.rich-text-content font[size="3"], .rich-content font[size="3"] { font-size: 1.0rem; }
+.rich-text-content font[size="4"], .rich-content font[size="4"] { font-size: 1.15rem; }
+.rich-text-content font[size="5"], .rich-content font[size="5"] { font-size: 1.35rem; }
+.rich-text-content font[size="6"], .rich-content font[size="6"] { font-size: 1.75rem; }
+.rich-text-content font[size="7"], .rich-content font[size="7"] { font-size: 2.25rem; }
+
+/* Estilos de Tabela para o Rich Text Editor (caso o usuário cole tabelas) */
+.rich-text-content table, .rich-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+.rich-text-content th, .rich-content th,
+.rich-text-content td, .rich-content td {
+  border: 1px solid #444;
+  padding: 0.5rem;
+  text-align: left;
+}
+.rich-text-content th, .rich-content th {
+  background-color: rgba(255, 255, 255, 0.1);
+  font-weight: bold;
+}
+@media print {
+  .rich-text-content table, .rich-content table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+  .rich-text-content th, .rich-content th,
+  .rich-text-content td, .rich-content td {
+    border: 1px solid #000 !important;
+    padding: 4px !important;
+  }
+  .rich-text-content th, .rich-content th {
+    background-color: #eee !important;
+    color: #000 !important;
+  }
+}

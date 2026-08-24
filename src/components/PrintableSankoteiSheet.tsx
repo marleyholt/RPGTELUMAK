@@ -8,6 +8,18 @@ interface PrintableSankoteiSheetProps {
   onClose?: () => void;
 }
 
+
+// Converte textos brancos do editor rico para preto na impressão
+const sanitizeHtmlForPrint = (html?: string) => {
+  if (!html) return '';
+  let sanitized = html;
+  // Substitui style="color: white" 
+  sanitized = sanitized.replace(/color:\s*(?:#ffffff|#fff|white|rgb\(\s*255\s*,\s*255\s*,\s*255\s*\)|rgba\(\s*255\s*,\s*255\s*,\s*255\s*,\s*1\s*\))/gi, 'color: #000000');
+  // Substitui color="white" (muito comum em tabelas criadas no editor)
+  sanitized = sanitized.replace(/color=["'](?:#ffffff|#fff|white|rgb\(\s*255\s*,\s*255\s*,\s*255\s*\)|rgba\(\s*255\s*,\s*255\s*,\s*255\s*,\s*1\s*\))["']/gi, 'color="#000000"');
+  return sanitized;
+};
+
 export function PrintableSankoteiSheet({
   character,
   isOpen = true,
@@ -44,7 +56,7 @@ export function PrintableSankoteiSheet({
               Visualização de Exportação em PDF (Padrão Oficial Sankötei)
             </h3>
             <p className="text-[11px] text-white/50 font-mono">
-              Ficha formatada em 4 páginas diagramadas para impressão A4 e download em PDF
+              Ficha formatada em layout contínuo para impressão A4 e download em PDF
             </p>
           </div>
         </div>
@@ -87,8 +99,8 @@ export function PrintableSankoteiSheet({
             display: none !important;
           }
           .sankotei-page {
-            page-break-after: always !important;
-            break-after: page !important;
+            page-break-after: auto !important;
+            break-after: auto !important;
             box-shadow: none !important;
             border: none !important;
             margin: 0 !important;
@@ -103,6 +115,65 @@ export function PrintableSankoteiSheet({
             background-color: #000000 !important;
             color: #ffffff !important;
             -webkit-print-color-adjust: exact !important;
+          }
+          
+          /* FIX FOR RICH TEXT EDITOR COLUMNS IN PDF */
+          .rich-content div[style*="display: flex"] {
+            display: flex !important;
+            flex-wrap: wrap !important; /* Allow wrapping if too tight */
+            overflow: visible !important;
+          }
+          .rich-content div[style*="overflow: auto"] {
+            overflow: visible !important;
+            resize: none !important;
+            border: none !important; /* Remove the dashed borders for clean PDF */
+            padding: 0 !important; /* Remove padding to maximize space */
+          }
+          /* We add a small gap in flex to replace padding */
+          .rich-content div[style*="display: flex"] {
+            gap: 1.5rem !important; 
+          }
+          /* Ensure text wraps nicely and doesn't get cut off */
+          .rich-content {
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
+          }
+          
+          /* Make sure actual tables don't break horribly */
+          .rich-content table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            page-break-inside: auto !important;
+          }
+          .rich-content tr {
+            page-break-inside: avoid !important;
+            page-break-after: auto !important;
+          }
+          .rich-content td, .rich-content th {
+            border: 1px solid #ccc !important;
+            padding: 4px !important;
+            color: #000000;
+          }
+          .rich-content th {
+            background-color: #eee !important;
+          }
+          
+          /* Prevent flex from hiding content in print */
+          .rich-content div[style*="display: flex"] {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            width: 100% !important;
+            page-break-inside: avoid !important; 
+          }
+          
+          /* Force auto height for everything */
+          .rich-content * {
+            height: auto !important;
+            min-height: 0 !important;
+          }
+          /* Fix font size scaling issues */
+          .rich-content font {
+            line-height: 1.3 !important;
           }
         }
       `}} />
@@ -273,200 +344,82 @@ export function PrintableSankoteiSheet({
 
             </div>
 
-            {/* COMBATE SECTION */}
-            <div className="border border-black text-xs">
-              <div className="sankotei-header-ribbon bg-black text-white text-center font-bold font-sans py-1 uppercase tracking-widest text-[11px]">
-                COMBATE
-              </div>
-              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-6 leading-relaxed">
-                
-                {/* Column 1: ATAQUES */}
-                <div className="space-y-3">
+            
+            {/* CONTINUOUS FLOW SECTION (Ataques, Defesa, Dons, Equipamentos) */}
+            <div className="space-y-6 text-xs mt-6">
+              
+              {/* ATAQUES */}
+              <div className="border border-black">
+                <div className="sankotei-header-ribbon bg-black text-white text-center font-bold font-sans py-1 uppercase tracking-widest text-[11px]">
+                  ATAQUES
+                </div>
+                <div className="p-4 leading-relaxed">
                   <div className="rich-content space-y-2 text-xs">
                     {character.html_ataques ? (
-                      <div 
-                        dangerouslySetInnerHTML={{ __html: character.html_ataques }} 
-                        className="space-y-1 text-neutral-800"
-                      />
+                      <div dangerouslySetInnerHTML={{ __html: sanitizeHtmlForPrint(character.html_ataques) }} className="text-neutral-800" />
                     ) : (
-                      <div className="space-y-1.5 font-mono text-[11px]">
-                        <p className="font-bold text-neutral-900">ATAQUE (Desarmado): <span className="text-neutral-700 font-normal">81+21d10!10</span> <strong className="float-right text-red-800">DANO: 03</strong></p>
-                        <p className="text-neutral-600 pl-2">nuero: ( DANO+3 por 1 p. de Destino )</p>
-                        <p className="text-neutral-600 pl-2">palantyr: ( DANO+6 por 2 p. de Destino )</p>
-                        <p className="font-bold text-neutral-900 pt-1">ATAQUE (Armas): <span className="text-neutral-700 font-normal">88+21d10!10</span> <strong className="float-right text-red-800">DANO: 13</strong></p>
-                        <p className="text-neutral-600 pl-2">nuero: ( DANO+3 por 1 p. de Destino )</p>
-                        <p className="text-neutral-600 pl-2">Ragnarok: (BLEED+3, por 2 p. de ENERGIA)</p>
-                      </div>
+                      <p className="text-neutral-500 italic font-mono text-[11px]">Nenhum ataque registrado.</p>
                     )}
                   </div>
                 </div>
+              </div>
 
-                {/* Column 2: REDUTORES & DEFESA */}
-                <div className="space-y-3 border-l md:border-l-neutral-300 md:pl-4">
+              {/* DEFESA */}
+              <div className="border border-black">
+                <div className="sankotei-header-ribbon bg-black text-white text-center font-bold font-sans py-1 uppercase tracking-widest text-[11px]">
+                  DEFESA
+                </div>
+                <div className="p-4 leading-relaxed">
                   <div className="rich-content space-y-2 text-xs">
                     {character.html_defesa ? (
-                      <div 
-                        dangerouslySetInnerHTML={{ __html: character.html_defesa }} 
-                        className="space-y-1 text-neutral-800"
-                      />
+                      <div dangerouslySetInnerHTML={{ __html: sanitizeHtmlForPrint(character.html_defesa) }} className="text-neutral-800" />
                     ) : (
-                      <div className="space-y-1.5 font-mono text-[11px]">
-                        <p className="font-bold text-neutral-900">REDUTOR (Desarmado): <span className="text-neutral-700 font-normal">78+21d10!10</span> <strong className="float-right text-neutral-900">REDUTOR: 13</strong></p>
-                        <p className="font-bold text-neutral-900 pt-1">REDUTOR (Armadura): <span className="text-neutral-700 font-normal">0</span> <strong className="float-right text-neutral-900">REDUTOR: 16</strong></p>
-                        <p className="text-neutral-600 pl-2">nuero: ( REDUTOR+3 por 1 p. de Destino )</p>
-                        <p className="text-neutral-600 pl-2">nuero-palantyr: ( OU, REDUTOR+6 por 2 p. de Destino )</p>
-                        <p className="font-bold text-neutral-900 pt-1">REDUTOR (Emboscada): <span className="text-neutral-700 font-normal">0</span> <strong className="float-right text-neutral-900">REDUTOR: 16</strong></p>
-                      </div>
+                      <p className="text-neutral-500 italic font-mono text-[11px]">Nenhuma defesa registrada.</p>
                     )}
                   </div>
                 </div>
-
               </div>
-            </div>
 
-          </div>
-
-          <div className="text-[9px] text-neutral-400 font-mono text-center pt-4 border-t border-neutral-200">
-            RPG TELUMAK • FICHA OFICIAL SANKÖTEI • PÁGINA 1
-          </div>
-        </div>
-
-
-        {/* ========================================================================= */}
-        {/* PÁGINA 2: DONS E PODERES, DOMÍNIOS | VIRTUDES, FRAQUEZAS                  */}
-        {/* ========================================================================= */}
-        <div className="sankotei-page bg-white p-8 sm:p-10 border border-neutral-300 min-h-[297mm] flex flex-col justify-between">
-          <div className="space-y-5">
-            
-            {/* DONS E PODERES */}
-            <div className="border border-black">
-              <div className="sankotei-header-ribbon bg-black text-white text-center font-bold font-sans py-1 uppercase tracking-widest text-[11px]">
-                DONS E PODERES
-              </div>
-              <div className="p-4 space-y-3 text-xs leading-relaxed text-neutral-800">
-                {character.html_dons ? (
-                  <div 
-                    dangerouslySetInnerHTML={{ __html: character.html_dons }} 
-                    className="rich-content space-y-2"
-                  />
-                ) : (
-                  <>
-                    <div className="text-center font-bold text-neutral-900 uppercase text-xs">
-                      CORPO TITAN
-                    </div>
-                    <div className="space-y-1.5 text-justify">
-                      <p><strong className="text-red-900 uppercase">FORÇA TITÂNICA:</strong> A cada 20 pontos completos no atributo FÍSICO, o personagem receberá ARMAMENTO +1.</p>
-                      <p><strong className="text-red-900 uppercase">SAÚDE TITÂNICA:</strong> A cada 20 pontos completos no atributo FÍSICO, o personagem receberá SAÚDE +1.</p>
-                      <p><strong className="text-red-900 uppercase">RESISTÊNCIA TITÂNICA:</strong> A cada 20 pontos completos no atributo FÍSICO, o personagem receberá REDUTOR +1.</p>
-                      <p><strong className="text-red-900 uppercase">FERRAMENTA TITÂNICA:</strong> A cada 30 pontos completos no atributo FÍSICO, o personagem pode utilizar por dia, uma super ferramenta avançada à sua escolha com bônus de +3d10.</p>
-                    </div>
-
-                    <div className="text-center font-bold text-neutral-900 uppercase text-xs pt-2">
-                      PODER NUERO
-                    </div>
-                    <div className="space-y-1.5 text-justify">
-                      <p><strong className="text-blue-900 uppercase">AURA HËNAËNY:</strong> permite manifestar e expandir a aura do Aënhën no corpo ou em armamentos (DANO+3 ou REDUTOR+3 por 1 p. de Destino); regenera danos severos (SAÚDE+3 por 1 p. de Destino); e resiste a efeitos [ignora até 3 status ativos por 1 p. de Destino].</p>
-                      <p><strong className="text-blue-900 uppercase">METALOGÊNESE:</strong> armas marcadas pelos ritos de Aenys podem ser invocadas ou magnetizadas (não pode ser desarmado nem roubado); durabilidade renovada em troca do sangue (SAÚDE-2 para recuperar arma).</p>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* DOMÍNIOS | VIRTUDES */}
-            <div className="border border-black">
-              <div className="sankotei-header-ribbon bg-black text-white text-center font-bold font-sans py-1 uppercase tracking-widest text-[11px]">
-                DOMÍNIOS | VIRTUDES
-              </div>
-              <div className="p-4 space-y-3 text-xs leading-relaxed text-neutral-800">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <p className="font-bold text-neutral-900 uppercase text-xs">COMBATE GIGANTE:</p>
-                    <p><strong className="text-neutral-900">Estágio I)</strong> Estilo desarmado que recebe DEFESA e ATAQUE +1, e +1 para cada 30 pontos em Físico.</p>
-                    <p><strong className="text-neutral-900">Estágio II)</strong> Sempre que utiliza SAÚDE, há aumento de +1 de ATAQUE ou DEFESA.</p>
-                    <p><strong className="text-neutral-900">Estágio III)</strong> Recebe +1 de FORTITUDE.</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="font-bold text-neutral-900 uppercase text-xs">VIGOR GIGANTE:</p>
-                    <p><strong className="text-neutral-900">Estágio I)</strong> +3 para atos de esforço prolongado e resistência a dor, veneno, etc.</p>
-                    <p><strong className="text-neutral-900">Estágio II)</strong> Bônus de +6 para erguer, empurrar, segurar ou escalar.</p>
-                    <p><strong className="text-neutral-900">Estágio III)</strong> Recebe +1 de SAÚDE.</p>
+              {/* DONS E PODERES */}
+              <div className="border border-black">
+                <div className="sankotei-header-ribbon bg-black text-white text-center font-bold font-sans py-1 uppercase tracking-widest text-[11px]">
+                  DONS E PODERES
+                </div>
+                <div className="p-4 leading-relaxed">
+                  <div className="rich-content space-y-2 text-xs">
+                    {character.html_dons ? (
+                      <div dangerouslySetInnerHTML={{ __html: sanitizeHtmlForPrint(character.html_dons) }} className="text-neutral-800" />
+                    ) : (
+                      <p className="text-neutral-500 italic font-mono text-[11px]">Nenhum dom registrado.</p>
+                    )}
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* FRAQUEZAS */}
-            <div className="border border-black">
-              <div className="sankotei-header-ribbon bg-black text-white text-center font-bold font-sans py-1 uppercase tracking-widest text-[11px]">
-                FRAQUEZAS
+              {/* EQUIPAMENTOS */}
+              <div className="border border-black">
+                <div className="sankotei-header-ribbon bg-black text-white text-center font-bold font-sans py-1 uppercase tracking-widest text-[11px]">
+                  EQUIPAMENTOS
+                </div>
+                <div className="p-4 leading-relaxed">
+                  <div className="rich-content space-y-2 text-xs">
+                    {character.html_equipamentos ? (
+                      <div dangerouslySetInnerHTML={{ __html: sanitizeHtmlForPrint(character.html_equipamentos) }} className="text-neutral-800" />
+                    ) : (
+                      <p className="text-neutral-500 italic font-mono text-[11px]">Nenhum equipamento registrado.</p>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="p-4 space-y-2 text-xs leading-relaxed text-neutral-800">
-                <p className="font-bold text-neutral-900 uppercase text-xs">CORPO GIGANTE:</p>
-                <p><strong className="text-neutral-900">Estágio I)</strong> PENALIDADE DE -8 de atributo quando em espaços apertados ou pequenos.</p>
-                <p><strong className="text-neutral-900">Estágio II)</strong> PENALIDADE DE -12 de combate quando em espaços apertados.</p>
-                <p><strong className="text-neutral-900">Estágio III)</strong> ENFRAQUECE EM -2 PONTO DE DESTINO no uso em cavernas ou espaços pequenos.</p>
-              </div>
-            </div>
 
+            </div>
           </div>
-
-          <div className="text-[9px] text-neutral-400 font-mono text-center pt-4 border-t border-neutral-200">
-            RPG TELUMAK • FICHA OFICIAL SANKÖTEI • PÁGINA 2
+          
+          <div className="text-[9px] text-neutral-400 font-mono text-center pt-4 border-t border-neutral-200 mt-8 mb-4">
+            RPG TELUMAK • FICHA OFICIAL SANKÖTEI
           </div>
         </div>
-
-
-        {/* ========================================================================= */}
-        {/* PÁGINAS 3 & 4: EQUIPAMENTOS                                               */}
-        {/* ========================================================================= */}
-        <div className="sankotei-page bg-white p-8 sm:p-10 border border-neutral-300 min-h-[297mm] flex flex-col justify-between">
-          <div className="space-y-4">
-            
-            <div className="border border-black">
-              <div className="sankotei-header-ribbon bg-black text-white text-center font-bold font-sans py-1.5 uppercase tracking-widest text-xs">
-                EQUIPAMENTOS
-              </div>
-
-              <div className="p-4 space-y-4 text-xs leading-relaxed text-neutral-800">
-                {character.html_equipamentos ? (
-                  <div 
-                    dangerouslySetInnerHTML={{ __html: character.html_equipamentos }} 
-                    className="rich-content space-y-3"
-                  />
-                ) : (
-                  <>
-                    <div className="text-center font-bold text-neutral-700 tracking-wider text-xs border-b border-neutral-300 pb-1">
-                      ____________________ UTILITÁRIOS ____________________
-                    </div>
-                    <div className="space-y-2">
-                      <p><strong>1. TATUAGEM LENDÁRIA: DO REI COLOSSAL (Peso 0):</strong> +4 FORTITUDE; +2 DESTINO; +4 SAÚDE.</p>
-                      <p><strong>2. ELMO PRIMORDIAL: COROA DE ZARENKAI (Peso 5):</strong> REDUTOR +10; REFLETIR DANO na forma de cabeçada até limite de 6 de dano direto.</p>
-                      <p><strong>3. PINGENTE PRIMORDIAL: PALANTIR (Peso 5):</strong> Conhecimento da Era Ancestral; Ressonância da Aura (consumo dobrado para efeitos dobrados).</p>
-                    </div>
-
-                    <div className="text-center font-bold text-neutral-700 tracking-wider text-xs border-b border-neutral-300 pb-1 pt-3">
-                      ____________________ EQUIPAMENTOS EM USO ____________________
-                    </div>
-                    <div className="space-y-2">
-                      <p><strong className="text-red-900">MÖGGERGAUNTR: Armadura Ancestral Lendária. (PESO 4).</strong> Defesa Base REDUTOR +4. Defesa especial REDUTOR +4 por 1 p. Destino.</p>
-                      <p><strong className="text-red-900">MÖGGERSÚFR: Machado de Duas Mãos Lendário. (PESO 4).</strong> Ataque Base Dano 4. Status de paralisia por 1 p. Energia.</p>
-                      <p><strong className="text-red-900">MÖGGENIR: Martelo de Guerra de Uma Mão Lendário. (PESO 3).</strong> Ataque Base Dano 2. Penalidade de Defesa -2 contra escudos.</p>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-
-          </div>
-
-          <div className="text-[9px] text-neutral-400 font-mono text-center pt-4 border-t border-neutral-200">
-            RPG TELUMAK • FICHA OFICIAL SANKÖTEI • PÁGINA 3 / 4
-          </div>
-        </div>
-
       </div>
-
     </div>
   );
 }

@@ -1,4 +1,8 @@
-/**
+const fs = require('fs');
+let code = fs.readFileSync('src/utils/diceRoller.ts', 'utf8');
+
+// I will just overwrite the file from scratch to be safe.
+const newCode = `/**
  * Parser and roller for Telumak RPG / Rollem dice expressions.
  * Syntax: [mod+|-]xdy[!z] or xdy[!z][+|-mod]
  */
@@ -19,7 +23,7 @@ export interface DiceRollResult {
   comment?: string;
 }
 
-const DICE_COMMAND_REGEX = /^(?:[!\/]r(?:oll)?\s+)?(?:(\d+)\s*#\s*)?([+-]?\s*\d+\s*)?\+?\s*(\d+)\s*d\s*(\d+)(?:\s*!\s*(\d+))?(?:\s*([+-]\s*\d+))?(?:\s+(.+))?$/i;
+const DICE_COMMAND_REGEX = /^(?:[!\\/]r(?:oll)?\\s+)?(?:(\\d+)\\s*#\\s*)?([+-]?\\s*\\d+\\s*)?\\+?\\s*(\\d+)\\s*d\\s*(\\d+)(?:\\s*!\\s*(\\d+))?(?:\\s*([+-]\\s*\\d+))?(?:\\s+(.+))?$/i;
 
 export function parseAndRollDice(text: string): DiceRollResult[] | null {
   const trimmed = text.trim();
@@ -46,10 +50,10 @@ export function parseAndRollDice(text: string): DiceRollResult[] | null {
 
   let modifier = 0;
   if (prefixModStr) {
-    modifier += parseInt(prefixModStr.replace(/\s+/g, ''), 10) || 0;
+    modifier += parseInt(prefixModStr.replace(/\\s+/g, ''), 10) || 0;
   }
   if (suffixModStr) {
-    modifier += parseInt(suffixModStr.replace(/\s+/g, ''), 10) || 0;
+    modifier += parseInt(suffixModStr.replace(/\\s+/g, ''), 10) || 0;
   }
 
   let explodeThreshold: number | null = null;
@@ -88,11 +92,11 @@ export function parseAndRollDice(text: string): DiceRollResult[] | null {
     const diceSum = rolls.reduce((acc, curr) => acc + curr, 0);
     const total = diceSum + modifier;
 
-    let dicePart = `${diceCount}d${faces}${explodeThreshold !== null ? `!${explodeThreshold}` : ''}`;
+    let dicePart = \`\${diceCount}d\${faces}\${explodeThreshold !== null ? \`!\${explodeThreshold}\` : ''}\`;
     
     let formattedFormula = '';
     if (modifier !== 0) {
-      formattedFormula = modifier > 0 ? `${modifier} + ${dicePart}` : `${dicePart} - ${Math.abs(modifier)}`;
+      formattedFormula = modifier > 0 ? \`\${modifier} + \${dicePart}\` : \`\${dicePart} - \${Math.abs(modifier)}\`;
     } else {
       formattedFormula = dicePart;
     }
@@ -101,19 +105,19 @@ export function parseAndRollDice(text: string): DiceRollResult[] | null {
 
     const formattedRolls = sortedRolls.map(roll => {
       const isCritical = (explodeThreshold !== null && roll >= explodeThreshold) || (explodeThreshold === null && faces > 1 && roll === faces);
-      return isCritical ? `**${roll}**` : `${roll}`;
+      return isCritical ? \`**\${roll}**\` : \`\${roll}\`;
     });
 
-    const rollsStr = `(${formattedRolls.join(', ')})`;
+    const rollsStr = \`(\${formattedRolls.join(', ')})\`;
 
     let formattedDetails = '';
     if (modifier !== 0) {
-      formattedDetails = modifier > 0 ? `${modifier} + ${rollsStr} = **${total}**` : `${rollsStr} - ${Math.abs(modifier)} = **${total}**`;
+      formattedDetails = modifier > 0 ? \`\${modifier} + \${rollsStr} = **\${total}**\` : \`\${rollsStr} - \${Math.abs(modifier)} = **\${total}**\`;
     } else {
-      formattedDetails = `${rollsStr} = **${total}**`;
+      formattedDetails = \`\${rollsStr} = **\${total}**\`;
     }
 
-    const cleanComment = commentStr ? commentStr.trim().replace(/^[:#-]\s*/, '') : undefined;
+    const cleanComment = commentStr ? commentStr.trim().replace(/^[:#-]\\s*/, '') : undefined;
 
     results.push({
       rawExpression: trimmed,
@@ -151,3 +155,5 @@ export function extractDiceRollsFromMessage(text: string): { isRoll: boolean; re
     cleanText: text
   };
 }
+`;
+fs.writeFileSync('src/utils/diceRoller.ts', newCode);

@@ -15,9 +15,9 @@ export function DiceTray({ onSendRoll }: DiceTrayProps) {
     setIsRolling(true);
     setTimeout(() => {
       const res = parseAndRollDice(formula);
-      if (res) {
-        setLastResult(res);
-        const html = formatRollToHtml(res);
+      if (res && res.length > 0) {
+        setLastResult(res[0]); // show first result in preview
+        const html = res.map(r => formatRollToHtml(r)).join('<div class="my-2 border-t border-white/5"></div>');
         onSendRoll(html);
       } else {
         alert('Formato inválido! Use por exemplo: "8+2d10!10 Golpe Final", "1d20+5" ou "2d10!9"');
