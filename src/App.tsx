@@ -596,7 +596,7 @@ export default function App() {
       
       // Envia para o Discord se for mensagem pública
       if (type === 'CHAT') {
-        fetch(`${import.meta.env.VITE_API_URL || 'http://152.67.60.236:3000'}/api/discord/send`, {
+        fetch(`${import.meta.env.VITE_API_URL || 'https://telumak-server.duckdns.org'}/api/discord/send`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

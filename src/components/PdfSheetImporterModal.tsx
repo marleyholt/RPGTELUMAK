@@ -124,7 +124,7 @@ export function PdfSheetImporterModal({
       // Small delay for visual feedback
       await new Promise(r => setTimeout(r, 400));
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://152.67.60.236:3000'}/api/characters/import-pdf`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://telumak-server.duckdns.org'}/api/characters/import-pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -201,7 +201,7 @@ export function PdfSheetImporterModal({
       setProgressPercent(50);
       addLog('progress', 'Enviando conteúdo para estruturação via IA Gemini...');
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://152.67.60.236:3000'}/api/characters/import-pdf`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://telumak-server.duckdns.org'}/api/characters/import-pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

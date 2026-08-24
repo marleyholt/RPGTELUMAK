@@ -484,7 +484,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
       // Se o canal estiver vinculado a um ID do Discord oficial, despacha para o bot enviar no Discord
       const discordTargetId = activeChannel?.discordChannelId || (/^\d{17,20}$/.test(activeChannelId) ? activeChannelId : null);
       if (discordTargetId) {
-        fetch(`${import.meta.env.VITE_API_URL || 'http://152.67.60.236:3000'}/api/discord/notebook/send`, {
+        fetch(`${import.meta.env.VITE_API_URL || 'https://telumak-server.duckdns.org'}/api/discord/notebook/send`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -552,7 +552,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
     setDetectChannelStatus(null);
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://152.67.60.236:3000'}/api/discord/channel-info?channelId=${encodeURIComponent(targetId)}`);
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'https://telumak-server.duckdns.org'}/api/discord/channel-info?channelId=${encodeURIComponent(targetId)}`);
       
       if (res.status === 405 || !res.headers.get('content-type')?.includes('application/json')) {
         setDetectChannelStatus({
