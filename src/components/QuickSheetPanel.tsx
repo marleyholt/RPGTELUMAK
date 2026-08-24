@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Character } from '../types';
 import { X, ExternalLink, Shield, Swords, Backpack, Star, Info, Minus, Maximize2 } from 'lucide-react';
 // Removed Markdown import
@@ -180,6 +180,18 @@ export function QuickSheetPanel({ character, sections, onClose, onOpenFull }: Qu
   const [activeTab, setActiveTab] = useState(defaultSections[0]);
   
   const [isMinimized, setIsMinimized] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ width: 320, height: 340 });
+
+  const toggleMinimize = () => {
+    if (!isMinimized && panelRef.current) {
+      setSize({
+        width: panelRef.current.offsetWidth,
+        height: panelRef.current.offsetHeight
+      });
+    }
+    setIsMinimized(!isMinimized);
+  };
   
   // Dragging logic
   const [pos, setPos] = useState({ x: window.innerWidth - 340, y: window.innerHeight - 340 });
@@ -211,12 +223,13 @@ export function QuickSheetPanel({ character, sections, onClose, onOpenFull }: Qu
 
   return (
     <div 
+      ref={panelRef}
       className="fixed bg-[#2b2d31] border border-[#1f2023] rounded-lg shadow-2xl z-40 flex flex-col overflow-hidden animate-fade-in"
       style={{
         left: pos.x,
         top: pos.y,
-        width: isMinimized ? '260px' : '320px',
-        height: isMinimized ? 'auto' : '340px',
+        width: isMinimized ? '260px' : `${size.width}px`,
+        height: isMinimized ? 'auto' : `${size.height}px`,
         minWidth: isMinimized ? 'auto' : '280px',
         minHeight: isMinimized ? 'auto' : '200px',
         resize: isMinimized ? 'none' : 'both'
@@ -231,7 +244,7 @@ export function QuickSheetPanel({ character, sections, onClose, onOpenFull }: Qu
       >
         <span className="text-xs font-black text-white truncate pr-2">{character.nome}</span>
         <div className="flex items-center gap-1 shrink-0">
-          <button onClick={() => setIsMinimized(!isMinimized)} className="p-1 text-white/50 hover:text-white transition" title={isMinimized ? "Maximizar" : "Minimizar"}>
+          <button onClick={toggleMinimize} className="p-1 text-white/50 hover:text-white transition" title={isMinimized ? "Maximizar" : "Minimizar"}>
             {isMinimized ? <Maximize2 className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />}
           </button>
           <button onClick={onOpenFull} className="p-1 text-white/50 hover:text-white transition" title="Abrir Ficha Completa">
