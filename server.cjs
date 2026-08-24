@@ -23,6 +23,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 
 // server.ts
 var import_express = __toESM(require("express"), 1);
+var import_cors = __toESM(require("cors"), 1);
 var import_path = __toESM(require("path"), 1);
 var import_vite = require("vite");
 var import_discord = require("discord.js");
@@ -52,6 +53,7 @@ var getFirebaseConfig = () => {
 };
 async function startServer() {
   const app = (0, import_express.default)();
+  app.use((0, import_cors.default)());
   const PORT = 3e3;
   app.use(import_express.default.json({ limit: "50mb" }));
   app.use(import_express.default.urlencoded({ extended: true, limit: "50mb" }));
