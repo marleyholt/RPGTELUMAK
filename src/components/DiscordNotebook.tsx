@@ -101,6 +101,15 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
           body: JSON.stringify({})
         });
         const space = await response.json();
+        if (!response.ok) {
+          console.error('Google Meet API Erro Detalhado:', space);
+          if (space.error && space.error.message.includes('API has not been used')) {
+             onAddLog('error', 'API do Google Meet não está ativada no Cloud Console!');
+          } else {
+             onAddLog('error', 'API Meet Erro: ' + (space.error?.message || 'Desconhecido'));
+          }
+          throw new Error('Meet Error');
+        }
         if (space.meetingUri) {
           await setDoc(doc(db, 'meet_session', 'current'), {
             url: space.meetingUri,
