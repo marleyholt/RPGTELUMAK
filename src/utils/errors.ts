@@ -58,6 +58,6 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   );
 
   console.error('Firestore Hardened Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  // throw new Error(JSON.stringify(errInfo));
 }
 
