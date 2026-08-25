@@ -1,15 +1,16 @@
 import React, { useState, useRef } from 'react';
 import { NPC } from '../types';
-import { X, Minus, Maximize2, Image as ImageIcon, FileText, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Minus, Maximize2, Image as ImageIcon, FileText, Download, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 
 interface NpcQuickSheetProps {
   npc: NPC;
   onClose: () => void;
+  onOpenFull?: () => void;
   initialPos?: { x: number, y: number };
   startMinimized?: boolean;
 }
 
-export function NpcQuickSheet({ npc, onClose, initialPos, startMinimized = true }: NpcQuickSheetProps) {
+export function NpcQuickSheet({ npc, onClose, onOpenFull, initialPos, startMinimized = true }: NpcQuickSheetProps) {
   const [activeTab, setActiveTab] = useState<'fotos' | 'anotacoes'>('fotos');
   const [isMinimized, setIsMinimized] = useState(startMinimized);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -91,6 +92,11 @@ export function NpcQuickSheet({ npc, onClose, initialPos, startMinimized = true 
           {npc.name}
         </span>
         <div className="flex items-center gap-1 shrink-0">
+          {onOpenFull && (
+            <button onClick={onOpenFull} className="p-1 text-white/50 hover:text-white transition" title="Abrir Ficha do NPC Completa">
+              <ExternalLink className="w-3.5 h-3.5" />
+            </button>
+          )}
           <button onClick={toggleMinimize} className="p-1 text-white/50 hover:text-white transition" title={isMinimized ? "Maximizar" : "Minimizar"}>
             {isMinimized ? <Maximize2 className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />}
           </button>
@@ -102,7 +108,7 @@ export function NpcQuickSheet({ npc, onClose, initialPos, startMinimized = true 
       
       {!isMinimized && (
         <>
-          <div className="flex bg-[#232428] border-b border-white/5 overflow-x-auto no-scrollbar shrink-0">
+          <div className="flex bg-[#232428] border-b border-white/5 overflow-x-auto no-scrollbar shrink-0 select-none">
             <button
               onClick={() => setActiveTab('fotos')}
               className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-[10px] font-bold uppercase tracking-wider border-b-2 transition ${activeTab === 'fotos' ? 'border-indigo-400 text-indigo-400 bg-white/5' : 'border-transparent text-[#949ba4] hover:text-white'}`}
@@ -117,7 +123,7 @@ export function NpcQuickSheet({ npc, onClose, initialPos, startMinimized = true 
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto custom-scroll min-h-0 bg-[#313338] relative">
+          <div className="flex-1 overflow-y-auto custom-scroll min-h-0 bg-[#313338] relative select-text">
             {activeTab === 'fotos' && (
               <div className="h-full flex flex-col">
                 {validImages.length > 0 ? (

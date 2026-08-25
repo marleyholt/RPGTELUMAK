@@ -270,7 +270,7 @@ export function QuickSheetPanel({ character, sections, onClose, onOpenFull, init
       )}
 
       {!isMinimized && (
-        <div className="p-3 flex-1 overflow-y-auto custom-scroll min-h-0">
+        <div className="p-3 flex-1 overflow-y-auto custom-scroll min-h-0 select-text">
           {renderSection(activeTab)}
         </div>
       )}

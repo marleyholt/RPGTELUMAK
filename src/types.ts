@@ -211,3 +211,8 @@ export interface DiscordChannelItem {
   discordChannelId?: string;
   createdAt?: any;
 }
+
+export interface DiscordChannelItem {
+  id: string;
+  name: string;
+}

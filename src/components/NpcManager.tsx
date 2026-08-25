@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
-import { NPC } from '../types';
+import { NPC, DiscordChannelItem } from '../types';
 import { Search, Plus, Trash2, Edit2, LayoutGrid, List as ListIcon, X, Check, Image as ImageIcon, Download, FileText } from 'lucide-react';
 import RichTextEditor from './RichTextEditor';
 import { ImageUploadField } from './ImageUploadField';
@@ -19,6 +19,18 @@ export function NpcManager() {
   const [selectedChannel, setSelectedChannel] = useState<string>('');
   const [sendingDiscord, setSendingDiscord] = useState(false);
   const [sendType, setSendType] = useState<'cover' | 'all'>('cover');
+
+  useEffect(() => {
+    const handleOpenNpc = (e) => {
+      const npcId = e.detail;
+      const found = npcs.find(n => n.id === npcId);
+      if (found) {
+        setViewingNpc(found);
+      }
+    };
+    window.addEventListener('openNpcSheet', handleOpenNpc);
+    return () => window.removeEventListener('openNpcSheet', handleOpenNpc);
+  }, [npcs]);
 
   useEffect(() => {
     const unsubNpcs = onSnapshot(collection(db, 'npcs'), (snap) => {

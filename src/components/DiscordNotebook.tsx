@@ -2521,6 +2521,11 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
             key={id}
             npc={npc}
             onClose={() => setOpenNpcIds(prev => prev.filter(x => x !== id))}
+            onOpenFull={() => {
+              setOpenNpcIds(prev => prev.filter(x => x !== id));
+              const event = new CustomEvent('openNpcSheet', { detail: id });
+              window.dispatchEvent(event);
+            }}
             initialPos={{ x: window.innerWidth - 300 - (index * 20), y: 100 + (index * 20) }}
           />
         );

@@ -27,7 +27,7 @@ export interface FirestoreErrorInfo {
   };
 }
 
-export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): void {
   const errMessage = error instanceof Error ? error.message : String(error);
   const errCode = (error as any)?.code || 'unknown';
   

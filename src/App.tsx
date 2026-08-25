@@ -393,6 +393,18 @@ export default function App() {
     return () => window.removeEventListener('openCharacterSheet', handleOpenCharSheet);
   }, []);
 
+  // Listen for external requests to open an NPC sheet
+  useEffect(() => {
+    const handleOpenNpcSheet = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail) {
+        setCurrentTab('npcs');
+      }
+    };
+    window.addEventListener('openNpcSheet', handleOpenNpcSheet);
+    return () => window.removeEventListener('openNpcSheet', handleOpenNpcSheet);
+  }, []);
+
   // 30s Polling Check for Player Character Sheet Changes
   useEffect(() => {
     if (userProfile?.role === 'GM' || !currentUser) return;
