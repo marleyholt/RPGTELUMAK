@@ -121,7 +121,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
         }
       } catch (err) {
         console.error(err);
-        onAddLog('error', 'Erro ao criar a sala do Google Meet.');
+        onAddLog('error', 'Erro ao criar a sala do Google Meet: ' + (err instanceof Error ? err.message : String(err)));
       } finally {
         setIsCreatingMeet(false);
       }
