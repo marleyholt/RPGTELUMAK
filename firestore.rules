@@ -66,6 +66,11 @@ service cloud.firestore {
       allow delete: if isGM() || request.auth.token.email == "discord-bot@system.local" || (isSignedIn() && resource.data.authorEmail == request.auth.token.email);
     }
 
+    // --- NPCS ---
+    match /npcs/{npcId} {
+      allow read, write: if isGM();
+    }
+
     // --- CHARACTERS ---
     match /characters/{charId} {
       allow read: if isSignedIn();

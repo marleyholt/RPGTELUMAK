@@ -97,6 +97,16 @@ export interface Character {
   arquivadoEm?: any;
 }
 
+export interface NPC {
+  id: string;
+  name: string;
+  content: string; // HTML content
+  images: string[];
+  coverImageIndex: number;
+  createdAt: any;
+  updatedAt: any;
+}
+
 export interface CharVersion {
   id: string; // "base" or custom ID
   versao_nome: string; // e.g., "Forma Titã", "Modo Bestial", "Base"

@@ -19,6 +19,9 @@ import { ImageUploadField } from './ImageUploadField';
 import { DiscordBotGuideModal } from './DiscordBotGuideModal';
 import { DiscordExportModal } from './DiscordExportModal';
 import { QuickSheetPanel } from './QuickSheetPanel';
+import { NpcQuickSheet } from './NpcQuickSheet';
+import { NpcSelectorWindow } from './NpcSelectorWindow';
+import { NPC } from '../types';
 import { trackRead, trackWrite, trackDelete } from '../utils/firebaseUsageTracker';
 import { parseAndRollDice, extractDiceRollsFromMessage } from '../utils/diceRoller';
 
@@ -62,6 +65,9 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
   const [isSavingIdentity, setIsSavingIdentity] = useState(false);
   
   const [showQuickSheet, setShowQuickSheet] = useState(false);
+  const [allNpcs, setAllNpcs] = useState<NPC[]>([]);
+  const [openNpcIds, setOpenNpcIds] = useState<string[]>([]);
+  const [showNpcMenu, setShowNpcMenu] = useState(false);
 
   // Auto-detection state for Discord channel
   const [isDetectingChannel, setIsDetectingChannel] = useState(false);
@@ -105,6 +111,18 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
   const chatScrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load NPCs for GM
+  useEffect(() => {
+    if (!isGM) return;
+    const unsub = onSnapshot(collection(db, 'npcs'), (snap) => {
+      const items: NPC[] = [];
+      snap.forEach(d => items.push({ id: d.id, ...d.data() } as NPC));
+      items.sort((a, b) => a.name.localeCompare(b.name));
+      setAllNpcs(items);
+    });
+    return () => unsub();
+  }, [isGM]);
 
   // 1. Load Real-Time Channels directly from Firestore (NO fake default channels)
   useEffect(() => {
@@ -1077,7 +1095,17 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
             </div>
           </button>
 
-          <div className="flex items-center gap-0.5 text-[#b5bac1] shrink-0">
+          <div className="flex items-center gap-0.5 text-[#b5bac1] shrink-0 relative">
+            {isGM && (
+              <button
+                type="button"
+                onClick={() => setShowNpcMenu(!showNpcMenu)}
+                className={`p-1.5 rounded transition ${showNpcMenu ? 'bg-sky-500/20 text-sky-400' : 'hover:bg-[#35373c] hover:text-white'}`}
+                title="Janela de Seleção de NPCs"
+              >
+                <Bot className="h-3.5 w-3.5" />
+              </button>
+            )}
             {myActiveCharacter && (
             <button
               type="button"
@@ -2307,12 +2335,39 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
           onClose={() => setShowQuickSheet(false)}
           onOpenFull={() => {
             setShowQuickSheet(false);
-            // We use a custom event to tell App.tsx to switch tabs to 'fichas' and select this character
             const event = new CustomEvent('openCharacterSheet', { detail: myActiveCharacter.id });
             window.dispatchEvent(event);
           }}
         />
       )}
+
+      {showNpcMenu && isGM && (
+        <NpcSelectorWindow
+          npcs={allNpcs}
+          openNpcIds={openNpcIds}
+          onToggleNpc={(id) => {
+            if (openNpcIds.includes(id)) {
+              setOpenNpcIds(prev => prev.filter(x => x !== id));
+            } else {
+              setOpenNpcIds(prev => [...prev, id]);
+            }
+          }}
+          onClose={() => setShowNpcMenu(false)}
+        />
+      )}
+
+      {isGM && openNpcIds.map((id, index) => {
+        const npc = allNpcs.find(n => n.id === id);
+        if (!npc) return null;
+        return (
+          <NpcQuickSheet
+            key={id}
+            npc={npc}
+            onClose={() => setOpenNpcIds(prev => prev.filter(x => x !== id))}
+            initialPos={{ x: window.innerWidth - 300 - (index * 20), y: 100 + (index * 20) }}
+          />
+        );
+      })}
     </div>
   );
 }

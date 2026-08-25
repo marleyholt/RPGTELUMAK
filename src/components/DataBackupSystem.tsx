@@ -43,6 +43,14 @@ export function DataBackupSystem({ characters }: DataBackupSystemProps) {
       } catch (e) {
         console.warn('Could not fetch notes', e);
       }
+      
+      try {
+        const npcsSnap = await getDocs(collection(db, 'npcs'));
+        snapshot.npcs = [];
+        npcsSnap.forEach(d => snapshot.npcs.push({ id: d.id, ...d.data() }));
+      } catch (e) {
+        console.warn('Could not fetch npcs', e);
+      }
 
       const dataStr = JSON.stringify(snapshot, null, 2);
       const blob = new Blob([dataStr], { type: 'application/json' });

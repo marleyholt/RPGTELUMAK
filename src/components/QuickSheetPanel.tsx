@@ -45,11 +45,7 @@ export function QuickSheetPanel({ character, sections, onClose, onOpenFull }: Qu
             {(character.primordio ?? 0) > 0 && (
               <div className="bg-[#1e1f22] border border-white/5 p-2 rounded flex items-center justify-between">
                 <span className="block text-[10px] uppercase font-black text-[#949ba4]">Primórdio</span>
-                <div className="flex gap-1 flex-wrap">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i} className={`h-2 w-2 rounded-full ${i < character.primordio ? 'bg-amber-400' : 'bg-white/10'}`} />
-                  ))}
-                </div>
+                <span className="text-sm font-black text-amber-400">{character.primordio}</span>
               </div>
             )}
             

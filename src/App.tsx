@@ -23,6 +23,7 @@ import { CharacterSheet } from './components/CharacterSheet';
 import { BattleMap } from './components/BattleMap';
 import { DiscordNotebook } from './components/DiscordNotebook';
 import { GMConfigModal } from './components/GMConfigModal';
+import { NpcManager } from './components/NpcManager';
 import { PlayerConfigModal } from './components/PlayerConfigModal';
 import { ImageUploadField } from './components/ImageUploadField';
 import { AuditModal } from './components/AuditModal';
@@ -105,7 +106,7 @@ export default function App() {
 
 
   // Navigation State
-  const [currentTab, setCurrentTab] = useState<'personagens' | 'arena' | 'discord'>('personagens');
+  const [currentTab, setCurrentTab] = useState<'personagens' | 'arena' | 'discord' | 'npcs'>('personagens');
   const [selectedCharId, setSelectedCharId] = useState<string | null>(null);
 
   // GM & Player Config Modal State
@@ -959,6 +960,19 @@ export default function App() {
               )}
             </button>
 
+            {isGM && (
+              <button
+                onClick={() => setCurrentTab('npcs')}
+                className={`flex items-center gap-1.5 px-5 py-2 text-xs font-black uppercase tracking-widest transition duration-150 ${
+                  currentTab === 'npcs' ? 'bg-indigo-600 text-white' : 'text-white/40 hover:text-white hover:bg-white/5'
+                }`}
+                title="Galeria de NPCs"
+              >
+                <Users className="h-3.5 w-3.5" />
+                NPCs
+              </button>
+            )}
+
             <button
               onClick={() => setCurrentTab('discord')}
               className={`flex items-center gap-1.5 px-5 py-2 text-xs font-black uppercase tracking-widest transition duration-150 ${
@@ -1043,7 +1057,14 @@ export default function App() {
       {/* Main Tab Render inside ErrorBoundary for Real-Time Exception Telemetry */}
       <ErrorBoundary onOpenTelemetry={() => setShowTelemetryModal(true)}>
         
-        {/* DISCORD TAB */}
+        {/* NPCS TAB */}
+      {currentTab === 'npcs' && isGM && (
+        <div className="flex-1 overflow-hidden h-full pb-0 bg-[#313338]">
+          <NpcManager />
+        </div>
+      )}
+      
+      {/* DISCORD TAB */}
         {currentTab === 'discord' && (
           <div className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 no-print">
             <DiscordNotebook
