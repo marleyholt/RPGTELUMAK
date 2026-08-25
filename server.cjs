@@ -368,7 +368,7 @@ ${textContent}`
       let response;
       try {
         response = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
+          model: "gemini-2.5-pro",
           contents: contentsParts,
           config: {
             responseMimeType: "application/json"
@@ -377,7 +377,7 @@ ${textContent}`
       } catch (geminiErr) {
         console.warn("Tentando fallback para gemini-3.7-flash devido a:", geminiErr?.message);
         response = await ai.models.generateContent({
-          model: "gemini-3.7-flash",
+          model: "gemini-2.5-flash",
           contents: contentsParts,
           config: {
             responseMimeType: "application/json"
