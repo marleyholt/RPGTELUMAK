@@ -133,3 +133,11 @@ body {
     color: #000 !important;
   }
 }
+
+@media print {
+  body, html, #root, .min-h-screen {
+    background: white !important;
+    background-color: white !important;
+    color: black !important;
+  }
+}
