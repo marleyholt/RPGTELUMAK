@@ -121,12 +121,13 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
   const rAlcanceMax = activeVersion?.alcance_max || character.alcance_max || '10 Metros';
   const rMovimentoMax = activeVersion?.movimento_max || character.movimento_max || '15 Metros por Ação';
   const rFortitudeMax = activeVersion?.fortitude_max || character.fortitude_max || '150 Kg';
+  const rTecnicasMax = activeVersion?.tecnicas_max || character.tecnicas_max || '02 | 00 equipada';
 
-  const rFis = activeVersion ? activeVersion.fisico : character.fisico;
-  const rDes = activeVersion ? activeVersion.destreza : character.destreza;
-  const rCog = activeVersion ? activeVersion.cognicao : character.cognicao;
-  const rCar = activeVersion ? activeVersion.carisma : character.carisma;
-  const rPri = activeVersion ? activeVersion.primordio : character.primordio;
+  const rFis = activeVersion?.fisico ?? character.fisico;
+  const rDes = activeVersion?.destreza ?? character.destreza;
+  const rCog = activeVersion?.cognicao ?? character.cognicao;
+  const rCar = activeVersion?.carisma ?? character.carisma;
+  const rPri = activeVersion?.primordio ?? character.primordio;
 
   const rImgSaudavel = activeVersion?.img_saudavel || character.img_saudavel;
   const rImgFerido = activeVersion?.img_ferido || character.img_ferido || rImgSaudavel;
@@ -1658,17 +1659,19 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                 Equipamento
               </button>
 
-              <button
-                onClick={() => setActiveTab('versoes')}
-                className={`px-5 py-3.5 text-xs font-black uppercase tracking-widest transition flex items-center gap-2 border-b-2 shrink-0 ${
-                  activeTab === 'versoes'
-                    ? 'border-blue-500 text-sky-400 bg-white/[0.03]'
-                    : 'border-transparent text-white/40 hover:text-white'
-                }`}
-              >
-                <History className="h-3.5 w-3.5" />
-                Versões Salvas
-              </button>
+              {isGM && (
+                <button
+                  onClick={() => setActiveTab('versoes')}
+                  className={`px-5 py-3.5 text-xs font-black uppercase tracking-widest transition flex items-center gap-2 border-b-2 shrink-0 ${
+                    activeTab === 'versoes'
+                      ? 'border-blue-500 text-sky-400 bg-white/[0.03]'
+                      : 'border-transparent text-white/40 hover:text-white'
+                  }`}
+                >
+                  <History className="h-3.5 w-3.5" />
+                  Versões Salvas
+                </button>
+              )}
             </div>
 
             {/* Tab contents */}

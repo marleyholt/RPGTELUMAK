@@ -17,6 +17,7 @@ export interface DiceRollResult {
   formattedFormula: string;
   formattedDetails: string;
   comment?: string;
+  isMathOnly?: boolean;
 }
 
 const DICE_COMMAND_REGEX = /^(?:[!\/]r(?:oll)?\s+)?(?:(\d+)\s*#\s*)?([+-]?\s*\d+\s*)?\+?\s*(\d+)\s*d\s*(\d+)(?:\s*!\s*(\d+))?(?:\s*([+-]\s*\d+))?(?:\s+(.+))?$/i;
@@ -138,13 +139,46 @@ export function parseAndRollDice(text: string): DiceRollResult[] | null {
 export function extractDiceRollsFromMessage(text: string): { isRoll: boolean; results: DiceRollResult[]; cleanText: string } {
   const trimmed = text.trim();
   const results = parseAndRollDice(trimmed);
-  if (results && results.length > 0) {
+    if (results && results.length > 0) {
     return {
       isRoll: true,
       results: results,
       cleanText: trimmed
     };
   }
+
+  // Check for simple math fallback (e.g. r4+2*3)
+  const mathMatch = trimmed.match(/^[!\/]?r\s*([0-9\+\-\*\/\s\(\)]+)$/i);
+  if (mathMatch) {
+    const mathExp = mathMatch[1].trim();
+    if (mathExp.length > 0 && /[0-9]/.test(mathExp)) {
+      try {
+        const total = new Function('return ' + mathExp)();
+        if (typeof total === 'number' && !isNaN(total)) {
+          return {
+            isRoll: true,
+            results: [{
+              isMathOnly: true,
+              rawExpression: trimmed,
+              modifier: 0,
+              diceCount: 0,
+              faces: 0,
+              explodeThreshold: null,
+              rolls: [],
+              baseRollsCount: 0,
+              explodedRollsCount: 0,
+              diceSum: 0,
+              total: Number(total.toFixed(2)),
+              formattedFormula: mathExp,
+              formattedDetails: `${mathExp} = **${Number(total.toFixed(2))}**`
+            }],
+            cleanText: trimmed
+          };
+        }
+      } catch (e) {}
+    }
+  }
+
   return {
     isRoll: false,
     results: [],

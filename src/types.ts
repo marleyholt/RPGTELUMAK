@@ -50,11 +50,11 @@ export interface Character {
   tecnicas_max?: string | number; // e.g. "02 | 00 equipada"
 
   // Base Attributes
-  fisico: number;
-  destreza: number;
-  cognicao: number;
-  carisma: number;
-  primordio: number;
+  fisico?: number;
+  destreza?: number;
+  cognicao?: number;
+  carisma?: number;
+  primordio?: number;
   primordio_detalhe?: string; // e.g. "(45+20+5+5)"
 
   // Combat modifiers & Tool counters / Ferramentas de combate
@@ -117,11 +117,12 @@ export interface CharVersion {
   alcance_max?: string | number;
   movimento_max?: string | number;
   fortitude_max?: string | number;
-  fisico: number;
-  destreza: number;
-  cognicao: number;
-  carisma: number;
-  primordio: number;
+  tecnicas_max?: string | number;
+  fisico?: number;
+  destreza?: number;
+  cognicao?: number;
+  carisma?: number;
+  primordio?: number;
   img_saudavel?: string;
   img_ferido?: string;
   img_muito_ferido?: string;

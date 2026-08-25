@@ -25,11 +25,10 @@ export function SheetVersions({ character, isGM, isOwner }: SheetVersionsProps) 
   const [vEtherMax, setVEtherMax] = useState(character.ether_max);
   const [vDestinoMax, setVDestinoMax] = useState(character.destino_max);
   
-  const [vFisico, setVFisico] = useState(character.fisico);
-  const [vDestreza, setVDestreza] = useState(character.destreza);
-  const [vCognicao, setVCognicao] = useState(character.cognicao);
-  const [vCarisma, setVCarisma] = useState(character.carisma);
-  const [vPrimordio, setVPrimordio] = useState(character.primordio);
+  const [vFortitudeMax, setVFortitudeMax] = useState(character.fortitude_max || '');
+  const [vMovimentoMax, setVMovimentoMax] = useState(character.movimento_max || '');
+  const [vAlcanceMax, setVAlcanceMax] = useState(character.alcance_max || '');
+  const [vTecnicasMax, setVTecnicasMax] = useState(character.tecnicas_max || '');
 
   const [vImgSaudavel, setVImgSaudavel] = useState(character.img_saudavel || '');
   const [vImgFerido, setVImgFerido] = useState(character.img_ferido || '');
@@ -83,11 +82,11 @@ export function SheetVersions({ character, isGM, isOwner }: SheetVersionsProps) 
       hp_max: Number(vHpMax),
       ether_max: Number(vEtherMax),
       destino_max: Number(vDestinoMax),
-      fisico: Number(vFisico),
-      destreza: Number(vDestreza),
-      cognicao: Number(vCognicao),
-      carisma: Number(vCarisma),
-      primordio: Number(vPrimordio)
+      fortitude_max: vFortitudeMax,
+      movimento_max: vMovimentoMax,
+      alcance_max: vAlcanceMax,
+      tecnicas_max: vTecnicasMax,
+      
     };
     if (vImgSaudavel.trim()) newVersion.img_saudavel = vImgSaudavel.trim();
     if (vImgFerido.trim()) newVersion.img_ferido = vImgFerido.trim();
@@ -116,11 +115,10 @@ export function SheetVersions({ character, isGM, isOwner }: SheetVersionsProps) 
     setVHpMax(ver.hp_max);
     setVEtherMax(ver.ether_max);
     setVDestinoMax(ver.destino_max);
-    setVFisico(ver.fisico);
-    setVDestreza(ver.destreza);
-    setVCognicao(ver.cognicao);
-    setVCarisma(ver.carisma);
-    setVPrimordio(ver.primordio);
+    setVFortitudeMax(ver.fortitude_max || '');
+    setVMovimentoMax(ver.movimento_max || '');
+    setVAlcanceMax(ver.alcance_max || '');
+    setVTecnicasMax(ver.tecnicas_max || '');
     setVImgSaudavel(ver.img_saudavel || '');
     setVImgFerido(ver.img_ferido || '');
     setVImgMuitoFerido(ver.img_muito_ferido || '');
@@ -258,29 +256,25 @@ export function SheetVersions({ character, isGM, isOwner }: SheetVersionsProps) 
                 </div>
               </div>
 
-              {/* Attributes block */}
+              {/* Marcadores Substitutos block */}
               <div>
-                <span className="block text-[10px] text-sky-400 uppercase font-black tracking-widest mb-2.5 italic">Atributos Substitutos</span>
-                <div className="grid grid-cols-5 gap-2 text-center text-xs">
+                <span className="block text-[10px] text-sky-400 uppercase font-black tracking-widest mb-2.5 italic">Marcadores Substitutos</span>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                   <div className="bg-[#030303] p-2 border border-white/5 rounded-none">
-                    <span className="text-[9px] text-white/30 block uppercase font-bold tracking-widest mb-1">FIS</span>
-                    <input type="number" value={vFisico} onChange={e => setVFisico(Number(e.target.value))} className="w-full text-center bg-transparent focus:outline-none font-black text-white font-mono text-sm" />
+                    <span className="text-[9px] text-white/30 block uppercase font-bold tracking-widest mb-1">Fortitude (Max)</span>
+                    <input type="text" value={vFortitudeMax} onChange={e => setVFortitudeMax(e.target.value)} className="w-full text-center bg-transparent focus:outline-none font-bold text-white font-mono text-xs" placeholder="Ex: 29+4 | 33" />
                   </div>
                   <div className="bg-[#030303] p-2 border border-white/5 rounded-none">
-                    <span className="text-[9px] text-white/30 block uppercase font-bold tracking-widest mb-1">DES</span>
-                    <input type="number" value={vDestreza} onChange={e => setVDestreza(Number(e.target.value))} className="w-full text-center bg-transparent focus:outline-none font-black text-white font-mono text-sm" />
+                    <span className="text-[9px] text-white/30 block uppercase font-bold tracking-widest mb-1">Movimento (Max)</span>
+                    <input type="text" value={vMovimentoMax} onChange={e => setVMovimentoMax(e.target.value)} className="w-full text-center bg-transparent focus:outline-none font-bold text-white font-mono text-xs" placeholder="Ex: 03 | 15m" />
                   </div>
                   <div className="bg-[#030303] p-2 border border-white/5 rounded-none">
-                    <span className="text-[9px] text-white/30 block uppercase font-bold tracking-widest mb-1">COG</span>
-                    <input type="number" value={vCognicao} onChange={e => setVCognicao(Number(e.target.value))} className="w-full text-center bg-transparent focus:outline-none font-black text-white font-mono text-sm" />
+                    <span className="text-[9px] text-white/30 block uppercase font-bold tracking-widest mb-1">Alcance (Max)</span>
+                    <input type="text" value={vAlcanceMax} onChange={e => setVAlcanceMax(e.target.value)} className="w-full text-center bg-transparent focus:outline-none font-bold text-white font-mono text-xs" placeholder="Ex: 03 (6)" />
                   </div>
                   <div className="bg-[#030303] p-2 border border-white/5 rounded-none">
-                    <span className="text-[9px] text-white/30 block uppercase font-bold tracking-widest mb-1">CAR</span>
-                    <input type="number" value={vCarisma} onChange={e => setVCarisma(Number(e.target.value))} className="w-full text-center bg-transparent focus:outline-none font-black text-white font-mono text-sm" />
-                  </div>
-                  <div className="bg-[#030303] p-2 border border-white/5 rounded-none">
-                    <span className="text-[9px] text-white/30 block uppercase font-bold tracking-widest mb-1">PRI</span>
-                    <input type="number" value={vPrimordio} onChange={e => setVPrimordio(Number(e.target.value))} className="w-full text-center bg-transparent focus:outline-none font-black text-sky-400 font-mono text-sm" />
+                    <span className="text-[9px] text-white/30 block uppercase font-bold tracking-widest mb-1">Técnicas (Max)</span>
+                    <input type="text" value={vTecnicasMax} onChange={e => setVTecnicasMax(e.target.value)} className="w-full text-center bg-transparent focus:outline-none font-bold text-white font-mono text-xs" placeholder="Ex: 02" />
                   </div>
                 </div>
               </div>
