@@ -6,10 +6,11 @@ interface NpcSelectorWindowProps {
   npcs: NPC[];
   openNpcIds: string[];
   onToggleNpc: (id: string) => void;
+  onCloneNpc?: (id: string) => void;
   onClose: () => void;
 }
 
-export function NpcSelectorWindow({ npcs, openNpcIds, onToggleNpc, onClose }: NpcSelectorWindowProps) {
+export function NpcSelectorWindow({ npcs, openNpcIds, onToggleNpc, onCloneNpc, onClose }: NpcSelectorWindowProps) {
   const [pos, setPos] = useState<{ x: number, y: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -71,7 +72,17 @@ export function NpcSelectorWindow({ npcs, openNpcIds, onToggleNpc, onClose }: Np
                 className={`w-full text-left px-3 py-2 rounded-md text-xs transition flex items-center justify-between ${isOpen ? 'bg-indigo-500/20 text-indigo-400' : 'hover:bg-white/5 text-white/70'}`}
               >
                 <span className={`truncate ${isOpen ? 'font-bold' : ''}`}>{npc.name}</span>
-                {isOpen && <Check className="w-3.5 h-3.5" />}
+                <div className="flex items-center gap-2">
+                  
+                <button
+                  onClick={(e) => { e.stopPropagation(); onCloneNpc?.(npc.id); }}
+                  className="px-2 py-1 bg-white/5 hover:bg-indigo-500/20 text-white/50 hover:text-indigo-400 rounded text-[10px] font-bold uppercase transition"
+                  title="Criar uma cópia extra e adicionar à mesa"
+                >
+                  Clonar
+                </button>
+                  {isOpen && <Check className="w-3.5 h-3.5 text-indigo-400" />}
+                </div>
               </button>
             )
           })

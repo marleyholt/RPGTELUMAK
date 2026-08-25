@@ -1,14 +1,19 @@
 const fs = require('fs');
-let code = fs.readFileSync('src/components/DiscordExportModal.tsx', 'utf8');
+let code = fs.readFileSync('src/App.tsx', 'utf-8');
 
-code = code.replace(
-  "allMessages.push({ id: doc.id, ...doc.data() } as DiscordNotebookMessage);",
-  "allMessages.push(Object.assign({ id: doc.id }, doc.data()) as DiscordNotebookMessage);"
-);
+const regex = /\{\/\* MODAL: QUICK STAT ADJUSTER FOR GM \*\/\}(.|\n)*?\n          \}\)/;
+const match = code.match(regex);
 
-code = code.replace(
-  "image:        { type: 'jpeg', quality: 0.98 },",
-  "image:        { type: 'jpeg' as const, quality: 0.98 },"
-);
+if (match) {
+  let modalCode = match[0];
+  // Remove it from current location
+  code = code.replace(modalCode, '');
+  
+  // Place it right before {/* COMPACT FOOTER */}
+  code = code.replace("{/* COMPACT FOOTER */}", modalCode + "\n\n      {/* COMPACT FOOTER */}");
+  
+  fs.writeFileSync('src/App.tsx', code);
+} else {
+  console.log("Not found");
+}
 
-fs.writeFileSync('src/components/DiscordExportModal.tsx', code);

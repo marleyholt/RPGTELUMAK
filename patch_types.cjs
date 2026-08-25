@@ -1,19 +1,20 @@
 const fs = require('fs');
-let types = fs.readFileSync('src/types.ts', 'utf8');
+let code = fs.readFileSync('src/types.ts', 'utf-8');
 
-const target = `export interface CharVersion {`;
-const newTypes = `export interface NPC {
-  id: string;
-  name: string;
-  content: string; // HTML content
-  images: string[];
-  coverImageIndex: number;
-  createdAt: any;
-  updatedAt: any;
+if (!code.includes('active_on_board?: boolean;')) {
+  // We added it to NPC already, let's see where Character is
+  code = code.replace(
+    "ferramentas_max?: number;",
+    "ferramentas_max?: number;\n  active_on_board?: boolean;"
+  );
 }
 
-export interface CharVersion {`;
+// Add to character if needed
+if (!code.match(/interface Character \{[^}]*active_on_board/)) {
+  code = code.replace(
+    "export interface Character {",
+    "export interface Character {\n  active_on_board?: boolean;"
+  );
+}
 
-types = types.replace(target, newTypes);
-fs.writeFileSync('src/types.ts', types);
-console.log('Patched types');
+fs.writeFileSync('src/types.ts', code);

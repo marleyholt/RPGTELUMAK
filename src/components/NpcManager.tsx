@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
-import { NPC, DiscordChannelItem } from '../types';
+import { NPC, DiscordChannelItem, Character } from '../types';
 import { Search, Plus, Trash2, Edit2, LayoutGrid, List as ListIcon, X, Check, Image as ImageIcon, Download, FileText } from 'lucide-react';
 import RichTextEditor from './RichTextEditor';
 import { ImageUploadField } from './ImageUploadField';
 
-export function NpcManager() {
+export function NpcManager({ characters = [] }: { characters?: Character[] }) {
   const [npcs, setNpcs] = useState<NPC[]>([]);
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -19,6 +19,7 @@ export function NpcManager() {
   const [selectedChannel, setSelectedChannel] = useState<string>('');
   const [sendingDiscord, setSendingDiscord] = useState(false);
   const [sendType, setSendType] = useState<'cover' | 'all'>('cover');
+  const [filterType, setFilterType] = useState<'all' | 'npc' | 'character'>('all');
 
   useEffect(() => {
     const handleOpenNpc = (e) => {
@@ -109,7 +110,25 @@ ${sendType === 'cover' ? '(Foto Principal)' : '(Galeria de Fotos)'}`,
     }
   };
 
-  const filteredNpcs = npcs.filter(n => n.name.toLowerCase().includes(search.toLowerCase()));
+
+  const allLibraryItems = [
+    ...npcs.map(n => ({ ...n, _type: 'npc' })),
+    ...characters.map(c => ({ 
+      id: c.id, 
+      name: c.nome, 
+      images: [c.img_saudavel], 
+      coverImageIndex: 0, 
+      _type: 'character', 
+      _character: c 
+    }))
+  ];
+
+  const filteredItems = allLibraryItems.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
+    const matchesType = filterType === 'all' || filterType === item._type;
+    return matchesSearch && matchesType;
+  });
+
 
   const handleSave = async () => {
     if (!editingNpc?.name) return alert('O nome é obrigatório.');
@@ -166,7 +185,14 @@ ${sendType === 'cover' ? '(Foto Principal)' : '(Galeria de Fotos)'}`,
             <button onClick={() => setViewingNpc(null)} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white text-xs font-bold uppercase tracking-wider rounded transition flex items-center gap-1 border border-white/10">
               <X className="w-3.5 h-3.5" /> Fechar
             </button>
-            <button onClick={() => { setEditingNpc(viewingNpc); setViewingNpc(null); }} className="px-3 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold uppercase tracking-wider rounded transition flex items-center gap-1 shadow-lg shadow-indigo-500/20">
+            <button onClick={() => { 
+              if ((viewingNpc as any)._type === 'character') {
+                window.dispatchEvent(new CustomEvent('triggerEditCharacter', { detail: viewingNpc.id }));
+              } else {
+                setEditingNpc(viewingNpc); 
+              }
+              setViewingNpc(null); 
+            }} className="px-3 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold uppercase tracking-wider rounded transition flex items-center gap-1 shadow-lg shadow-indigo-500/20">
               <Edit2 className="w-3.5 h-3.5" /> Editar
             </button>
           </div>
@@ -344,7 +370,7 @@ ${sendType === 'cover' ? '(Foto Principal)' : '(Galeria de Fotos)'}`,
         <div className="flex items-center gap-4">
           <h2 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
             <ImageIcon className="w-5 h-5 text-indigo-400" />
-            Galeria de NPCs
+            Biblioteca
           </h2>
           <div className="relative">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-white/40" />
@@ -352,13 +378,18 @@ ${sendType === 'cover' ? '(Foto Principal)' : '(Galeria de Fotos)'}`,
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Buscar NPC..."
+              placeholder="Buscar..."
               className="w-56 bg-[#1e1f22] border border-[#1f2023] focus:border-indigo-500/50 text-white text-xs pl-8 pr-3 py-1.5 rounded-full outline-none transition placeholder:text-white/30"
             />
           </div>
         </div>
         
         <div className="flex items-center gap-3">
+          <div className="flex bg-[#1e1f22] p-1 rounded-md">
+            <button onClick={() => setFilterType('all')} className={`px-3 py-1 text-[10px] font-bold uppercase transition rounded ${filterType === 'all' ? 'bg-indigo-500 text-white' : 'text-white/40 hover:text-white'}`}>Todos</button>
+            <button onClick={() => setFilterType('npc')} className={`px-3 py-1 text-[10px] font-bold uppercase transition rounded ${filterType === 'npc' ? 'bg-indigo-500 text-white' : 'text-white/40 hover:text-white'}`}>NPCs</button>
+            <button onClick={() => setFilterType('character')} className={`px-3 py-1 text-[10px] font-bold uppercase transition rounded ${filterType === 'character' ? 'bg-indigo-500 text-white' : 'text-white/40 hover:text-white'}`}>Aventureiros</button>
+          </div>
           <div className="flex bg-[#1e1f22] border border-white/5 rounded-lg p-1">
             <button 
               onClick={() => setViewMode('grid')}
@@ -385,7 +416,7 @@ ${sendType === 'cover' ? '(Foto Principal)' : '(Galeria de Fotos)'}`,
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 custom-scroll">
-        {filteredNpcs.length === 0 ? (
+        {filteredItems.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center px-4">
             <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4 text-white/20">
               <ImageIcon className="w-8 h-8" />
@@ -397,12 +428,18 @@ ${sendType === 'cover' ? '(Foto Principal)' : '(Galeria de Fotos)'}`,
           </div>
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {filteredNpcs.map(npc => {
+            {filteredItems.map(npc => {
               const coverImg = (npc.images && npc.images.length > 0) ? (npc.images[npc.coverImageIndex] || npc.images[0]) : null;
               return (
                 <div 
                   key={npc.id} 
-                  onClick={() => setViewingNpc(npc)}
+                  onClick={() => {
+                    if ((npc as any)._type === 'character') {
+                      window.dispatchEvent(new CustomEvent('openCharacterSheet', { detail: npc.id }));
+                    } else {
+                      setViewingNpc(npc as NPC);
+                    }
+                  }}
                   className="bg-[#2b2d31] border border-white/5 rounded-lg overflow-hidden group hover:border-indigo-500/50 transition duration-300 flex flex-col h-full shadow-lg cursor-pointer"
                 >
                   <div className="relative aspect-square bg-[#1e1f22] overflow-hidden">
@@ -432,7 +469,14 @@ ${sendType === 'cover' ? '(Foto Principal)' : '(Galeria de Fotos)'}`,
                       {(npc.images?.filter(Boolean).length || 0)} Fotos
                     </p>
                     <div className="mt-auto flex gap-1">
-                      <button onClick={(e) => { e.stopPropagation(); setEditingNpc(npc); }} className="flex-1 py-1.5 bg-white/5 hover:bg-indigo-500/20 text-indigo-400 text-[10px] font-bold uppercase tracking-wider rounded transition flex items-center justify-center gap-1 border border-transparent hover:border-indigo-500/30">
+                      <button onClick={(e) => { 
+                        e.stopPropagation(); 
+                        if ((npc as any)._type === 'character') {
+                          window.dispatchEvent(new CustomEvent('triggerEditCharacter', { detail: npc.id }));
+                        } else {
+                          setEditingNpc(npc); 
+                        }
+                      }} className="flex-1 py-1.5 bg-white/5 hover:bg-indigo-500/20 text-indigo-400 text-[10px] font-bold uppercase tracking-wider rounded transition flex items-center justify-center gap-1 border border-transparent hover:border-indigo-500/30">
                         <Edit2 className="w-3 h-3" /> Editar
                       </button>
                       <button onClick={(e) => { e.stopPropagation(); handleDelete(npc.id); }} className="w-7 h-7 bg-white/5 hover:bg-rose-500/20 text-white/40 hover:text-rose-400 rounded transition flex items-center justify-center border border-transparent hover:border-rose-500/30">
@@ -446,12 +490,18 @@ ${sendType === 'cover' ? '(Foto Principal)' : '(Galeria de Fotos)'}`,
           </div>
         ) : (
           <div className="space-y-2">
-            {filteredNpcs.map(npc => {
+            {filteredItems.map(npc => {
               const coverImg = (npc.images && npc.images.length > 0) ? (npc.images[npc.coverImageIndex] || npc.images[0]) : null;
               return (
                 <div 
                   key={npc.id} 
-                  onClick={() => setViewingNpc(npc)}
+                  onClick={() => {
+                    if ((npc as any)._type === 'character') {
+                      window.dispatchEvent(new CustomEvent('openCharacterSheet', { detail: npc.id }));
+                    } else {
+                      setViewingNpc(npc as NPC);
+                    }
+                  }}
                   className="flex items-center gap-3 p-2 bg-[#2b2d31] border border-white/5 rounded-lg group hover:border-indigo-500/30 transition cursor-pointer"
                 >
                   <div className="w-12 h-12 rounded bg-[#1e1f22] overflow-hidden shrink-0">
@@ -464,7 +514,10 @@ ${sendType === 'cover' ? '(Foto Principal)' : '(Galeria de Fotos)'}`,
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-black text-white uppercase tracking-wider truncate">{npc.name}</h3>
+                    <div className="flex items-center gap-2">
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase font-bold ${(npc as any)._type === 'character' ? 'bg-blue-500/20 text-blue-400' : 'bg-indigo-500/20 text-indigo-400'}`}>{(npc as any)._type === 'character' ? 'Player' : 'NPC'}</span>
+                        <h3 className="text-sm font-black text-white uppercase tracking-wider truncate">{npc.name}</h3>
+                      </div>
                     <p className="text-[10px] text-white/40 uppercase tracking-wider">{(npc.images?.filter(Boolean).length || 0)} Fotos Cadastradas</p>
                   </div>
                   <div className="flex gap-2 px-2">

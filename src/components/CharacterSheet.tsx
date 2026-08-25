@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Character, CustomStatusType, CharVersion } from '../types';
@@ -40,6 +40,16 @@ interface CharacterSheetProps {
 export function CharacterSheet({ character, isGM, isOwner, statuses, versions, onCharacterArchived }: CharacterSheetProps) {
   const [activeTab, setActiveTab] = useState<'ataques' | 'dons' | 'equip' | 'defesa' | 'versoes'>('ataques');
   const [isEditingTexts, setIsEditingTexts] = useState(false);
+  useEffect(() => {
+    const handleEditChar = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail === character.id) {
+        setIsEditingTexts(true);
+      }
+    };
+    window.addEventListener('editCharacterSheet', handleEditChar);
+    return () => window.removeEventListener('editCharacterSheet', handleEditChar);
+  }, [character.id]);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 

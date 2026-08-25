@@ -11,6 +11,7 @@ export interface UserProfile {
 }
 
 export interface Character {
+  active_on_board?: boolean;
   id: string; // Matches document ID
   email_dono: string;
   nome: string;
@@ -105,6 +106,17 @@ export interface NPC {
   coverImageIndex: number;
   createdAt: any;
   updatedAt: any;
+  
+  // Table markers
+  hp_atual?: number;
+  hp_max?: number;
+  ether_atual?: number;
+  ether_max?: number;
+  poder_atual?: number;
+  poder_max?: number;
+  ferramentas_atual?: number;
+  ferramentas_max?: number;
+  active_on_board?: boolean;
 }
 
 export interface CharVersion {

@@ -20,7 +20,7 @@ import {
 import { Character, CustomStatusType, ChatMessage, CharVersion, UserProfile } from './types';
 import { handleFirestoreError, OperationType } from './utils/errors';
 import { CharacterSheet } from './components/CharacterSheet';
-import { BattleMap } from './components/BattleMap';
+import { GameTable } from './components/GameTable';
 import { DiscordNotebook } from './components/DiscordNotebook';
 import { GMConfigModal } from './components/GMConfigModal';
 import { NpcManager } from './components/NpcManager';
@@ -106,7 +106,7 @@ export default function App() {
 
 
   // Navigation State
-  const [currentTab, setCurrentTab] = useState<'personagens' | 'arena' | 'discord' | 'npcs'>('personagens');
+  const [currentTab, setCurrentTab] = useState<'personagens' | 'mesa' | 'discord' | 'biblioteca'>('personagens');
   const [selectedCharId, setSelectedCharId] = useState<string | null>(null);
 
   // GM & Player Config Modal State
@@ -393,12 +393,29 @@ export default function App() {
     return () => window.removeEventListener('openCharacterSheet', handleOpenCharSheet);
   }, []);
 
+  // Listen for external requests to open the character sheet and edit
+  useEffect(() => {
+    const handleEditCharSheet = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail) {
+        setCurrentTab('personagens');
+        setSelectedCharId(customEvent.detail);
+        // Dispatch again after a tiny delay so CharacterSheet has time to mount
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('editCharacterSheet', { detail: customEvent.detail }));
+        }, 100);
+      }
+    };
+    window.addEventListener('triggerEditCharacter', handleEditCharSheet);
+    return () => window.removeEventListener('triggerEditCharacter', handleEditCharSheet);
+  }, []);
+
   // Listen for external requests to open an NPC sheet
   useEffect(() => {
     const handleOpenNpcSheet = (e: Event) => {
       const customEvent = e as CustomEvent;
       if (customEvent.detail) {
-        setCurrentTab('npcs');
+        setCurrentTab('biblioteca');
       }
     };
     window.addEventListener('openNpcSheet', handleOpenNpcSheet);
@@ -958,25 +975,23 @@ export default function App() {
               Fichas
             </button>
 
+            {isGM && (
             <button
-              onClick={() => setCurrentTab('arena')}
+              onClick={() => setCurrentTab('mesa')}
               className={`flex items-center gap-1.5 px-5 py-2 text-xs font-black uppercase tracking-widest transition duration-150 ${
-                currentTab === 'arena' ? 'bg-blue-600 text-white' : 'text-white/40 hover:text-white hover:bg-white/5'
+                currentTab === 'mesa' ? 'bg-red-600 text-white shadow' : 'text-white/40 hover:text-white hover:bg-white/5'
               }`}
-              title={!isPlayerActiveOnTable ? "Acesso restrito: Requer ficha ativa na mesa" : "Arena Tática em Tempo Real"}
             >
               <LayoutGrid className="h-3.5 w-3.5" />
-              <span>Arena Grid</span>
-              {!isPlayerActiveOnTable && (
-                <Lock className="h-3 w-3 text-cyan-400 shrink-0" />
-              )}
+              <span>Mesa</span>
             </button>
+          )}
 
             {isGM && (
               <button
-                onClick={() => setCurrentTab('npcs')}
+                onClick={() => setCurrentTab('biblioteca')}
                 className={`flex items-center gap-1.5 px-5 py-2 text-xs font-black uppercase tracking-widest transition duration-150 ${
-                  currentTab === 'npcs' ? 'bg-indigo-600 text-white' : 'text-white/40 hover:text-white hover:bg-white/5'
+                  currentTab === 'biblioteca' ? 'bg-indigo-600 text-white' : 'text-white/40 hover:text-white hover:bg-white/5'
                 }`}
                 title="Galeria de NPCs"
               >
@@ -1070,9 +1085,9 @@ export default function App() {
       <ErrorBoundary onOpenTelemetry={() => setShowTelemetryModal(true)}>
         
         {/* NPCS TAB */}
-      {currentTab === 'npcs' && isGM && (
+      {currentTab === 'biblioteca' && isGM && (
         <div className="flex-1 overflow-hidden h-full pb-0 bg-[#313338]">
-          <NpcManager />
+          <NpcManager characters={characters} />
         </div>
       )}
       
@@ -1088,83 +1103,15 @@ export default function App() {
           </div>
         )}
 
-      {/* TACTICAL BATTLE MAP TAB */}
-      {currentTab === 'arena' && (
-        <div className="flex-1 w-full h-[calc(100vh-64px)] p-2 sm:p-3 overflow-hidden flex flex-col no-print">
-          {isPlayerActiveOnTable ? (
-            <BattleMap
-              isGM={isGM}
-              currentUserEmail={currentUser.email || ''}
-              characters={activeCharacters}
-            />
-          ) : (
-            <div className="bg-[#080808] border border-blue-500/30 p-8 sm:p-12 shadow-2xl text-center flex flex-col items-center justify-center max-w-2xl mx-auto my-8 relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-b from-blue-500/[0.05] to-transparent pointer-events-none"></div>
-              
-              <div className="w-16 h-16 rounded-full bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-cyan-400 mb-5 shadow-lg">
-                <ShieldAlert className="h-8 w-8" />
-              </div>
-
-              <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-white mb-2">
-                Acesso Restrito ao Grid Tático
-              </h2>
-              
-              <p className="text-xs sm:text-sm text-sky-200/70 leading-relaxed max-w-lg mb-6 font-sans">
-                A visualização e interação com a Arena Tática em tempo real é exclusiva para fichas que foram escaladas na <strong className="text-white">Mesa de Combate</strong> pelo Mestre (GM).
-              </p>
-
-              {/* Player Status Info Box */}
-              <div className="w-full bg-[#101010] border border-white/10 p-4 rounded-none text-left mb-6 space-y-2">
-                <div className="flex items-center justify-between text-xs border-b border-white/5 pb-2">
-                  <span className="text-white/50 font-mono">Usuário:</span>
-                  <span className="text-sky-400 font-mono font-bold">{currentUser?.email}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs border-b border-white/5 pb-2">
-                  <span className="text-white/50 font-mono">Status na Mesa:</span>
-                  <span className="text-cyan-400 font-mono font-bold flex items-center gap-1">
-                    <Lock className="h-3 w-3" />
-                    Fora da Mesa de Combate
-                  </span>
-                </div>
-                <div className="text-xs pt-1">
-                  <span className="text-white/50 font-mono block mb-1">Suas Fichas ({myCharactersList.length}):</span>
-                  {myCharactersList.length === 0 ? (
-                    <span className="text-white/40 italic text-[11px]">Nenhuma ficha cadastrada neste email.</span>
-                  ) : (
-                    <div className="space-y-1">
-                      {myCharactersList.map(c => (
-                        <div key={c.id} className="flex items-center justify-between bg-black/50 px-2.5 py-1.5 border border-white/5">
-                          <span className="text-white font-bold uppercase text-[11px]">{c.nome}</span>
-                          <span className="text-[10px] font-mono uppercase text-white/40">Inativo na Mesa</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setCurrentTab('personagens')}
-                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black uppercase tracking-wider transition shadow"
-                >
-                  Ir para Minhas Fichas
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCurrentTab('discord')}
-                  className="px-6 py-2.5 bg-[#1a1a1a] hover:bg-[#252525] text-white/80 hover:text-white text-xs font-bold uppercase tracking-wider transition border border-white/10"
-                >
-                  Abrir Notebook Discord
-                </button>
-              </div>
-
-              <p className="text-[10px] text-sky-400/50 font-mono mt-6">
-                💡 Assim que o Mestre marcar sua ficha com "+ Mesa" no painel, o Grid Tático será desbloqueado automaticamente.
-              </p>
-            </div>
-          )}
+      {/* MESA DO MESTRE TAB */}
+      {currentTab === 'mesa' && isGM && (
+        <div className="flex-1 w-full h-[calc(100vh-64px)] overflow-hidden flex flex-col no-print">
+          <GameTable
+            characters={characters}
+            onQuickEditChar={setupQuickStatsEditor}
+            onOpenCharSheet={(id) => { setSelectedCharId(id); setCurrentTab('personagens'); }}
+            onOpenNpcSheet={(id) => { window.dispatchEvent(new CustomEvent('openNpcSheet', { detail: id })); }}
+          />
         </div>
       )}
 
@@ -1409,92 +1356,6 @@ export default function App() {
             </div>
           )}
 
-          {/* MODAL: QUICK STAT ADJUSTER FOR GM */}
-          {editingStatsCharId && isGM && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-              <div className="bg-[#080808] border border-blue-500/40 p-6 space-y-4 shadow-2xl relative max-w-md w-full">
-                <div className="flex justify-between items-center border-b border-white/10 pb-2">
-                  <h4 className="text-xs font-black uppercase tracking-widest text-sky-400 flex items-center gap-2">
-                    <Sliders className="h-4 w-4" />
-                    <span>Ajuste Rápido de Atributos (Mestre)</span>
-                  </h4>
-                  <button onClick={() => setEditingStatsCharId(null)} className="text-white/40 hover:text-white">
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-
-                {/* PDF IMPORT BUTTON DIRECTLY IN QUICK ADJUST MODAL */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const char = characters.find(c => c.id === editingStatsCharId);
-                    setPdfTargetChar(char || null);
-                    setShowPdfImporterModal(true);
-                  }}
-                  className="w-full py-2.5 px-3 bg-gradient-to-r from-blue-900/60 via-indigo-950/80 to-blue-900/60 hover:from-blue-800/80 hover:to-indigo-900/90 border border-blue-500/50 rounded text-sky-200 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition shadow-lg group cursor-pointer"
-                >
-                  <FileText className="h-4 w-4 text-blue-400 group-hover:scale-110 transition-transform" />
-                  <span>📄 Enviar / Importar PDF da Ficha Antiga</span>
-                  <span className="text-[9px] bg-blue-500 text-white font-mono px-1.5 py-0.5 rounded font-normal">IA</span>
-                </button>
-                
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <label className="block text-[9px] text-sky-300/70 font-black uppercase mb-1">HP Máx</label>
-                    <input type="number" value={editHpMax} onChange={e => setEditHpMax(Number(e.target.value))} className="w-full bg-[#050505] text-white border border-white/10 px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" />
-                  </div>
-                  <div>
-                    <label className="block text-[9px] text-sky-300/70 font-black uppercase mb-1">Éter Máx</label>
-                    <input type="number" value={editEtherMax} onChange={e => setEditEtherMax(Number(e.target.value))} className="w-full bg-[#050505] text-white border border-white/10 px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" />
-                  </div>
-                  <div>
-                    <label className="block text-[9px] text-sky-300/70 font-black uppercase mb-1">Destino Máx</label>
-                    <input type="number" value={editDestinoMax} onChange={e => setEditDestinoMax(Number(e.target.value))} className="w-full bg-[#050505] text-white border border-white/10 px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-5 gap-1.5 text-center">
-                  <div>
-                    <label className="block text-[9px] text-sky-300/60 font-black uppercase mb-1">FIS</label>
-                    <input type="number" value={editFis} onChange={e => setEditFis(Number(e.target.value))} className="w-full text-center bg-[#050505] text-white border border-white/10 px-1 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" />
-                  </div>
-                  <div>
-                    <label className="block text-[9px] text-sky-300/60 font-black uppercase mb-1">DES</label>
-                    <input type="number" value={editDes} onChange={e => setEditDes(Number(e.target.value))} className="w-full text-center bg-[#050505] text-white border border-white/10 px-1 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" />
-                  </div>
-                  <div>
-                    <label className="block text-[9px] text-sky-300/60 font-black uppercase mb-1">COG</label>
-                    <input type="number" value={editCog} onChange={e => setEditCog(Number(e.target.value))} className="w-full text-center bg-[#050505] text-white border border-white/10 px-1 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" />
-                  </div>
-                  <div>
-                    <label className="block text-[9px] text-sky-300/60 font-black uppercase mb-1">CAR</label>
-                    <input type="number" value={editCar} onChange={e => setEditCar(Number(e.target.value))} className="w-full text-center bg-[#050505] text-white border border-white/10 px-1 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" />
-                  </div>
-                  <div>
-                    <label className="block text-[9px] text-cyan-400 font-black uppercase mb-1">PRI</label>
-                    <input type="number" value={editPri} onChange={e => setEditPri(Number(e.target.value))} className="w-full text-center bg-[#050505] text-cyan-400 border border-cyan-500/30 px-1 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="block text-[9px] text-sky-300/70 font-black uppercase tracking-widest">E-mail do Jogador Dono</label>
-                  <input 
-                    type="text" 
-                    value={editEmailDono} 
-                    onChange={e => setEditEmailDono(e.target.value)} 
-                    placeholder="email-do-jogador@telumak.com" 
-                    className="w-full bg-[#050505] text-white border border-white/10 px-3 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" 
-                  />
-                </div>
-
-                <div className="pt-3 border-t border-white/10 flex justify-end gap-2">
-                  <button onClick={() => setEditingStatsCharId(null)} className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/70 text-xs font-bold uppercase tracking-wider">Cancelar</button>
-                  <button onClick={handleSaveQuickStats} className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black uppercase tracking-widest transition-colors shadow">Salvar</button>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* MAIN FULL-WIDTH CHARACTER SHEET VIEW */}
           {currentSelectedCharacter ? (
             <CharacterSheet
@@ -1599,6 +1460,94 @@ export default function App() {
           setSelectedCharId(charId);
         }}
       />
+
+      {/* MODAL: QUICK STAT ADJUSTER FOR GM */}
+          {editingStatsCharId && isGM && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+              <div className="bg-[#080808] border border-blue-500/40 p-6 space-y-4 shadow-2xl relative max-w-md w-full">
+                <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                  <h4 className="text-xs font-black uppercase tracking-widest text-sky-400 flex items-center gap-2">
+                    <Sliders className="h-4 w-4" />
+                    <span>Ajuste Rápido de Atributos (Mestre)</span>
+                  </h4>
+                  <button onClick={() => setEditingStatsCharId(null)} className="text-white/40 hover:text-white">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {/* PDF IMPORT BUTTON DIRECTLY IN QUICK ADJUST MODAL */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const char = characters.find(c => c.id === editingStatsCharId);
+                    setPdfTargetChar(char || null);
+                    setShowPdfImporterModal(true);
+                  }}
+                  className="w-full py-2.5 px-3 bg-gradient-to-r from-blue-900/60 via-indigo-950/80 to-blue-900/60 hover:from-blue-800/80 hover:to-indigo-900/90 border border-blue-500/50 rounded text-sky-200 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition shadow-lg group cursor-pointer"
+                >
+                  <FileText className="h-4 w-4 text-blue-400 group-hover:scale-110 transition-transform" />
+                  <span>📄 Enviar / Importar PDF da Ficha Antiga</span>
+                  <span className="text-[9px] bg-blue-500 text-white font-mono px-1.5 py-0.5 rounded font-normal">IA</span>
+                </button>
+                
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-[9px] text-sky-300/70 font-black uppercase mb-1">HP Máx</label>
+                    <input type="number" value={editHpMax} onChange={e => setEditHpMax(Number(e.target.value))} className="w-full bg-[#050505] text-white border border-white/10 px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] text-sky-300/70 font-black uppercase mb-1">Éter Máx</label>
+                    <input type="number" value={editEtherMax} onChange={e => setEditEtherMax(Number(e.target.value))} className="w-full bg-[#050505] text-white border border-white/10 px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] text-sky-300/70 font-black uppercase mb-1">Destino Máx</label>
+                    <input type="number" value={editDestinoMax} onChange={e => setEditDestinoMax(Number(e.target.value))} className="w-full bg-[#050505] text-white border border-white/10 px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-5 gap-1.5 text-center">
+                  <div>
+                    <label className="block text-[9px] text-sky-300/60 font-black uppercase mb-1">FIS</label>
+                    <input type="number" value={editFis} onChange={e => setEditFis(Number(e.target.value))} className="w-full text-center bg-[#050505] text-white border border-white/10 px-1 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] text-sky-300/60 font-black uppercase mb-1">DES</label>
+                    <input type="number" value={editDes} onChange={e => setEditDes(Number(e.target.value))} className="w-full text-center bg-[#050505] text-white border border-white/10 px-1 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] text-sky-300/60 font-black uppercase mb-1">COG</label>
+                    <input type="number" value={editCog} onChange={e => setEditCog(Number(e.target.value))} className="w-full text-center bg-[#050505] text-white border border-white/10 px-1 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] text-sky-300/60 font-black uppercase mb-1">CAR</label>
+                    <input type="number" value={editCar} onChange={e => setEditCar(Number(e.target.value))} className="w-full text-center bg-[#050505] text-white border border-white/10 px-1 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] text-cyan-400 font-black uppercase mb-1">PRI</label>
+                    <input type="number" value={editPri} onChange={e => setEditPri(Number(e.target.value))} className="w-full text-center bg-[#050505] text-cyan-400 border border-cyan-500/30 px-1 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[9px] text-sky-300/70 font-black uppercase tracking-widest">E-mail do Jogador Dono</label>
+                  <input 
+                    type="text" 
+                    value={editEmailDono} 
+                    onChange={e => setEditEmailDono(e.target.value)} 
+                    placeholder="email-do-jogador@telumak.com" 
+                    className="w-full bg-[#050505] text-white border border-white/10 px-3 py-1.5 text-xs font-mono focus:outline-none focus:border-blue-500" 
+                  />
+                </div>
+
+                <div className="pt-3 border-t border-white/10 flex justify-end gap-2">
+                  <button onClick={() => setEditingStatsCharId(null)} className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/70 text-xs font-bold uppercase tracking-wider">Cancelar</button>
+                  <button onClick={handleSaveQuickStats} className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black uppercase tracking-widest transition-colors shadow">Salvar</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          
 
       {/* COMPACT FOOTER */}
       <footer className="bg-[#030303] py-6 text-center border-t border-white/10 text-[9px] font-black uppercase tracking-widest text-[#ffffff]/20 no-print">
