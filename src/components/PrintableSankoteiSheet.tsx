@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { Character } from '../types';
 import { Printer, X, Download } from 'lucide-react';
 
@@ -127,7 +128,7 @@ export function PrintableSankoteiSheet({
   const cogUso = `${character.ferramenta_cognicao_atual ?? character.ferramenta_cognicao_max ?? 0}/${character.ferramenta_cognicao_max ?? 0}`;
   const carUso = `${character.ferramenta_carisma_atual ?? character.ferramenta_carisma_max ?? 1}/${character.ferramenta_carisma_max ?? 1}`;
 
-  return (
+  const content = (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/90 backdrop-blur-md p-4 sm:p-6 print:p-0 print:bg-white print:static print:overflow-visible">
       
       {/* Non-Print Control Toolbar */}
@@ -507,4 +508,6 @@ export function PrintableSankoteiSheet({
       </div>
     </div>
   );
+
+  return createPortal(content, document.body);
 }
