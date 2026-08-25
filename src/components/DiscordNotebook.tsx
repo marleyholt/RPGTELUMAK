@@ -11,7 +11,7 @@ import {
   MessageSquareQuote, Volume2, Mic, MicOff, Headphones, ChevronDown, 
   ChevronRight, Plus, Download, FileText, Lock, Edit2, Check, Radio, UserCheck, Shield,
   Smile, Terminal, AlertTriangle, CheckCircle2, Info, Bug, ShieldAlert, Cpu, ArrowUp,
-  Bot, Sparkles, ExternalLink, Sliders
+  Bot, Sparkles, ExternalLink, Sliders, Users
 } from 'lucide-react';
 import { processImageFile } from '../utils/imageUpload';
 import { ImageCropModal } from './ImageCropModal';
@@ -21,6 +21,7 @@ import { DiscordExportModal } from './DiscordExportModal';
 import { QuickSheetPanel } from './QuickSheetPanel';
 import { NpcQuickSheet } from './NpcQuickSheet';
 import { NpcSelectorWindow } from './NpcSelectorWindow';
+import { PcSelectorWindow } from './PcSelectorWindow';
 import { NPC } from '../types';
 import { trackRead, trackWrite, trackDelete } from '../utils/firebaseUsageTracker';
 import { parseAndRollDice, extractDiceRollsFromMessage } from '../utils/diceRoller';
@@ -68,6 +69,8 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
   const [allNpcs, setAllNpcs] = useState<NPC[]>([]);
   const [openNpcIds, setOpenNpcIds] = useState<string[]>([]);
   const [showNpcMenu, setShowNpcMenu] = useState(false);
+  const [openPcIds, setOpenPcIds] = useState<string[]>([]);
+  const [showPcMenu, setShowPcMenu] = useState(false);
 
   // Auto-detection state for Discord channel
   const [isDetectingChannel, setIsDetectingChannel] = useState(false);
@@ -1097,14 +1100,24 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
 
           <div className="flex items-center gap-0.5 text-[#b5bac1] shrink-0 relative">
             {isGM && (
-              <button
-                type="button"
-                onClick={() => setShowNpcMenu(!showNpcMenu)}
-                className={`p-1.5 rounded transition ${showNpcMenu ? 'bg-sky-500/20 text-sky-400' : 'hover:bg-[#35373c] hover:text-white'}`}
-                title="Janela de Seleção de NPCs"
-              >
-                <Bot className="h-3.5 w-3.5" />
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowPcMenu(!showPcMenu)}
+                  className={`p-1.5 rounded transition ${showPcMenu ? 'bg-emerald-500/20 text-emerald-400' : 'hover:bg-[#35373c] hover:text-white'}`}
+                  title="Janela de Seleção de Jogadores"
+                >
+                  <Users className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowNpcMenu(!showNpcMenu)}
+                  className={`p-1.5 rounded transition ${showNpcMenu ? 'bg-sky-500/20 text-sky-400' : 'hover:bg-[#35373c] hover:text-white'}`}
+                  title="Janela de Seleção de NPCs"
+                >
+                  <Bot className="h-3.5 w-3.5" />
+                </button>
+              </>
             )}
             {myActiveCharacter && (
             <button
@@ -2341,6 +2354,21 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
         />
       )}
 
+      {showPcMenu && isGM && (
+        <PcSelectorWindow
+          characters={characters}
+          openPcIds={openPcIds}
+          onTogglePc={(id) => {
+            if (openPcIds.includes(id)) {
+              setOpenPcIds(prev => prev.filter(x => x !== id));
+            } else {
+              setOpenPcIds(prev => [...prev, id]);
+            }
+          }}
+          onClose={() => setShowPcMenu(false)}
+        />
+      )}
+
       {showNpcMenu && isGM && (
         <NpcSelectorWindow
           npcs={allNpcs}
@@ -2355,6 +2383,26 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
           onClose={() => setShowNpcMenu(false)}
         />
       )}
+
+      {isGM && openPcIds.map((id, index) => {
+        const char = characters.find(c => c.id === id);
+        if (!char) return null;
+        return (
+          <QuickSheetPanel
+            key={id}
+            character={char}
+            sections={[]} // You could customize this if you want
+            onClose={() => setOpenPcIds(prev => prev.filter(x => x !== id))}
+            onOpenFull={() => {
+              setOpenPcIds(prev => prev.filter(x => x !== id));
+              const event = new CustomEvent('openCharacterSheet', { detail: char.id });
+              window.dispatchEvent(event);
+            }}
+            initialPos={{ x: window.innerWidth - 300 - (index * 20), y: 100 + (index * 20) }}
+            startMinimized={true}
+          />
+        );
+      })}
 
       {isGM && openNpcIds.map((id, index) => {
         const npc = allNpcs.find(n => n.id === id);

@@ -8,9 +8,11 @@ interface QuickSheetPanelProps {
   sections: string[];
   onClose: () => void;
   onOpenFull: () => void;
+  initialPos?: { x: number, y: number };
+  startMinimized?: boolean;
 }
 
-export function QuickSheetPanel({ character, sections, onClose, onOpenFull }: QuickSheetPanelProps) {
+export function QuickSheetPanel({ character, sections, onClose, onOpenFull, initialPos, startMinimized = false }: QuickSheetPanelProps) {
   const allSections = ['indicadores', 'ataque', 'defesa', 'dons', 'equipamento'];
   const defaultSections = allSections.filter(sec => !sections.includes(sec));
 
@@ -175,7 +177,7 @@ export function QuickSheetPanel({ character, sections, onClose, onOpenFull }: Qu
 
   const [activeTab, setActiveTab] = useState(defaultSections[0]);
   
-  const [isMinimized, setIsMinimized] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(startMinimized);
   const panelRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 320, height: 340 });
 
@@ -190,7 +192,7 @@ export function QuickSheetPanel({ character, sections, onClose, onOpenFull }: Qu
   };
   
   // Dragging logic
-  const [pos, setPos] = useState({ x: window.innerWidth - 340, y: window.innerHeight - 340 });
+  const [pos, setPos] = useState(initialPos || { x: window.innerWidth - 340, y: window.innerHeight - 340 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
@@ -220,7 +222,7 @@ export function QuickSheetPanel({ character, sections, onClose, onOpenFull }: Qu
   return (
     <div 
       ref={panelRef}
-      className="fixed bg-[#2b2d31] border border-[#1f2023] rounded-lg shadow-2xl z-40 flex flex-col overflow-hidden animate-fade-in"
+      className="fixed bg-[#2b2d31] border border-[#1f2023] rounded-lg shadow-2xl z-[90] flex flex-col overflow-hidden animate-fade-in"
       style={{
         left: pos.x,
         top: pos.y,
