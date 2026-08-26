@@ -1278,21 +1278,6 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
             <h3 className="font-black text-sm text-white truncate">
               {activeChannel?.name || 'Selecione um canal'}
             </h3>
-            {activeChannel?.isPrivate && (
-              <span className="bg-amber-500/20 text-amber-300 text-[9px] font-bold px-1.5 py-0.5 rounded font-mono flex items-center gap-1">
-                <Lock className="h-2.5 w-2.5" />
-                Privado
-              </span>
-            )}
-            {activeChannel?.discordChannelId && (
-              <span className="bg-[#5865f2]/20 text-[#5865f2] text-[9px] font-bold px-1.5 py-0.5 rounded font-mono hidden sm:inline-block">
-                Discord ID: {activeChannel.discordChannelId}
-              </span>
-            )}
-            <div className="h-4 w-[1px] bg-[#4e5058] mx-2 hidden md:block" />
-            <p className="text-xs text-[#949ba4] truncate hidden md:block max-w-md">
-              {activeChannel?.topic || (activeChannel ? `Canal #${activeChannel.name}` : 'Nenhum canal ativo')}
-            </p>
           </div>
 
           <div className="flex items-center gap-2 text-[#b5bac1]">
