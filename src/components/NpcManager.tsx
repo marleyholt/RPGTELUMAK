@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { NPC, DiscordChannelItem, Character } from '../types';
-import { Search, Plus, Trash2, Edit2, LayoutGrid, List as ListIcon, X, Check, Image as ImageIcon, Download, FileText } from 'lucide-react';
+import { Search, Plus, Trash2, Edit2, LayoutGrid, List as ListIcon, X, Check, Image as ImageIcon, Download, FileText, RotateCcw } from 'lucide-react';
 import RichTextEditor from './RichTextEditor';
 import { ImageUploadField } from './ImageUploadField';
 
@@ -171,6 +171,28 @@ ${sendType === 'cover' ? '(Foto Principal)' : '(Galeria de Fotos)'}`,
   const handleDelete = async (id: string) => {
     if (confirm('Tem certeza que deseja excluir este NPC?')) {
       await deleteDoc(doc(db, 'npcs', id));
+    }
+  };
+
+  const [deletePromptChar, setDeletePromptChar] = useState<Character | null>(null);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
+  const [isConfirmingPermanentDelete, setIsConfirmingPermanentDelete] = useState(false);
+
+  const handleArchiveAction = async (id: string, archiveStatus: boolean) => {
+    await updateDoc(doc(db, 'characters', id), {
+      arquivado: archiveStatus
+    });
+    setDeletePromptChar(null);
+    setIsConfirmingPermanentDelete(false);
+    setDeleteConfirmName('');
+  };
+
+  const handlePermanentDeleteChar = async (id: string) => {
+    if (deleteConfirmName === deletePromptChar?.nome) {
+      await deleteDoc(doc(db, 'characters', id));
+      setDeletePromptChar(null);
+      setIsConfirmingPermanentDelete(false);
+      setDeleteConfirmName('');
     }
   };
 
@@ -553,7 +575,10 @@ ${sendType === 'cover' ? '(Foto Principal)' : '(Galeria de Fotos)'}`,
                     </div>
                   </div>
                   <div className="p-3 flex-1 flex flex-col">
-                    <h3 className="text-xs font-black text-white uppercase tracking-wider mb-1 line-clamp-1">{npc.name}</h3>
+                    <h3 className="text-xs font-black text-white uppercase tracking-wider mb-1 line-clamp-1">
+                      {npc.name}
+                      {(npc as any)._character?.arquivado && <span className="text-[8px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded font-bold ml-2">ARQ</span>}
+                    </h3>
                     <p className="text-[10px] text-white/40 mb-3 uppercase tracking-wider">
                       {(npc.images?.filter(Boolean).length || 0)} Fotos
                     </p>
@@ -568,8 +593,17 @@ ${sendType === 'cover' ? '(Foto Principal)' : '(Galeria de Fotos)'}`,
                       }} className="flex-1 py-1.5 bg-white/5 hover:bg-indigo-500/20 text-indigo-400 text-[10px] font-bold uppercase tracking-wider rounded transition flex items-center justify-center gap-1 border border-transparent hover:border-indigo-500/30">
                         <Edit2 className="w-3 h-3" /> Editar
                       </button>
-                      <button onClick={(e) => { e.stopPropagation(); handleDelete(npc.id); }} className="w-7 h-7 bg-white/5 hover:bg-rose-500/20 text-white/40 hover:text-rose-400 rounded transition flex items-center justify-center border border-transparent hover:border-rose-500/30">
-                        <Trash2 className="w-3 h-3" />
+                      <button onClick={(e) => { 
+                        e.stopPropagation(); 
+                        if ((npc as any)._type === 'character') {
+                          setDeletePromptChar((npc as any)._character);
+                          setIsConfirmingPermanentDelete(false);
+                          setDeleteConfirmName('');
+                        } else {
+                          handleDelete(npc.id);
+                        }
+                      }} className="w-7 h-7 bg-white/5 hover:bg-rose-500/20 text-white/40 hover:text-rose-400 rounded transition flex items-center justify-center border border-transparent hover:border-rose-500/30">
+                        { (npc as any)._type === 'character' && (npc as any)._character?.arquivado ? <RotateCcw className="w-3 h-3" /> : <Trash2 className="w-3 h-3" /> }
                       </button>
                     </div>
                   </div>
@@ -605,7 +639,10 @@ ${sendType === 'cover' ? '(Foto Principal)' : '(Galeria de Fotos)'}`,
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                         <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase font-bold ${(npc as any)._type === 'character' ? 'bg-blue-500/20 text-blue-400' : 'bg-indigo-500/20 text-indigo-400'}`}>{(npc as any)._type === 'character' ? 'Player' : 'NPC'}</span>
-                        <h3 className="text-sm font-black text-white uppercase tracking-wider truncate">{npc.name}</h3>
+                        <h3 className="text-sm font-black text-white uppercase tracking-wider truncate">
+                          {npc.name}
+                          {(npc as any)._character?.arquivado && <span className="text-[8px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded font-bold ml-2">ARQUIVADO</span>}
+                        </h3>
                       </div>
                     <p className="text-[10px] text-white/40 uppercase tracking-wider">{(npc.images?.filter(Boolean).length || 0)} Fotos Cadastradas</p>
                   </div>
@@ -626,10 +663,19 @@ ${sendType === 'cover' ? '(Foto Principal)' : '(Galeria de Fotos)'}`,
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button 
-                      onClick={(e) => { e.stopPropagation(); handleDelete(npc.id); }}
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        if ((npc as any)._type === 'character') {
+                          setDeletePromptChar((npc as any)._character);
+                          setIsConfirmingPermanentDelete(false);
+                          setDeleteConfirmName('');
+                        } else {
+                          handleDelete(npc.id);
+                        }
+                      }}
                       className="w-8 h-8 rounded bg-white/5 border border-white/5 flex items-center justify-center text-white/60 hover:text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/30 transition"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      { (npc as any)._type === 'character' && (npc as any)._character?.arquivado ? <RotateCcw className="w-4 h-4" /> : <Trash2 className="w-4 h-4" /> }
                     </button>
                   </div>
                 </div>
@@ -638,6 +684,73 @@ ${sendType === 'cover' ? '(Foto Principal)' : '(Galeria de Fotos)'}`,
           </div>
         )}
       </div>
+
+      {deletePromptChar && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-[#1e1f22] border border-rose-500/30 p-6 shadow-2xl rounded-lg max-w-sm w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-sm font-black uppercase tracking-widest text-white">Gerenciar Ficha</h4>
+              <button onClick={() => setDeletePromptChar(null)} className="text-white/40 hover:text-white"><X className="h-4 w-4" /></button>
+            </div>
+
+            {!isConfirmingPermanentDelete ? (
+              <div className="space-y-4">
+                <p className="text-xs text-white/70">
+                  O que você deseja fazer com a ficha de <strong className="text-white">{deletePromptChar.nome}</strong>?
+                </p>
+                <div className="flex flex-col gap-2">
+                  <button 
+                    onClick={() => handleArchiveAction(deletePromptChar.id, !deletePromptChar.arquivado)}
+                    className="w-full py-2 bg-white/5 hover:bg-white/10 text-white text-xs font-bold uppercase rounded border border-white/10 transition flex items-center justify-center gap-2"
+                  >
+                    {deletePromptChar.arquivado ? <><RotateCcw className="w-3.5 h-3.5" /> Recuperar Ficha (Desarquivar)</> : 'Arquivar Ficha (Ocultar da Mesa)'}
+                  </button>
+                  <button 
+                    onClick={() => setIsConfirmingPermanentDelete(true)}
+                    className="w-full py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-bold uppercase rounded border border-rose-500/30 transition flex items-center justify-center gap-2"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Deletar Definitivamente
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4 animate-in fade-in zoom-in-95">
+                <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded">
+                  <p className="text-xs text-rose-200 text-center font-bold uppercase">Atenção: Ação Irreversível</p>
+                  <p className="text-[10px] text-rose-200/70 text-center mt-1">Isso excluirá a ficha do banco de dados permanentemente.</p>
+                </div>
+                <div>
+                  <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-2">
+                    Digite <span className="text-white select-all">{deletePromptChar.nome}</span> para confirmar
+                  </label>
+                  <input 
+                    type="text" 
+                    value={deleteConfirmName}
+                    onChange={(e) => setDeleteConfirmName(e.target.value)}
+                    className="w-full bg-black/50 border border-white/10 text-white text-sm px-3 py-2 rounded focus:outline-none focus:border-rose-500 transition"
+                    placeholder={deletePromptChar.nome}
+                  />
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button 
+                    onClick={() => { setIsConfirmingPermanentDelete(false); setDeleteConfirmName(''); }}
+                    className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-white/70 text-xs font-bold uppercase rounded transition"
+                  >
+                    Voltar
+                  </button>
+                  <button 
+                    disabled={deleteConfirmName !== deletePromptChar.nome}
+                    onClick={() => handlePermanentDeleteChar(deletePromptChar.id)}
+                    className="flex-1 py-2 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 disabled:hover:bg-rose-600 text-white text-xs font-black uppercase rounded shadow transition"
+                  >
+                    Deletar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
