@@ -11,7 +11,7 @@ import {
   MessageSquareQuote, Volume2, Mic, MicOff, Headphones, ChevronDown, 
   ChevronRight, Plus, Download, FileText, Lock, Edit2, Check, Radio, UserCheck, Shield,
   Smile, Terminal, AlertTriangle, CheckCircle2, Info, Bug, ShieldAlert, Cpu, ArrowUp,
-  Bot, Sparkles, ExternalLink, Sliders, Users, Video
+  Bot, Sparkles, ExternalLink, Sliders, Users, Video, Menu, PanelLeftClose
 } from 'lucide-react';
 import { processImageFile } from '../utils/imageUpload';
 import { ImageCropModal } from './ImageCropModal';
@@ -169,6 +169,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
   };
 
   // UI States
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [collapsedCategories, setCollapsedCategories] = useState<{ [key: string]: boolean }>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPinnedOnly, setFilterPinnedOnly] = useState(false);
@@ -221,24 +222,27 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
       return dbChannels;
     }
 
-    // Filter for Player
+    // Filter for Player based on exact login email
     const playerEmail = currentUserProfile?.email?.toLowerCase().trim();
+
     return dbChannels.filter(ch => {
-      // Public channels
+      // 1. Public channels: visible to everyone
       if (!ch.isPrivate) return true;
       
-      // If player's email is allowed
-      if (playerEmail && ch.allowedEmails?.some(e => e.toLowerCase().trim() === playerEmail)) {
+      // If channel is private and user is not logged in with an email, deny
+      if (!playerEmail) return false;
+
+      // 2. If user's email is explicitly listed in allowedEmails
+      if (Array.isArray(ch.allowedEmails) && ch.allowedEmails.some(e => typeof e === 'string' && e.toLowerCase().trim() === playerEmail)) {
         return true;
       }
       
-      // If linked directly to player's character
-      if (ch.charKey && playerEmail) {
-        const isOwner = characters.some(c => 
-          (c.id === ch.charKey || c.email_dono?.toLowerCase().trim() === playerEmail) && 
-          c.email_dono?.toLowerCase().trim() === playerEmail
-        );
-        if (isOwner) return true;
+      // 3. If channel is linked directly to a specific character (charKey)
+      if (ch.charKey) {
+        const targetChar = characters.find(c => c.id === ch.charKey);
+        if (targetChar && targetChar.email_dono && targetChar.email_dono.toLowerCase().trim() === playerEmail) {
+          return true;
+        }
       }
 
       return false;
@@ -518,8 +522,9 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
     if (diceCheck.isRoll && diceCheck.results.length > 0) {
       const rollsStrArray = diceCheck.results.map(roll => {
         if (roll.isMathOnly) {
-          return `🧮 **Cálculo Matemático:** \`${roll.formattedFormula}\`\n` +
-                 `> 🏆 **Resultado = ${roll.total}**`;
+          const commentSuffix = roll.comment ? ` ${roll.comment}` : '';
+          return `🧮 **Cálculo:** \`${roll.formattedFormula}\`\n` +
+                 `> 🏆 **Resultado = ${roll.total}${commentSuffix}**`;
         }
         const sortedRolls = [...roll.rolls].sort((a, b) => b - a);
         const formattedRollArray = sortedRolls.map(r => {
@@ -533,7 +538,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
           explodeInfo = ` (Críticos >= ${roll.explodeThreshold}${roll.explodedRollsCount > 0 ? ` • +${roll.explodedRollsCount} dado(s) extra` : ''})`;
         }
 
-        const forSuffix = roll.comment ? (roll.comment.toLowerCase().startsWith('para ') ? ` ${roll.comment}` : ` para ${roll.comment}`) : '';
+        const forSuffix = roll.comment ? ` ${roll.comment.trim()}` : '';
         return `🎲 **Rolagem:** \`${roll.formattedFormula}\`${explodeInfo}\n` +
           `> **Dados Rolados:** [ ${rollsDisplay} ]\n` +
           `> **Cálculo:** ${roll.formattedDetails}\n` +
@@ -765,21 +770,23 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
 
     let isPrivate = false;
     let allowedEmails: string[] = [];
-    let charKey: string | undefined = undefined;
+    let charKey: string | null = null;
 
     if (formAccessType === 'character') {
       isPrivate = true;
-      charKey = formTargetCharId;
+      charKey = formTargetCharId || null;
       const targetChar = characters.find(c => c.id === formTargetCharId);
       if (targetChar?.email_dono) {
-        allowedEmails = [targetChar.email_dono];
+        allowedEmails = [targetChar.email_dono.toLowerCase().trim()];
       }
     } else if (formAccessType === 'custom') {
       isPrivate = true;
-      allowedEmails = formAllowedEmails;
+      allowedEmails = formAllowedEmails.map(e => e.toLowerCase().trim()).filter(Boolean);
+      charKey = null;
     } else {
       isPrivate = false;
       allowedEmails = [];
+      charKey = null;
     }
 
     const channelPayload: Record<string, any> = {
@@ -789,13 +796,10 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
       topic: formTopic.trim() || '',
       isPrivate: isPrivate,
       allowedEmails: allowedEmails || [],
+      charKey: charKey,
       discordChannelId: formDiscordId.trim() || '',
       createdAt: serverTimestamp()
     };
-
-    if (charKey) {
-      channelPayload.charKey = charKey;
-    }
 
     try {
       await setDoc(doc(db, 'discord_channels', channelDocId), channelPayload, { merge: true });
@@ -976,10 +980,24 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
   };
 
   return (
-    <div className="flex h-[84vh] max-h-[940px] w-full bg-[#313338] border border-[#232428] shadow-2xl rounded-lg overflow-hidden text-[#dbdee1] font-sans select-none">
+    <div className="flex h-[84vh] max-h-[940px] w-full bg-[#313338] border border-[#232428] shadow-2xl rounded-lg overflow-hidden text-[#dbdee1] font-sans select-none relative">
       
+      {/* Mobile Backdrop when Sidebar is Open */}
+      {isSidebarOpen && (
+        <div 
+          onClick={() => setIsSidebarOpen(false)}
+          className="fixed inset-0 bg-black/70 backdrop-blur-xs z-30 md:hidden animate-fade-in"
+        />
+      )}
+
       {/* 1. CHANNELS SIDEBAR */}
-      <div className="w-64 bg-[#2b2d31] flex flex-col shrink-0 border-r border-[#1f2023] z-10">
+      <div className={`
+        fixed md:relative inset-y-0 left-0 z-40 md:z-10
+        w-72 md:w-64 bg-[#2b2d31] flex flex-col shrink-0 border-r border-[#1f2023]
+        transition-all duration-300 ease-in-out
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:flex'}
+        ${!isSidebarOpen ? 'hidden md:flex' : 'flex shadow-2xl'}
+      `}>
         
         {/* Header */}
         <div className="h-12 border-b border-[#1f2023] px-3 flex items-center justify-between shadow-sm">
@@ -989,17 +1007,29 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
             </span>
           </div>
 
-          {isGM && (
+          <div className="flex items-center gap-1">
+            {isGM && (
+              <button
+                type="button"
+                onClick={() => setShowGuideModal(true)}
+                className="p-1 text-[#949ba4] hover:text-[#5865f2] hover:bg-[#35373c] rounded transition flex items-center gap-1 text-[10px] font-bold"
+                title="Abrir Tutorial / Guia do Bot do Discord"
+              >
+                <Bot className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Tutorial</span>
+              </button>
+            )}
+
+            {/* Mobile close sidebar button */}
             <button
               type="button"
-              onClick={() => setShowGuideModal(true)}
-              className="p-1 text-[#949ba4] hover:text-[#5865f2] hover:bg-[#35373c] rounded transition flex items-center gap-1 text-[10px] font-bold"
-              title="Abrir Tutorial / Guia do Bot do Discord"
+              onClick={() => setIsSidebarOpen(false)}
+              className="p-1.5 text-[#949ba4] hover:text-white hover:bg-[#35373c] rounded transition md:hidden"
+              title="Recolher Menu de Canais"
             >
-              <Bot className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Tutorial</span>
+              <X className="h-4 w-4" />
             </button>
-          )}
+          </div>
         </div>
 
         {/* GM Action: Add Channel */}
@@ -1079,7 +1109,10 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
                         return (
                           <div
                             key={channel.id}
-                            onClick={() => setActiveChannel(channel)}
+                            onClick={() => {
+                              setActiveChannel(channel);
+                              setIsSidebarOpen(false);
+                            }}
                             className={`w-full px-2 py-1.5 rounded flex items-center justify-between group transition cursor-pointer text-xs ${
                               isActive 
                                 ? 'bg-[#404249] text-white font-bold' 
@@ -1225,8 +1258,18 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
       <div className="flex-1 flex flex-col bg-[#313338] min-w-0 relative">
         
         {/* Top Channel Header */}
-        <div className="h-12 border-b border-[#1f2023] px-4 flex items-center justify-between shrink-0 shadow-sm">
+        <div className="h-12 border-b border-[#1f2023] px-3 sm:px-4 flex items-center justify-between shrink-0 shadow-sm">
           <div className="flex items-center gap-2 min-w-0">
+            {/* Mobile Sidebar Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setIsSidebarOpen(prev => !prev)}
+              className="p-1.5 -ml-1 text-[#b5bac1] hover:text-white hover:bg-[#35373c] rounded transition flex items-center gap-1 md:hidden"
+              title={isSidebarOpen ? "Recolher canais" : "Abrir menu de canais"}
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+
             {activeChannel?.type === 'voice' ? (
               <Volume2 className="h-5 w-5 text-[#80848e] shrink-0" />
             ) : (
