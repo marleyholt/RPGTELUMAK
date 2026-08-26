@@ -39,8 +39,11 @@ export function NpcManager({ characters = [] }: { characters?: Character[] }) {
       snap.forEach(doc => {
         items.push({ id: doc.id, ...doc.data() } as NPC);
       });
-      items.sort((a, b) => a.name.localeCompare(b.name));
+      items.sort((a, b) => (a.name || (a as any).nome || "").localeCompare(b.name || (b as any).nome || ""));
       setNpcs(items);
+    }, (err) => {
+      console.warn("NPC Snapshot erro:", err);
+      setNpcs([]);
     });
     
     const unsubChannels = onSnapshot(collection(db, 'discord_channels'), (snap) => {
@@ -49,6 +52,9 @@ export function NpcManager({ characters = [] }: { characters?: Character[] }) {
         channels.push({ id: doc.id, ...doc.data() } as DiscordChannelItem);
       });
       setDiscordChannels(channels);
+    }, (err) => {
+      console.warn("Discord Channels erro:", err);
+      setDiscordChannels([]);
     });
     
     return () => {
@@ -137,6 +143,13 @@ ${sendType === 'cover' ? '(Foto Principal)' : '(Galeria de Fotos)'}`,
       content: editingNpc.content || '',
       images: editingNpc.images || [],
       coverImageIndex: editingNpc.coverImageIndex || 0,
+      hp_max: editingNpc.hp_max || 0,
+      ether_max: editingNpc.ether_max || 0,
+      poder_max: editingNpc.poder_max || 0,
+      ferramenta_fisico_max: editingNpc.ferramenta_fisico_max || 0,
+      ferramenta_destreza_max: editingNpc.ferramenta_destreza_max || 0,
+      ferramenta_cognicao_max: editingNpc.ferramenta_cognicao_max || 0,
+      ferramenta_carisma_max: editingNpc.ferramenta_carisma_max || 0,
       updatedAt: serverTimestamp()
     };
     try {
@@ -311,6 +324,82 @@ ${sendType === 'cover' ? '(Foto Principal)' : '(Galeria de Fotos)'}`,
                 className="w-full bg-[#1e1f22] border border-white/10 text-white text-sm px-3 py-2 rounded focus:outline-none focus:border-indigo-500 transition"
                 placeholder="Ex: Mercador viajante"
               />
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">Saúde (HP)</label>
+                <input 
+                  type="number" 
+                  value={editingNpc.hp_max || ''} 
+                  onChange={e => setEditingNpc({...editingNpc, hp_max: Number(e.target.value)})}
+                  className="w-full bg-[#1e1f22] border border-white/10 text-white text-sm px-3 py-2 rounded focus:outline-none focus:border-rose-500 transition"
+                  placeholder="Ex: 50"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">Energia (Éter)</label>
+                <input 
+                  type="number" 
+                  value={editingNpc.ether_max || ''} 
+                  onChange={e => setEditingNpc({...editingNpc, ether_max: Number(e.target.value)})}
+                  className="w-full bg-[#1e1f22] border border-white/10 text-white text-sm px-3 py-2 rounded focus:outline-none focus:border-sky-500 transition"
+                  placeholder="Ex: 20"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">Poder</label>
+                <input 
+                  type="number" 
+                  value={editingNpc.poder_max || ''} 
+                  onChange={e => setEditingNpc({...editingNpc, poder_max: Number(e.target.value)})}
+                  className="w-full bg-[#1e1f22] border border-white/10 text-white text-sm px-3 py-2 rounded focus:outline-none focus:border-amber-500 transition"
+                  placeholder="Ex: 5"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">Ferramentas (FIS)</label>
+                <input 
+                  type="number" 
+                  value={editingNpc.ferramenta_fisico_max || ''} 
+                  onChange={e => setEditingNpc({...editingNpc, ferramenta_fisico_max: Number(e.target.value)})}
+                  className="w-full bg-[#1e1f22] border border-white/10 text-white text-sm px-3 py-2 rounded focus:outline-none focus:border-emerald-500 transition"
+                  placeholder="Ex: 2"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">Ferramentas (DES)</label>
+                <input 
+                  type="number" 
+                  value={editingNpc.ferramenta_destreza_max || ''} 
+                  onChange={e => setEditingNpc({...editingNpc, ferramenta_destreza_max: Number(e.target.value)})}
+                  className="w-full bg-[#1e1f22] border border-white/10 text-white text-sm px-3 py-2 rounded focus:outline-none focus:border-emerald-500 transition"
+                  placeholder="Ex: 2"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">Ferramentas (COG)</label>
+                <input 
+                  type="number" 
+                  value={editingNpc.ferramenta_cognicao_max || ''} 
+                  onChange={e => setEditingNpc({...editingNpc, ferramenta_cognicao_max: Number(e.target.value)})}
+                  className="w-full bg-[#1e1f22] border border-white/10 text-white text-sm px-3 py-2 rounded focus:outline-none focus:border-emerald-500 transition"
+                  placeholder="Ex: 2"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-1">Ferramentas (CAR)</label>
+                <input 
+                  type="number" 
+                  value={editingNpc.ferramenta_carisma_max || ''} 
+                  onChange={e => setEditingNpc({...editingNpc, ferramenta_carisma_max: Number(e.target.value)})}
+                  className="w-full bg-[#1e1f22] border border-white/10 text-white text-sm px-3 py-2 rounded focus:outline-none focus:border-emerald-500 transition"
+                  placeholder="Ex: 2"
+                />
+              </div>
             </div>
             
             <div>

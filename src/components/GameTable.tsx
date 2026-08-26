@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Character, NPC } from '../types';
 import { Heart, Zap, Crosshair, Wrench, FileText, Settings, X, Plus, Shield, Swords, Minus, Users } from 'lucide-react';
-import { updateDoc, doc, collection, onSnapshot, addDoc } from 'firebase/firestore';
+import { updateDoc, doc, collection, onSnapshot, addDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { useEffect } from 'react';
 import { db } from '../firebase';
 import RichTextEditor from './RichTextEditor';
@@ -18,36 +18,110 @@ interface GameTableProps {
 
 export function GameTable({ characters, onQuickEditChar, onOpenCharSheet, onOpenNpcSheet }: Omit<GameTableProps, 'npcs'>) {
   const [npcs, setNpcs] = useState<NPC[]>([]);
+  const [ephemeralNpcs, setEphemeralNpcs] = useState<NPC[]>([]);
   
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'npcs'), (snap) => {
+    const unsubNpcs = onSnapshot(collection(db, 'npcs'), (snap) => {
       const data: NPC[] = [];
       snap.forEach(d => {
         data.push({ id: d.id, ...d.data() } as NPC);
       });
       setNpcs(data);
+    }, (err) => {
+      console.warn("GameTable NPCs erro:", err);
     });
-    return () => unsub();
+
+    const unsubBattlemap = onSnapshot(collection(db, 'battlemap_npcs'), (snap) => {
+      const data: NPC[] = [];
+      snap.forEach(d => {
+        data.push({ id: d.id, ...d.data() } as NPC);
+      });
+      setEphemeralNpcs(data);
+    }, (err) => {
+      console.warn("GameTable Battlemap erro:", err);
+    });
+
+    return () => {
+      unsubNpcs();
+      unsubBattlemap();
+    };
   }, []);
   const [notepadContent, setNotepadContent] = useState('');
   const [showBlankCardModal, setShowBlankCardModal] = useState(false);
   const [blankCard, setBlankCard] = useState({ nome: '', hp: 10, ether: 0, destiny: 0, tools: 0 });
+  const [quickEditNpcId, setQuickEditNpcId] = useState<string | null>(null);
+  const [quickEditData, setQuickEditData] = useState({ 
+    hp_max: 0, 
+    ether_max: 0, 
+    poder_max: 0, 
+    ferramenta_fisico_max: 0,
+    ferramenta_destreza_max: 0,
+    ferramenta_cognicao_max: 0,
+    ferramenta_carisma_max: 0 
+  });
+
+  const handleOpenQuickEditNpc = (npc: NPC) => {
+    setQuickEditData({
+      hp_max: npc.hp_max || 0,
+      ether_max: npc.ether_max || 0,
+      poder_max: npc.poder_max || 0,
+      ferramenta_fisico_max: npc.ferramenta_fisico_max || 0,
+      ferramenta_destreza_max: npc.ferramenta_destreza_max || 0,
+      ferramenta_cognicao_max: npc.ferramenta_cognicao_max || 0,
+      ferramenta_carisma_max: npc.ferramenta_carisma_max || 0
+    });
+    setQuickEditNpcId(npc.id);
+  };
+
+  const handleSaveQuickEditNpc = async () => {
+    if (!quickEditNpcId) return;
+    try {
+      await updateDoc(doc(db, 'battlemap_npcs', quickEditNpcId), {
+        hp_max: quickEditData.hp_max,
+        ether_max: quickEditData.ether_max,
+        poder_max: quickEditData.poder_max,
+        ferramenta_fisico_max: quickEditData.ferramenta_fisico_max,
+        ferramenta_destreza_max: quickEditData.ferramenta_destreza_max,
+        ferramenta_cognicao_max: quickEditData.ferramenta_cognicao_max,
+        ferramenta_carisma_max: quickEditData.ferramenta_carisma_max
+      });
+      setQuickEditNpcId(null);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const handleCreateBlankCard = async () => {
     if (!blankCard.nome.trim()) return;
+    
+    const baseName = blankCard.nome;
+    const sameBaseNpcs = ephemeralNpcs.filter(n => (n as any).original_name === baseName);
+    const count = sameBaseNpcs.length;
+    const displayName = count === 0 ? baseName : `${baseName} ${count + 1}`;
+    
     try {
-      await addDoc(collection(db, 'npcs'), {
-        name: blankCard.nome,
+      await addDoc(collection(db, 'battlemap_npcs'), {
+        name: displayName,
+        original_name: baseName,
         hp_max: blankCard.hp,
         hp_atual: blankCard.hp,
         ether_max: blankCard.ether,
         ether_atual: blankCard.ether,
         poder_max: blankCard.destiny,
         poder_atual: blankCard.destiny,
-        ferramentas_max: blankCard.tools,
-        ferramentas_atual: blankCard.tools,
-        active_on_board: true,
-        createdAt: new Date().toISOString()
+        ferramenta_fisico_max: blankCard.tools,
+        ferramenta_fisico_atual: blankCard.tools,
+        ferramenta_destreza_max: blankCard.tools,
+        ferramenta_destreza_atual: blankCard.tools,
+        ferramenta_cognicao_max: blankCard.tools,
+        ferramenta_cognicao_atual: blankCard.tools,
+        ferramenta_carisma_max: blankCard.tools,
+        ferramenta_carisma_atual: blankCard.tools,
+        createdAt: new Date().toISOString(),
+        content: '',
+        images: [],
+        coverImageIndex: 0,
+        updatedAt: new Date().toISOString()
       });
       setShowBlankCardModal(false);
       setBlankCard({ nome: '', hp: 10, ether: 0, destiny: 0, tools: 0 });
@@ -58,8 +132,7 @@ export function GameTable({ characters, onQuickEditChar, onOpenCharSheet, onOpen
   const [showSelector, setShowSelector] = useState<'character' | 'npc' | null>(null);
 
   const activeCharacters = characters.filter(c => c.active_on_board);
-  const activeNpcs = npcs.filter(n => n.active_on_board);
-  const allActive = [...activeCharacters.map(c => ({...c, _type: 'character'})), ...activeNpcs.map(n => ({...n, _type: 'npc'}))];
+  const allActive = [...activeCharacters.map(c => ({...c, _type: 'character'})), ...ephemeralNpcs.map(n => ({...n, _type: 'npc'}))];
 
   const handleUpdateCharMarker = async (charId: string, field: string, amount: number, current: number, max?: number) => {
     let newVal = current + amount;
@@ -71,15 +144,28 @@ export function GameTable({ characters, onQuickEditChar, onOpenCharSheet, onOpen
     }
   };
 
-    const handleCloneNpc = async (id: string) => {
+  const handleInsertNpc = async (id: string) => {
     const target = npcs.find(n => n.id === id);
     if (!target) return;
+    
+    const baseName = target.name;
+    const sameBaseNpcs = ephemeralNpcs.filter(n => (n as any).original_name === baseName);
+    const count = sameBaseNpcs.length;
+    const displayName = count === 0 ? baseName : `${baseName} ${count + 1}`;
+    
     try {
       const { id: _, ...npcData } = target;
-      await addDoc(collection(db, 'npcs'), {
+      await addDoc(collection(db, 'battlemap_npcs'), {
         ...npcData,
-        name: `${npcData.name} (Cópia)`,
-        active_on_board: true,
+        name: displayName,
+        original_name: baseName,
+        hp_atual: target.hp_max || 0,
+        ether_atual: target.ether_max || 0,
+        poder_atual: target.poder_max || 0,
+        ferramenta_fisico_atual: target.ferramenta_fisico_max || 0,
+        ferramenta_destreza_atual: target.ferramenta_destreza_max || 0,
+        ferramenta_cognicao_atual: target.ferramenta_cognicao_max || 0,
+        ferramenta_carisma_atual: target.ferramenta_carisma_max || 0,
         createdAt: new Date().toISOString()
       });
       setShowSelector(null);
@@ -91,18 +177,42 @@ export function GameTable({ characters, onQuickEditChar, onOpenCharSheet, onOpen
   const handleUpdateNpcMarker = async (npcId: string, field: string, amount: number, current: number = 0) => {
     let newVal = current + amount;
     try {
-      await updateDoc(doc(db, 'npcs', npcId), { [field]: newVal });
+      await updateDoc(doc(db, 'battlemap_npcs', npcId), { [field]: newVal });
     } catch (e) {
       console.error("Erro ao atualizar marcador npc:", e);
     }
   };
 
   const handleToggleBoard = async (id: string, type: 'character' | 'npc', currentVal: boolean) => {
-    const collectionName = type === 'character' ? 'characters' : 'npcs';
+    if (type === 'npc') {
+      try {
+        await deleteDoc(doc(db, 'battlemap_npcs', id));
+      } catch (e) {
+        console.error(e);
+      }
+      return;
+    }
+
     try {
-      await updateDoc(doc(db, collectionName, id), { active_on_board: !currentVal });
+      await updateDoc(doc(db, 'characters', id), { active_on_board: !currentVal });
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleClearBoard = async () => {
+    if (!confirm("Tem certeza que deseja limpar a mesa? Todos os NPCs e cards genéricos serão removidos e os aventureiros retornarão ao banco.")) return;
+    try {
+      const deletePromises = ephemeralNpcs.map(d => deleteDoc(doc(db, 'battlemap_npcs', d.id)));
+      await Promise.all(deletePromises);
+
+      const updatePromises = activeCharacters.map(c => 
+        updateDoc(doc(db, 'characters', c.id), { active_on_board: false })
+      );
+      await Promise.all(updatePromises);
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao limpar a mesa. Verifique o console.');
     }
   };
 
@@ -116,13 +226,16 @@ export function GameTable({ characters, onQuickEditChar, onOpenCharSheet, onOpen
         </h2>
         <div className="flex gap-2">
           <button onClick={() => setShowSelector('character')} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase rounded shadow">
-            <Plus className="w-3.5 h-3.5" /> Adicionar Player
+            <Plus className="w-3.5 h-3.5" /> Player
           </button>
           <button onClick={() => setShowSelector('npc')} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold uppercase rounded shadow">
-            <Plus className="w-3.5 h-3.5" /> Adicionar NPC
+            <Plus className="w-3.5 h-3.5" /> NPC
           </button>
           <button onClick={() => setShowBlankCardModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-600 hover:bg-zinc-500 text-white text-xs font-bold uppercase rounded shadow">
             <FileText className="w-3.5 h-3.5" /> Criar Card
+          </button>
+          <button onClick={handleClearBoard} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-bold uppercase rounded shadow ml-2">
+            <X className="w-3.5 h-3.5" /> Limpar Mesa
           </button>
         </div>
       </div>
@@ -158,6 +271,7 @@ export function GameTable({ characters, onQuickEditChar, onOpenCharSheet, onOpen
               const destinyMax = isPC ? (entity as any).destino_max : ((entity as any).poder_max || 0);
               
               const tools = isPC ? (entity as any).tecnicas_atual : ((entity as any).ferramentas_atual || 0);
+              const toolsMax = isPC ? (entity as any).tecnicas_max : ((entity as any).ferramentas_max || 0);
 
               return (
                 <div key={entity.id} className={`bg-[#2b2d31] rounded-lg border flex flex-col shadow-lg overflow-hidden transition ${isPC ? 'border-blue-500/20' : 'border-indigo-500/20'}`}>
@@ -192,7 +306,7 @@ export function GameTable({ characters, onQuickEditChar, onOpenCharSheet, onOpen
                       </div>
                       <div className="flex items-center gap-2">
                         <button onClick={() => isPC ? handleUpdateCharMarker(entity.id, 'hp_atual', -1, hp) : handleUpdateNpcMarker(entity.id, 'hp_atual', -1, hp)} className="w-5 h-5 bg-white/5 hover:bg-red-500/20 text-white/50 hover:text-red-400 rounded flex items-center justify-center transition"><Minus className="w-3 h-3" /></button>
-                        <span className="text-xs font-mono font-bold w-12 text-center text-white">{hp}{isPC ? ` / ${hpMax}` : ''}</span>
+                        <span className="text-xs font-mono font-bold w-12 text-center text-white">{hp} / {hpMax}</span>
                         <button onClick={() => isPC ? handleUpdateCharMarker(entity.id, 'hp_atual', 1, hp) : handleUpdateNpcMarker(entity.id, 'hp_atual', 1, hp)} className="w-5 h-5 bg-white/5 hover:bg-green-500/20 text-white/50 hover:text-green-400 rounded flex items-center justify-center transition"><Plus className="w-3 h-3" /></button>
                       </div>
                     </div>
@@ -205,7 +319,7 @@ export function GameTable({ characters, onQuickEditChar, onOpenCharSheet, onOpen
                       </div>
                       <div className="flex items-center gap-2">
                         <button onClick={() => isPC ? handleUpdateCharMarker(entity.id, 'ether_atual', -1, ether) : handleUpdateNpcMarker(entity.id, 'ether_atual', -1, ether)} className="w-5 h-5 bg-white/5 hover:bg-yellow-500/20 text-white/50 hover:text-yellow-400 rounded flex items-center justify-center transition"><Minus className="w-3 h-3" /></button>
-                        <span className="text-xs font-mono font-bold w-12 text-center text-white">{ether}{isPC ? ` / ${etherMax}` : ''}</span>
+                        <span className="text-xs font-mono font-bold w-12 text-center text-white">{ether} / {etherMax}</span>
                         <button onClick={() => isPC ? handleUpdateCharMarker(entity.id, 'ether_atual', 1, ether) : handleUpdateNpcMarker(entity.id, 'ether_atual', 1, ether)} className="w-5 h-5 bg-white/5 hover:bg-green-500/20 text-white/50 hover:text-green-400 rounded flex items-center justify-center transition"><Plus className="w-3 h-3" /></button>
                       </div>
                     </div>
@@ -218,43 +332,29 @@ export function GameTable({ characters, onQuickEditChar, onOpenCharSheet, onOpen
                       </div>
                       <div className="flex items-center gap-2">
                         <button onClick={() => isPC ? handleUpdateCharMarker(entity.id, 'destino_atual', -1, destiny) : handleUpdateNpcMarker(entity.id, 'poder_atual', -1, destiny)} className="w-5 h-5 bg-white/5 hover:bg-sky-500/20 text-white/50 hover:text-sky-400 rounded flex items-center justify-center transition"><Minus className="w-3 h-3" /></button>
-                        <span className="text-xs font-mono font-bold w-12 text-center text-white">{destiny}{isPC ? ` / ${destinyMax}` : ''}</span>
+                        <span className="text-xs font-mono font-bold w-12 text-center text-white">{destiny} / {destinyMax}</span>
                         <button onClick={() => isPC ? handleUpdateCharMarker(entity.id, 'destino_atual', 1, destiny) : handleUpdateNpcMarker(entity.id, 'poder_atual', 1, destiny)} className="w-5 h-5 bg-white/5 hover:bg-green-500/20 text-white/50 hover:text-green-400 rounded flex items-center justify-center transition"><Plus className="w-3 h-3" /></button>
                       </div>
                     </div>
 
-                                        {/* FERRAMENTAS DE COMBATE (PC ONLY OR GENERIC) */}
-                    {isPC ? (
-                      <div className="grid grid-cols-2 gap-1.5 mt-2 pt-2 border-t border-white/5">
-                        {[
-                          { id: 'fisico', label: 'FIS', val: (entity as any).ferramenta_fisico_atual ?? 0, max: (entity as any).ferramenta_fisico_max ?? 0 },
-                          { id: 'destreza', label: 'DES', val: (entity as any).ferramenta_destreza_atual ?? 0, max: (entity as any).ferramenta_destreza_max ?? 0 },
-                          { id: 'cognicao', label: 'COG', val: (entity as any).ferramenta_cognicao_atual ?? 0, max: (entity as any).ferramenta_cognicao_max ?? 0 },
-                          { id: 'carisma', label: 'CAR', val: (entity as any).ferramenta_carisma_atual ?? 0, max: (entity as any).ferramenta_carisma_max ?? 0 },
-                        ].map(tool => (
-                          <div key={tool.id} className="flex items-center justify-between bg-black/40 rounded p-1 border border-white/5">
-                            <span className="text-[8px] font-bold text-sky-300 uppercase w-6">{tool.label}</span>
-                            <div className="flex items-center gap-1">
-                              <button onClick={() => handleUpdateCharMarker(entity.id, `ferramenta_${tool.id}_atual`, -1, tool.val)} className="w-4 h-4 bg-white/5 hover:bg-red-500/20 text-white/50 hover:text-red-400 rounded flex items-center justify-center transition"><Minus className="w-2.5 h-2.5" /></button>
-                              <span className="text-[9px] font-mono font-bold w-7 text-center text-white">{tool.val}</span>
-                              <button onClick={() => handleUpdateCharMarker(entity.id, `ferramenta_${tool.id}_atual`, 1, tool.val)} className="w-4 h-4 bg-white/5 hover:bg-green-500/20 text-white/50 hover:text-green-400 rounded flex items-center justify-center transition"><Plus className="w-2.5 h-2.5" /></button>
-                            </div>
+                                        {/* FERRAMENTAS DE COMBATE */}
+                    <div className="grid grid-cols-2 gap-1.5 mt-2 pt-2 border-t border-white/5">
+                      {[
+                        { id: 'fisico', label: 'FIS', val: (entity as any).ferramenta_fisico_atual ?? 0, max: (entity as any).ferramenta_fisico_max ?? 0 },
+                        { id: 'destreza', label: 'DES', val: (entity as any).ferramenta_destreza_atual ?? 0, max: (entity as any).ferramenta_destreza_max ?? 0 },
+                        { id: 'cognicao', label: 'COG', val: (entity as any).ferramenta_cognicao_atual ?? 0, max: (entity as any).ferramenta_cognicao_max ?? 0 },
+                        { id: 'carisma', label: 'CAR', val: (entity as any).ferramenta_carisma_atual ?? 0, max: (entity as any).ferramenta_carisma_max ?? 0 },
+                      ].map(tool => (
+                        <div key={tool.id} className="flex items-center justify-between bg-black/40 rounded p-1 border border-white/5">
+                          <span className="text-[8px] font-bold text-sky-300 uppercase w-6">{tool.label}</span>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => isPC ? handleUpdateCharMarker(entity.id, `ferramenta_${tool.id}_atual`, -1, tool.val) : handleUpdateNpcMarker(entity.id, `ferramenta_${tool.id}_atual`, -1, tool.val)} className="w-4 h-4 bg-white/5 hover:bg-red-500/20 text-white/50 hover:text-red-400 rounded flex items-center justify-center transition"><Minus className="w-2.5 h-2.5" /></button>
+                            <span className="text-[9px] font-mono font-bold w-7 text-center text-white">{tool.val}</span>
+                            <button onClick={() => isPC ? handleUpdateCharMarker(entity.id, `ferramenta_${tool.id}_atual`, 1, tool.val) : handleUpdateNpcMarker(entity.id, `ferramenta_${tool.id}_atual`, 1, tool.val)} className="w-4 h-4 bg-white/5 hover:bg-green-500/20 text-white/50 hover:text-green-400 rounded flex items-center justify-center transition"><Plus className="w-2.5 h-2.5" /></button>
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between bg-black/20 rounded p-1.5">
-                        <div className="flex items-center gap-1.5 w-1/3">
-                          <Wrench className="w-3.5 h-3.5 text-orange-400" />
-                          <span className="text-[9px] font-bold text-white/60 uppercase">Tools</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => handleUpdateNpcMarker(entity.id, 'ferramentas_atual', -1, tools)} className="w-5 h-5 bg-white/5 hover:bg-orange-500/20 text-white/50 hover:text-orange-400 rounded flex items-center justify-center transition"><Minus className="w-3 h-3" /></button>
-                          <span className="text-xs font-mono font-bold w-12 text-center text-white">{tools}</span>
-                          <button onClick={() => handleUpdateNpcMarker(entity.id, 'ferramentas_atual', 1, tools)} className="w-5 h-5 bg-white/5 hover:bg-green-500/20 text-white/50 hover:text-green-400 rounded flex items-center justify-center transition"><Plus className="w-3 h-3" /></button>
-                        </div>
-                      </div>
-                    )}
+                      ))}
+                    </div>
                   </div>
 
                   {/* Card Footer - Actions */}
@@ -265,14 +365,12 @@ export function GameTable({ characters, onQuickEditChar, onOpenCharSheet, onOpen
                     >
                       <FileText className="w-3.5 h-3.5" /> Ficha
                     </button>
-                    {isPC && (
-                      <button 
-                        onClick={() => onQuickEditChar(entity as any)}
-                        className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-[9px] font-bold text-white/60 hover:text-white hover:bg-white/5 rounded transition uppercase tracking-wider"
-                      >
-                        <Settings className="w-3.5 h-3.5" /> Ajustes
-                      </button>
-                    )}
+                    <button 
+                      onClick={() => isPC ? onQuickEditChar(entity as any) : handleOpenQuickEditNpc(entity as any)}
+                      className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-[9px] font-bold text-white/60 hover:text-white hover:bg-white/5 rounded transition uppercase tracking-wider"
+                    >
+                      <Settings className="w-3.5 h-3.5" /> Ajustes
+                    </button>
                   </div>
                 </div>
               );
@@ -367,16 +465,62 @@ export function GameTable({ characters, onQuickEditChar, onOpenCharSheet, onOpen
         </div>
       )}
 
+      {quickEditNpcId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-[#1e1f22] border border-[#2b2d31] p-6 space-y-4 shadow-2xl rounded-lg max-w-sm w-full">
+            <div className="flex justify-between items-center border-b border-white/5 pb-2">
+              <h4 className="text-sm font-black uppercase tracking-widest text-white">Ajustes do Card (NPC)</h4>
+              <button onClick={() => setQuickEditNpcId(null)} className="text-white/40 hover:text-white"><X className="h-4 w-4" /></button>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] text-red-400 uppercase font-bold mb-1">HP Máximo</label>
+                  <input type="number" value={quickEditData.hp_max} onChange={e => setQuickEditData({...quickEditData, hp_max: Number(e.target.value)})} className="w-full bg-black/50 text-white border border-white/10 px-3 py-2 text-xs font-mono rounded focus:outline-none focus:border-red-500" />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-yellow-400 uppercase font-bold mb-1">Éter Máximo</label>
+                  <input type="number" value={quickEditData.ether_max} onChange={e => setQuickEditData({...quickEditData, ether_max: Number(e.target.value)})} className="w-full bg-black/50 text-white border border-white/10 px-3 py-2 text-xs font-mono rounded focus:outline-none focus:border-yellow-500" />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-sky-400 uppercase font-bold mb-1">Poder Máximo</label>
+                  <input type="number" value={quickEditData.poder_max} onChange={e => setQuickEditData({...quickEditData, poder_max: Number(e.target.value)})} className="w-full bg-black/50 text-white border border-white/10 px-3 py-2 text-xs font-mono rounded focus:outline-none focus:border-sky-500" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-4 gap-2 pt-2 border-t border-white/5 mt-2">
+                <div>
+                  <label className="block text-[9px] text-emerald-400 uppercase font-bold mb-1 text-center">FIS</label>
+                  <input type="number" value={quickEditData.ferramenta_fisico_max} onChange={e => setQuickEditData({...quickEditData, ferramenta_fisico_max: Number(e.target.value)})} className="w-full bg-black/50 text-center text-white border border-white/10 px-1 py-1.5 text-xs font-mono rounded focus:outline-none focus:border-emerald-500" />
+                </div>
+                <div>
+                  <label className="block text-[9px] text-emerald-400 uppercase font-bold mb-1 text-center">DES</label>
+                  <input type="number" value={quickEditData.ferramenta_destreza_max} onChange={e => setQuickEditData({...quickEditData, ferramenta_destreza_max: Number(e.target.value)})} className="w-full bg-black/50 text-center text-white border border-white/10 px-1 py-1.5 text-xs font-mono rounded focus:outline-none focus:border-emerald-500" />
+                </div>
+                <div>
+                  <label className="block text-[9px] text-emerald-400 uppercase font-bold mb-1 text-center">COG</label>
+                  <input type="number" value={quickEditData.ferramenta_cognicao_max} onChange={e => setQuickEditData({...quickEditData, ferramenta_cognicao_max: Number(e.target.value)})} className="w-full bg-black/50 text-center text-white border border-white/10 px-1 py-1.5 text-xs font-mono rounded focus:outline-none focus:border-emerald-500" />
+                </div>
+                <div>
+                  <label className="block text-[9px] text-emerald-400 uppercase font-bold mb-1 text-center">CAR</label>
+                  <input type="number" value={quickEditData.ferramenta_carisma_max} onChange={e => setQuickEditData({...quickEditData, ferramenta_carisma_max: Number(e.target.value)})} className="w-full bg-black/50 text-center text-white border border-white/10 px-1 py-1.5 text-xs font-mono rounded focus:outline-none focus:border-emerald-500" />
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 flex justify-end gap-2">
+              <button onClick={() => setQuickEditNpcId(null)} className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/70 text-xs font-bold uppercase rounded transition">Cancelar</button>
+              <button onClick={handleSaveQuickEditNpc} className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black uppercase rounded shadow transition">Salvar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showSelector === 'npc' && (
         <NpcSelectorWindow 
           npcs={npcs} 
-          openNpcIds={activeNpcs.map(n => n.id)} 
-          onToggleNpc={(id) => {
-            const isAct = activeNpcs.some(n => n.id === id);
-            handleToggleBoard(id, 'npc', isAct);
-            setShowSelector(null);
-          }}
-          onCloneNpc={handleCloneNpc}
+          onInsertNpc={handleInsertNpc}
           onClose={() => setShowSelector(null)}
         />
       )}

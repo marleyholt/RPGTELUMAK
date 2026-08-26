@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { NPC } from '../types';
 import { X, Check, Users } from 'lucide-react';
 
-interface NpcSelectorWindowProps {
+interface NpcQuickSelectorWindowProps {
   npcs: NPC[];
-  onInsertNpc: (id: string) => void;
+  openNpcIds: string[];
+  onToggleNpc: (id: string) => void;
   onClose: () => void;
 }
 
-export function NpcSelectorWindow({ npcs, onInsertNpc, onClose }: NpcSelectorWindowProps) {
+export function NpcQuickSelectorWindow({ npcs, openNpcIds, onToggleNpc, onClose }: NpcQuickSelectorWindowProps) {
   const [pos, setPos] = useState<{ x: number, y: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -50,7 +51,7 @@ export function NpcSelectorWindow({ npcs, onInsertNpc, onClose }: NpcSelectorWin
       >
         <span className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5">
           <Users className="w-3.5 h-3.5 text-sky-400" />
-          Selecionar NPCs
+          Fichas de NPCs
         </span>
         <button onClick={onClose} className="p-1 text-white/50 hover:text-white transition" title="Fechar">
           <X className="w-3.5 h-3.5" />
@@ -62,20 +63,16 @@ export function NpcSelectorWindow({ npcs, onInsertNpc, onClose }: NpcSelectorWin
           <div className="p-3 text-xs text-white/40 italic text-center">Nenhum NPC cadastrado.</div>
         ) : (
           npcs.map(npc => {
+            const isOpen = openNpcIds.includes(npc.id);
             return (
-              <div
+              <button
                 key={npc.id}
-                className="w-full text-left px-3 py-2 rounded-md text-xs transition flex items-center justify-between hover:bg-white/5 text-white/70"
+                onClick={() => onToggleNpc(npc.id)}
+                className={`w-full text-left px-3 py-2 rounded-md text-xs transition flex items-center justify-between ${isOpen ? 'bg-sky-500/20 text-sky-400' : 'hover:bg-white/5 text-white/70'}`}
               >
-                <span className="truncate">{npc.name}</span>
-                <button
-                  onClick={() => onInsertNpc(npc.id)}
-                  className="px-2 py-1 bg-white/5 hover:bg-indigo-500/20 text-white/50 hover:text-indigo-400 rounded text-[10px] font-bold uppercase transition shrink-0 ml-2"
-                  title="Inserir na mesa"
-                >
-                  Inserir
-                </button>
-              </div>
+                <span className={`truncate ${isOpen ? 'font-bold' : ''}`}>{npc.name || 'Sem Nome'}</span>
+                {isOpen && <Check className="w-3.5 h-3.5" />}
+              </button>
             )
           })
         )}

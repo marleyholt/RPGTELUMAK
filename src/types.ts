@@ -114,8 +114,14 @@ export interface NPC {
   ether_max?: number;
   poder_atual?: number;
   poder_max?: number;
-  ferramentas_atual?: number;
-  ferramentas_max?: number;
+  ferramenta_fisico_atual?: number;
+  ferramenta_fisico_max?: number;
+  ferramenta_destreza_atual?: number;
+  ferramenta_destreza_max?: number;
+  ferramenta_cognicao_atual?: number;
+  ferramenta_cognicao_max?: number;
+  ferramenta_carisma_atual?: number;
+  ferramenta_carisma_max?: number;
   active_on_board?: boolean;
 }
 

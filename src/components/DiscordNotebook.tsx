@@ -21,7 +21,7 @@ import { DiscordExportModal } from './DiscordExportModal';
 import { useGoogleLogin } from '@react-oauth/google';
 import { QuickSheetPanel } from './QuickSheetPanel';
 import { NpcQuickSheet } from './NpcQuickSheet';
-import { NpcSelectorWindow } from './NpcSelectorWindow';
+import { NpcQuickSelectorWindow } from './NpcQuickSelectorWindow';
 import { PcSelectorWindow } from './PcSelectorWindow';
 import { NPC } from '../types';
 import { trackRead, trackWrite, trackDelete } from '../utils/firebaseUsageTracker';
@@ -190,7 +190,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
     const unsub = onSnapshot(collection(db, 'npcs'), (snap) => {
       const items: NPC[] = [];
       snap.forEach(d => items.push({ id: d.id, ...d.data() } as NPC));
-      items.sort((a, b) => a.name.localeCompare(b.name));
+      items.sort((a, b) => (a.name || (a as any).nome || "").localeCompare(b.name || (b as any).nome || ""));
       setAllNpcs(items);
     });
     return () => unsub();
@@ -2492,7 +2492,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
       )}
 
       {showNpcMenu && isGM && (
-        <NpcSelectorWindow
+        <NpcQuickSelectorWindow
           npcs={allNpcs}
           openNpcIds={openNpcIds}
           onToggleNpc={(id) => {
