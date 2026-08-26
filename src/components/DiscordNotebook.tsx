@@ -11,7 +11,7 @@ import {
   MessageSquareQuote, Volume2, Mic, MicOff, Headphones, ChevronDown, 
   ChevronRight, Plus, Download, FileText, Lock, Edit2, Check, Radio, UserCheck, Shield,
   Smile, Terminal, AlertTriangle, CheckCircle2, Info, Bug, ShieldAlert, Cpu, ArrowUp,
-  Bot, Sparkles, ExternalLink, Sliders, Users, Video, Menu, PanelLeftClose
+  Bot, Sparkles, ExternalLink, Sliders, Users, Video, Menu, PanelLeftClose, Link2
 } from 'lucide-react';
 import { processImageFile } from '../utils/imageUpload';
 import { ImageCropModal } from './ImageCropModal';
@@ -174,6 +174,9 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPinnedOnly, setFilterPinnedOnly] = useState(false);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
+  const [copiedLinkMsgId, setCopiedLinkMsgId] = useState<string | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [targetJumpMsgId, setTargetJumpMsgId] = useState<string | null>(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const [isPinning, setIsPinning] = useState<string | null>(null);
   const [messageLimit, setMessageLimit] = useState(50);
@@ -310,7 +313,9 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
       setHasMoreMessages(snap.size >= messageLimit);
       
       setTimeout(() => {
-        if (!filterPinnedOnly && !searchQuery.trim()) {
+        if (targetJumpMsgId) {
+          scrollToSpecificMessage(targetJumpMsgId);
+        } else if (!filterPinnedOnly && !searchQuery.trim()) {
           chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }
       }, 100);
@@ -389,11 +394,61 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
     }
   };
 
-  // Copy message
+  // Copy message text
   const handleCopyMessage = (msg: DiscordNotebookMessage) => {
     navigator.clipboard.writeText(msg.content || '');
     setCopiedMsgId(msg.id);
     setTimeout(() => setCopiedMsgId(null), 2000);
+  };
+
+  // Copy message permanent link (Discord style)
+  const handleCopyMessageLink = (msg: DiscordNotebookMessage) => {
+    if (!activeChannel) return;
+    const channelKey = activeChannel.discordChannelId || activeChannel.id;
+    const link = `https://telumak.rpg/channels/${channelKey}/${msg.id}`;
+    navigator.clipboard.writeText(link);
+    setCopiedLinkMsgId(msg.id);
+    setTimeout(() => setCopiedLinkMsgId(null), 2000);
+    logEvent('info', `Link da mensagem copiado! (#${activeChannel.name})`);
+  };
+
+  // Scroll to a specific message and flash highlight
+  const scrollToSpecificMessage = (msgId: string) => {
+    const el = document.getElementById(`msg-${msgId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  // Jump to message (from message link embed/click)
+  const handleJumpToMessage = (targetChannelId: string, targetMessageId: string) => {
+    setIsSidebarOpen(false);
+    
+    // Find target channel by id or discordChannelId
+    const targetChannel = dbChannels.find(
+      c => c.id === targetChannelId || c.discordChannelId === targetChannelId
+    );
+
+    if (targetChannel && (!activeChannel || activeChannel.id !== targetChannel.id)) {
+      setActiveChannel(targetChannel);
+    }
+
+    setTargetJumpMsgId(targetMessageId);
+    setHighlightedMessageId(targetMessageId);
+
+    // Smoothly scroll to target
+    setTimeout(() => {
+      scrollToSpecificMessage(targetMessageId);
+    }, 250);
+    setTimeout(() => {
+      scrollToSpecificMessage(targetMessageId);
+    }, 600);
+
+    // Remove highlight after 3.5 seconds
+    setTimeout(() => {
+      setHighlightedMessageId(prev => (prev === targetMessageId ? null : prev));
+      setTargetJumpMsgId(prev => (prev === targetMessageId ? null : prev));
+    }, 3500);
   };
 
   // Quote message
@@ -886,6 +941,38 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
     let keyCounter = 0;
 
     while (remaining.length > 0) {
+      // 1. Detect Discord / RPG Telumak Message Jump Links
+      const msgLinkMatch = remaining.match(/^(?:https?:\/\/(?:[a-zA-Z0-9.-]+\.)?telumak\.rpg\/channels\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)|https?:\/\/(?:www\.)?discord\.com\/channels\/[a-zA-Z0-9_-]+\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)|https?:\/\/[^\s]+[#/]channel\/([a-zA-Z0-9_-]+)\/message\/([a-zA-Z0-9_-]+)|https?:\/\/[^\s]+#channel=([a-zA-Z0-9_-]+)&message=([a-zA-Z0-9_-]+))/i);
+      if (msgLinkMatch) {
+        const targetChId = msgLinkMatch[1] || msgLinkMatch[3] || msgLinkMatch[5] || msgLinkMatch[7];
+        const targetMsgId = msgLinkMatch[2] || msgLinkMatch[4] || msgLinkMatch[6] || msgLinkMatch[8];
+        const targetChannel = dbChannels.find(c => c.id === targetChId || c.discordChannelId === targetChId);
+        const channelLabel = targetChannel ? targetChannel.name : 'canal';
+
+        parts.push(
+          <button
+            type="button"
+            key={`${msgId}-${lineIdx}-${keyCounter++}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleJumpToMessage(targetChId, targetMsgId);
+            }}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 my-1 rounded-md bg-[#2b2d31] hover:bg-[#383a40] border border-[#3f4147] hover:border-[#5865f2] text-xs transition cursor-pointer text-[#dbdee1] group/msglink shadow-sm align-middle font-medium select-none"
+            title={`Ir para mensagem no canal #${channelLabel}`}
+          >
+            <Link2 className="h-3.5 w-3.5 text-[#5865f2] group-hover/msglink:text-[#7289da] transition shrink-0" />
+            <span className="text-[#5865f2] group-hover/msglink:text-white font-bold">#{channelLabel}</span>
+            <span className="text-[#80848e] text-[10px]">•</span>
+            <span className="text-white/80 group-hover/msglink:text-white text-[11px] flex items-center gap-1">
+              Ir para a mensagem
+              <ExternalLink className="h-3 w-3 text-[#949ba4] group-hover/msglink:text-white transition" />
+            </span>
+          </button>
+        );
+        remaining = remaining.substring(msgLinkMatch[0].length);
+        continue;
+      }
+
       const urlMatch = remaining.match(/^(https?:\/\/[^\s]+)/);
       if (urlMatch) {
         parts.push(
@@ -1428,6 +1515,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
                 const isBot = msg.authorName.includes('[Discord]') || msg.authorName.includes('BOT') || msg.isFromDiscord;
                 const avatarUrl = msg.authorAvatar || 'https://cdn.discordapp.com/embed/avatars/0.png';
                 const isPinned = !!msg.pinned;
+                const isHighlighted = highlightedMessageId === msg.id;
                 const isOwner = currentUserProfile?.email && msg.authorEmail === currentUserProfile.email;
                 const canDelete = isGM || isOwner;
                 
@@ -1444,10 +1532,13 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
                 return (
                   <div 
                     key={msg.id || idx}
-                    className={`group relative flex items-start gap-3.5 -mx-4 px-4 py-2 transition rounded ${
-                      isPinned 
-                        ? 'bg-amber-500/[0.06] border-l-4 border-amber-500 hover:bg-amber-500/[0.09]' 
-                        : 'hover:bg-[#2e3035] border-l-4 border-transparent'
+                    id={`msg-${msg.id}`}
+                    className={`group relative flex items-start gap-3.5 -mx-4 px-4 py-2 transition-all duration-300 rounded ${
+                      isHighlighted
+                        ? 'bg-[#5865f2]/25 ring-2 ring-[#5865f2] border-l-4 border-[#5865f2] shadow-md'
+                        : isPinned 
+                          ? 'bg-amber-500/[0.06] border-l-4 border-amber-500 hover:bg-amber-500/[0.09]' 
+                          : 'hover:bg-[#2e3035] border-l-4 border-transparent'
                     }`}
                   >
                     {/* Avatar */}
@@ -1509,6 +1600,19 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
                         title={isPinned ? "Desafixar mensagem" : "Fixar mensagem"}
                       >
                         {isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleCopyMessageLink(msg)}
+                        className="p-1.5 text-white/60 hover:text-[#5865f2] hover:bg-[#35373c] rounded transition"
+                        title="Copiar link da mensagem"
+                      >
+                        {copiedLinkMsgId === msg.id ? (
+                          <Check className="h-3.5 w-3.5 text-emerald-400" />
+                        ) : (
+                          <Link2 className="h-3.5 w-3.5" />
+                        )}
                       </button>
 
                       <button
