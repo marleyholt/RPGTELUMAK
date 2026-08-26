@@ -65,6 +65,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
   const [ePosicaoSocial, setEPosicaoSocial] = useState(character.posicao_social || '');
   const [eCidadania, setECidadania] = useState(character.cidadania || 'Rëno');
   const [eSeguimento, setESeguimento] = useState(character.seguimento || 'Conquistador');
+  const [eDescricao, setEDescricao] = useState(character.descricao || '');
   const [eNivelamentoAlma, setENivelamentoAlma] = useState(character.nivelamento_alma || '');
   const [eNivel, setENivel] = useState(character.nivel || 1);
 
@@ -237,6 +238,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
         posicao_social: ePosicaoSocial.trim(),
         cidadania: eCidadania.trim(),
         seguimento: eSeguimento.trim(),
+        descricao: eDescricao.trim(),
         nivelamento_alma: eNivelamentoAlma.trim(),
         nivel: Number(eNivel) || 1,
         ryo_dourado: Number(eRyoDourado) || 0,
@@ -290,6 +292,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
     setEPosicaoSocial(character.posicao_social || '');
     setECidadania(character.cidadania || 'Rëno');
     setESeguimento(character.seguimento || 'Conquistador');
+    setEDescricao(character.descricao || '');
     setENivelamentoAlma(character.nivelamento_alma || '');
     setENivel(character.nivel || 1);
     setERyoDourado(character.ryo_dourado ?? 20);
@@ -422,22 +425,33 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                 </span>
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="bg-blue-600 text-white text-[10px] font-black uppercase px-2 py-0.5 font-mono">
-                  Nível {rNivel}
-                </span>
-                {character.cla && (
-                  <span className="text-[10px] bg-white/5 border border-white/10 text-white/70 font-mono px-2 py-0.5 uppercase">
-                    Clã: <strong className="text-sky-400">{character.cla}</strong>
+              <div className="flex flex-col gap-1.5 mt-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="bg-blue-600 text-white text-[10px] font-black uppercase px-2 py-0.5 font-mono">
+                    Nível {rNivel}
                   </span>
+                </div>
+                {character.cla && (
+                  <p className="text-[11px] text-white/60 font-mono uppercase tracking-wider">
+                    Clã: <span className="text-sky-400 font-bold">{character.cla}</span>
+                  </p>
+                )}
+                {character.ocupacao && (
+                  <p className="text-[11px] text-white/60 font-mono uppercase tracking-wider">
+                    Ocupação: <span className="text-sky-400 font-bold">{character.ocupacao}</span>
+                  </p>
+                )}
+                {character.cidadania && (
+                  <p className="text-[11px] text-white/60 font-mono uppercase tracking-wider">
+                    Naturalidade: <span className="text-sky-400 font-bold">{character.cidadania}</span>
+                  </p>
+                )}
+                {character.descricao && (
+                  <p className="text-[11px] text-white/80 font-serif italic mt-1 border-l-2 border-indigo-500/50 pl-2">
+                    "{character.descricao}"
+                  </p>
                 )}
               </div>
-
-              {character.ocupacao && (
-                <p className="text-[11px] text-white/60 font-mono uppercase tracking-wider">
-                  Ocupação: <span className="text-sky-400 font-bold">{character.ocupacao}</span>
-                </p>
-              )}
             </div>
 
             {/* Quick Action Buttons */}
@@ -491,184 +505,193 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
         {/* 2. RIGHT COLUMN: SCROLLABLE INDICATIVES, ATTRIBUTES & TEXT CONTENT */}
         <div className="flex-1 min-w-0 space-y-6 w-full">
 
-          {/* 2.1 STATUS CARDS (SAÚDE, ENERGIA, PODER) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* 2.1 & 2.2 STATUS E MARCADORES (DUAS COLUNAS) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             
-            {/* SAÚDE (HP) */}
-            <div className="bg-black border border-white/10 hover:border-red-500/40 p-4 transition-all duration-200 shadow-lg">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-[11px] font-black uppercase tracking-wider text-red-500 flex items-center gap-1.5">
-                  <Heart className="h-4 w-4 fill-red-500 text-red-500 animate-pulse" />
-                  Saúde (Vida)
-                </span>
-                <span className="font-mono font-bold text-sm text-white">
-                  {character.hp_atual} <span className="text-white/40">/ {rHpMax}</span>
-                </span>
-              </div>
+            {/* LADO ESQUERDO: SAÚDE, ENERGIA, DESTINO */}
+            <div className="flex flex-col gap-4">
+              
+              {/* SAÚDE (HP) */}
+              <div className="bg-black border border-white/10 hover:border-red-500/40 p-4 transition-all duration-200 shadow-lg flex-1 flex flex-col justify-between">
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-red-500 flex items-center gap-1.5">
+                      <Heart className="h-4 w-4 fill-red-500 text-red-500 animate-pulse" />
+                      Saúde
+                    </span>
+                    <span className="font-mono font-bold text-sm text-white">
+                      {character.hp_atual} <span className="text-white/40">/ {rHpMax}</span>
+                    </span>
+                  </div>
 
-              {/* Health Bar Track */}
-              <div className="h-3 bg-[#141414] border border-white/10 overflow-hidden relative mb-3">
-                <div 
-                  className="h-full bg-gradient-to-r from-red-900 to-red-500 transition-all duration-300 shadow-[0_0_12px_rgba(239,68,68,0.5)]"
-                  style={{ width: `${hpPct}%` }}
-                />
-              </div>
-
-              {/* GM Increment / Decrement controls */}
-              {isGM ? (
-                <div className="flex justify-between items-center pt-1 border-t border-white/5">
-                  <span className="text-[9px] text-white/40 font-mono uppercase">Ajuste de HP (GM)</span>
-                  <div className="flex gap-1.5">
-                    <button onClick={() => handleUpdateVital('hp_atual', -5)} className="px-2 py-0.5 bg-white/5 hover:bg-white/10 text-white/70 text-[10px] font-mono border border-white/10">-5</button>
-                    <button onClick={() => handleUpdateVital('hp_atual', -1)} className="p-1 bg-white/5 hover:bg-white/10 text-white/70 border border-white/10"><Minus className="h-3 w-3" /></button>
-                    <button onClick={() => handleUpdateVital('hp_atual', 1)} className="p-1 bg-white/5 hover:bg-white/10 text-white/70 border border-white/10"><Plus className="h-3 w-3" /></button>
-                    <button onClick={() => handleUpdateVital('hp_atual', 5)} className="px-2 py-0.5 bg-white/5 hover:bg-white/10 text-white/70 text-[10px] font-mono border border-white/10">+5</button>
+                  {/* Health Bar Track */}
+                  <div className="h-3 bg-[#141414] border border-white/10 overflow-hidden relative mb-3">
+                    <div 
+                      className="h-full bg-gradient-to-r from-red-900 to-red-500 transition-all duration-300 shadow-[0_0_12px_rgba(239,68,68,0.5)]"
+                      style={{ width: `${hpPct}%` }}
+                    />
                   </div>
                 </div>
-              ) : (
-                <div className="text-[9px] text-white/40 font-mono text-right">
-                  {hpPct < 25 ? '⚠️ Estado Crítico' : '✓ Estável'}
-                </div>
-              )}
-            </div>
 
-            {/* ENERGIA (ÉTER) */}
-            <div className="bg-black border border-white/10 hover:border-blue-500/40 p-4 transition-all duration-200 shadow-lg">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-[11px] font-black uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
-                  <Zap className="h-4 w-4 fill-blue-400 text-blue-400" />
-                  Energia (Éter)
-                </span>
-                <span className="font-mono font-bold text-sm text-white">
-                  {character.ether_atual} <span className="text-white/40">/ {rEtherMax}</span>
-                </span>
+                {/* GM Increment / Decrement controls */}
+                {isGM ? (
+                  <div className="flex justify-between items-center pt-1 border-t border-white/5">
+                    <span className="text-[9px] text-white/40 font-mono uppercase">Ajuste de HP (GM)</span>
+                    <div className="flex gap-1.5">
+                      <button onClick={() => handleUpdateVital('hp_atual', -5)} className="px-2 py-0.5 bg-white/5 hover:bg-white/10 text-white/70 text-[10px] font-mono border border-white/10">-5</button>
+                      <button onClick={() => handleUpdateVital('hp_atual', -1)} className="p-1 bg-white/5 hover:bg-white/10 text-white/70 border border-white/10"><Minus className="h-3 w-3" /></button>
+                      <button onClick={() => handleUpdateVital('hp_atual', 1)} className="p-1 bg-white/5 hover:bg-white/10 text-white/70 border border-white/10"><Plus className="h-3 w-3" /></button>
+                      <button onClick={() => handleUpdateVital('hp_atual', 5)} className="px-2 py-0.5 bg-white/5 hover:bg-white/10 text-white/70 text-[10px] font-mono border border-white/10">+5</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-[9px] text-white/40 font-mono text-right">
+                    {hpPct < 25 ? '⚠️ Estado Crítico' : '✓ Estável'}
+                  </div>
+                )}
               </div>
 
-              {/* Ether Bar Track */}
-              <div className="h-3 bg-[#141414] border border-white/10 overflow-hidden relative mb-3">
-                <div 
-                  className="h-full bg-gradient-to-r from-blue-900 to-blue-500 transition-all duration-300 shadow-[0_0_12px_rgba(59,130,246,0.5)]"
-                  style={{ width: `${etherPct}%` }}
-                />
-              </div>
+              {/* ENERGIA (ÉTER) */}
+              <div className="bg-black border border-white/10 hover:border-blue-500/40 p-4 transition-all duration-200 shadow-lg flex-1 flex flex-col justify-between">
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
+                      <Zap className="h-4 w-4 fill-blue-400 text-blue-400" />
+                      Energia
+                    </span>
+                    <span className="font-mono font-bold text-sm text-white">
+                      {character.ether_atual} <span className="text-white/40">/ {rEtherMax}</span>
+                    </span>
+                  </div>
 
-              {isGM ? (
-                <div className="flex justify-between items-center pt-1 border-t border-white/5">
-                  <span className="text-[9px] text-white/40 font-mono uppercase">Ajuste de Éter (GM)</span>
-                  <div className="flex gap-1.5">
-                    <button onClick={() => handleUpdateVital('ether_atual', -5)} className="px-2 py-0.5 bg-white/5 hover:bg-white/10 text-white/70 text-[10px] font-mono border border-white/10">-5</button>
-                    <button onClick={() => handleUpdateVital('ether_atual', -1)} className="p-1 bg-white/5 hover:bg-white/10 text-white/70 border border-white/10"><Minus className="h-3 w-3" /></button>
-                    <button onClick={() => handleUpdateVital('ether_atual', 1)} className="p-1 bg-white/5 hover:bg-white/10 text-white/70 border border-white/10"><Plus className="h-3 w-3" /></button>
-                    <button onClick={() => handleUpdateVital('ether_atual', 5)} className="px-2 py-0.5 bg-white/5 hover:bg-white/10 text-white/70 text-[10px] font-mono border border-white/10">+5</button>
+                  {/* Ether Bar Track */}
+                  <div className="h-3 bg-[#141414] border border-white/10 overflow-hidden relative mb-3">
+                    <div 
+                      className="h-full bg-gradient-to-r from-blue-900 to-blue-500 transition-all duration-300 shadow-[0_0_12px_rgba(59,130,246,0.5)]"
+                      style={{ width: `${etherPct}%` }}
+                    />
                   </div>
                 </div>
-              ) : (
-                <div className="text-[9px] text-white/40 font-mono text-right">
-                  {etherPct > 0 ? '✓ Canalizado' : 'Esgotado'}
-                </div>
-              )}
-            </div>
 
-            {/* PODER (DESTINO) */}
-            <div className="bg-black border border-white/10 hover:border-yellow-500/40 p-4 transition-all duration-200 shadow-lg">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-[11px] font-black uppercase tracking-wider text-yellow-400 flex items-center gap-1.5">
-                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                  Poder (Destino)
-                </span>
-                <span className="font-mono font-bold text-sm text-white">
-                  {character.destino_atual} <span className="text-white/40">/ {rDestinoMax}</span>
-                </span>
+                {isGM ? (
+                  <div className="flex justify-between items-center pt-1 border-t border-white/5">
+                    <span className="text-[9px] text-white/40 font-mono uppercase">Ajuste de Éter (GM)</span>
+                    <div className="flex gap-1.5">
+                      <button onClick={() => handleUpdateVital('ether_atual', -5)} className="px-2 py-0.5 bg-white/5 hover:bg-white/10 text-white/70 text-[10px] font-mono border border-white/10">-5</button>
+                      <button onClick={() => handleUpdateVital('ether_atual', -1)} className="p-1 bg-white/5 hover:bg-white/10 text-white/70 border border-white/10"><Minus className="h-3 w-3" /></button>
+                      <button onClick={() => handleUpdateVital('ether_atual', 1)} className="p-1 bg-white/5 hover:bg-white/10 text-white/70 border border-white/10"><Plus className="h-3 w-3" /></button>
+                      <button onClick={() => handleUpdateVital('ether_atual', 5)} className="px-2 py-0.5 bg-white/5 hover:bg-white/10 text-white/70 text-[10px] font-mono border border-white/10">+5</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-[9px] text-white/40 font-mono text-right">
+                    {etherPct > 0 ? '✓ Canalizado' : 'Esgotado'}
+                  </div>
+                )}
               </div>
 
-              {/* Destino Bar Track */}
-              <div className="h-3 bg-[#141414] border border-white/10 overflow-hidden relative mb-3">
-                <div 
-                  className="h-full bg-gradient-to-r from-yellow-900 to-yellow-400 transition-all duration-300 shadow-[0_0_12px_rgba(250,204,21,0.5)]"
-                  style={{ width: `${destinoPct}%` }}
-                />
-              </div>
+              {/* DESTINO */}
+              <div className="bg-black border border-white/10 hover:border-yellow-500/40 p-4 transition-all duration-200 shadow-lg flex-1 flex flex-col justify-between">
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-yellow-400 flex items-center gap-1.5">
+                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      Destino
+                    </span>
+                    <span className="font-mono font-bold text-sm text-white">
+                      {character.destino_atual} <span className="text-white/40">/ {rDestinoMax}</span>
+                    </span>
+                  </div>
 
-              {isGM ? (
-                <div className="flex justify-between items-center pt-1 border-t border-white/5">
-                  <span className="text-[9px] text-white/40 font-mono uppercase">Ajuste de Destino (GM)</span>
-                  <div className="flex gap-1.5">
-                    <button onClick={() => handleUpdateVital('destino_atual', -1)} className="p-1 bg-white/5 hover:bg-white/10 text-white/70 border border-white/10"><Minus className="h-3 w-3" /></button>
-                    <button onClick={() => handleUpdateVital('destino_atual', 1)} className="p-1 bg-white/5 hover:bg-white/10 text-white/70 border border-white/10"><Plus className="h-3 w-3" /></button>
+                  {/* Destino Bar Track */}
+                  <div className="h-3 bg-[#141414] border border-white/10 overflow-hidden relative mb-3">
+                    <div 
+                      className="h-full bg-gradient-to-r from-yellow-900 to-yellow-400 transition-all duration-300 shadow-[0_0_12px_rgba(250,204,21,0.5)]"
+                      style={{ width: `${destinoPct}%` }}
+                    />
                   </div>
                 </div>
-              ) : (
-                <div className="text-[9px] text-white/40 font-mono text-right">
-                  Ponto de Inspiração
-                </div>
-              )}
-            </div>
 
-          </div>
-
-          {/* 2.2 MARCADORES (ALCANCE, MOVIMENTO, FORTITUDE) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            
-            {/* ALCANCE */}
-            <div className="bg-black border border-white/10 hover:border-emerald-500/40 p-4 transition-all duration-200">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 text-emerald-400 text-xs font-black uppercase tracking-wider">
-                  <Crosshair className="h-4 w-4 text-emerald-400" />
-                  <span>Alcance</span>
-                </div>
-                <span className="text-[9px] font-mono bg-emerald-950/50 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 uppercase">
-                  Nível {rNivel}
-                </span>
+                {isGM ? (
+                  <div className="flex justify-between items-center pt-1 border-t border-white/5">
+                    <span className="text-[9px] text-white/40 font-mono uppercase">Ajuste de Destino (GM)</span>
+                    <div className="flex gap-1.5">
+                      <button onClick={() => handleUpdateVital('destino_atual', -1)} className="p-1 bg-white/5 hover:bg-white/10 text-white/70 border border-white/10"><Minus className="h-3 w-3" /></button>
+                      <button onClick={() => handleUpdateVital('destino_atual', 1)} className="p-1 bg-white/5 hover:bg-white/10 text-white/70 border border-white/10"><Plus className="h-3 w-3" /></button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-[9px] text-white/40 font-mono text-right">
+                    Ponto de Inspiração
+                  </div>
+                )}
               </div>
-              <p className="text-xl font-black text-emerald-400 font-mono mt-1">
-                {rAlcanceMax}
-              </p>
-              <p className="text-[9px] text-white/40 font-mono mt-0.5">
-                Raio de Ação & Projeção
-              </p>
             </div>
 
-            {/* MOVIMENTO */}
-            <div className="bg-black border border-white/10 hover:border-cyan-500/40 p-4 transition-all duration-200">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 text-cyan-400 text-xs font-black uppercase tracking-wider">
-                  <Activity className="h-4 w-4 text-cyan-400" />
-                  <span>Movimento</span>
+            {/* LADO DIREITO: ALCANCE, MOVIMENTO, FORTITUDE */}
+            <div className="flex flex-col gap-4">
+              
+              {/* ALCANCE */}
+              <div className="bg-black border border-white/10 hover:border-emerald-500/40 p-4 transition-all duration-200 flex-1 flex flex-col justify-center">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 text-emerald-400 text-xs font-black uppercase tracking-wider">
+                    <Crosshair className="h-4 w-4 text-emerald-400" />
+                    <span>Alcance</span>
+                  </div>
+                  <span className="text-[9px] font-mono bg-emerald-950/50 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 uppercase">
+                    Nível {rNivel}
+                  </span>
                 </div>
-                <span className="text-[9px] font-mono bg-cyan-950/50 text-cyan-400 border border-cyan-500/20 px-1.5 py-0.5 uppercase">
-                  Nível {rNivel}
-                </span>
+                <p className="text-xl font-black text-emerald-400 font-mono mt-1">
+                  {rAlcanceMax}
+                </p>
+                <p className="text-[9px] text-white/40 font-mono mt-0.5">
+                  Raio de Ação & Projeção
+                </p>
               </div>
-              <p className="text-xl font-black text-cyan-400 font-mono mt-1">
-                {rMovimentoMax}
-              </p>
-              <p className="text-[9px] text-white/40 font-mono mt-0.5">
-                Deslocamento por Turno / Ação
-              </p>
-            </div>
 
-            {/* FORTITUDE */}
-            <div className="bg-black border border-white/10 hover:border-violet-500/40 p-4 transition-all duration-200">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 text-violet-400 text-xs font-black uppercase tracking-wider">
-                  <Shield className="h-4 w-4 text-violet-400" />
-                  <span>Fortitude</span>
+              {/* MOVIMENTO */}
+              <div className="bg-black border border-white/10 hover:border-cyan-500/40 p-4 transition-all duration-200 flex-1 flex flex-col justify-center">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 text-cyan-400 text-xs font-black uppercase tracking-wider">
+                    <Activity className="h-4 w-4 text-cyan-400" />
+                    <span>Movimento</span>
+                  </div>
+                  <span className="text-[9px] font-mono bg-cyan-950/50 text-cyan-400 border border-cyan-500/20 px-1.5 py-0.5 uppercase">
+                    Nível {rNivel}
+                  </span>
                 </div>
-                <span className="text-[9px] font-mono bg-violet-950/50 text-violet-400 border border-violet-500/20 px-1.5 py-0.5 uppercase">
-                  Nível {rNivel}
-                </span>
+                <p className="text-xl font-black text-cyan-400 font-mono mt-1">
+                  {rMovimentoMax}
+                </p>
+                <p className="text-[9px] text-white/40 font-mono mt-0.5">
+                  Deslocamento por Turno / Ação
+                </p>
               </div>
-              <p className="text-xl font-black text-violet-400 font-mono mt-1">
-                {rFortitudeMax}
-              </p>
-              <p className="text-[10px] font-mono mt-1 mb-1 text-violet-300 bg-violet-950/40 inline-block px-1.5 py-0.5 rounded border border-violet-500/20">
-                Peso Máx: {getFortitudeWeight(rFortitudeMax)}kg
-              </p>
-              <p className="text-[9px] text-white/40 font-mono mt-0.5 block">
-                Capacidade de Carga & Resistência Física
-              </p>
-            </div>
 
+              {/* FORTITUDE */}
+              <div className="bg-black border border-white/10 hover:border-violet-500/40 p-4 transition-all duration-200 flex-1 flex flex-col justify-center">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 text-violet-400 text-xs font-black uppercase tracking-wider">
+                    <Shield className="h-4 w-4 text-violet-400" />
+                    <span>Fortitude</span>
+                  </div>
+                  <span className="text-[9px] font-mono bg-violet-950/50 text-violet-400 border border-violet-500/20 px-1.5 py-0.5 uppercase">
+                    Nível {rNivel}
+                  </span>
+                </div>
+                <p className="text-xl font-black text-violet-400 font-mono mt-1">
+                  {rFortitudeMax}
+                </p>
+                <p className="text-[10px] font-mono mt-1 mb-1 text-violet-300 bg-violet-950/40 inline-block px-1.5 py-0.5 rounded border border-violet-500/20">
+                  Peso Máx: {getFortitudeWeight(rFortitudeMax)}kg
+                </p>
+                <p className="text-[9px] text-white/40 font-mono mt-0.5 block">
+                  Capacidade de Carga & Resistência Física
+                </p>
+              </div>
+
+            </div>
           </div>
 
           {/* 2.3 ATRIBUTOS PRIMÁRIOS & PRIMÓRDIO */}
@@ -1079,6 +1102,18 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       value={eSeguimento}
                       onChange={(e) => setESeguimento(e.target.value)}
                       className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[9px] text-white/50 font-bold uppercase tracking-wider mb-1">
+                      Descrição ou Frase de Efeito
+                    </label>
+                    <input
+                      type="text"
+                      value={eDescricao}
+                      onChange={(e) => setEDescricao(e.target.value)}
+                      className="w-full bg-[#050505] border border-white/10 px-3 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-blue-500"
+                      placeholder="Ex: 'Aquele que domina o relâmpago'"
                     />
                   </div>
                   <div className="sm:col-span-2">

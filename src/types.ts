@@ -27,6 +27,8 @@ export interface Character {
   ryo_prateado?: number;
   ryo_bronze?: number;
 
+  descricao?: string; // Descrição ou Frase de Efeito
+
   nivel: number;
   hp_atual: number;
   hp_max: number;
