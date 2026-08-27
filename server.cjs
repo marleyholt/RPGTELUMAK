@@ -110,6 +110,7 @@ async function startServer() {
           const attachments = message.attachments ? Array.from(message.attachments.values()).map((att) => att.url) : [];
           const notebookDoc = {
             channelId: message.channelId,
+            discordMessageId: message.id,
             authorName: message.member?.displayName || message.author.globalName || message.author.username,
             authorAvatar: message.author.displayAvatarURL() || "https://cdn.discordapp.com/embed/avatars/0.png",
             authorEmail: "discord-bot@system.local",
@@ -139,6 +140,31 @@ async function startServer() {
         }
       } else {
         console.warn("[DISCORD -> FIRESTORE] db do Firestore n\xE3o est\xE1 inicializado no backend.");
+      }
+    });
+    discordClient.on("messageUpdate", async (_oldMsg, newMsg) => {
+      try {
+        if (newMsg.author?.bot) return;
+        if (!newMsg.content) return;
+        console.log(`[DISCORD -> BACKEND] Mensagem editada no canal ${newMsg.channelId} (ID: ${newMsg.id})`);
+        if (db) {
+          const q = (0, import_firestore.query)(
+            (0, import_firestore.collection)(db, "discord_notebook_messages"),
+            (0, import_firestore.where)("discordMessageId", "==", newMsg.id)
+          );
+          const snap = await (0, import_firestore.getDocs)(q);
+          if (!snap.empty) {
+            for (const docSnap of snap.docs) {
+              await (0, import_firestore.updateDoc)((0, import_firestore.doc)(db, "discord_notebook_messages", docSnap.id), {
+                content: newMsg.content,
+                editedAt: (0, import_firestore.serverTimestamp)()
+              });
+            }
+            console.log(`[DISCORD -> FIRESTORE] Mensagem do Discord sincronizada ap\xF3s edi\xE7\xE3o!`);
+          }
+        }
+      } catch (err) {
+        console.warn("[DISCORD -> FIRESTORE] Erro ao sincronizar edi\xE7\xE3o feita no Discord:", err?.message || err);
       }
     });
     discordClient.login(token).catch((err) => {
@@ -260,6 +286,63 @@ ${conteudo || ""}`;
     } catch (err) {
       console.error("Erro ao enviar mensagem pro Discord Notebook:", err);
       return res.status(500).json({ error: err?.message || "Falha ao despachar mensagem para o Discord" });
+    }
+  });
+  app.post("/api/discord/notebook/edit", async (req, res) => {
+    const { channelId, messageId, discordMessageId, conteudo, remetente } = req.body;
+    const targetChannelId = channelId || defaultChannelId;
+    if (!targetChannelId) {
+      return res.status(400).json({ error: "ID do canal n\xE3o fornecido" });
+    }
+    if (!discordClient || !discordClient.isReady()) {
+      return res.json({
+        success: false,
+        botOffline: true,
+        message: "Bot do Discord offline ou n\xE3o conectado"
+      });
+    }
+    try {
+      const channel = await discordClient.channels.fetch(targetChannelId).catch(() => null);
+      if (channel && channel.isTextBased() && "messages" in channel) {
+        let msgToEdit = null;
+        const searchId = discordMessageId || messageId;
+        if (searchId && /^\d{17,20}$/.test(searchId)) {
+          msgToEdit = await channel.messages.fetch(searchId).catch(() => null);
+        }
+        if (!msgToEdit && messageId && db) {
+          try {
+            const docSnap = await (0, import_firestore.getDoc)((0, import_firestore.doc)(db, "discord_notebook_messages", messageId));
+            if (docSnap.exists() && docSnap.data().discordMessageId) {
+              const dId = docSnap.data().discordMessageId;
+              if (/^\d{17,20}$/.test(dId)) {
+                msgToEdit = await channel.messages.fetch(dId).catch(() => null);
+              }
+            }
+          } catch (e) {
+          }
+        }
+        if (msgToEdit) {
+          if (msgToEdit.author.id === discordClient.user?.id) {
+            const authorPrefixMatch = msgToEdit.content.match(/^\*\*\[(.*?)\]\*\*\n/);
+            const prefix = authorPrefixMatch ? authorPrefixMatch[0] : remetente ? `**[${remetente}]**
+` : "";
+            await msgToEdit.edit({ content: `${prefix}${conteudo || ""}` });
+            console.log(`[DISCORD] Mensagem ${msgToEdit.id} editada com sucesso no canal #${channel.name || targetChannelId}!`);
+            return res.json({ success: true, edited: true });
+          } else {
+            console.log(`[DISCORD] Mensagem ${msgToEdit.id} n\xE3o foi enviada pelo bot, portanto a API do Discord n\xE3o permite edi\xE7\xE3o direta.`);
+            return res.json({ success: true, note: "Mensagem pertencente a usu\xE1rio do Discord, mantida sincronizada no portal." });
+          }
+        } else {
+          console.warn(`[DISCORD] Mensagem correspondente n\xE3o encontrada para edi\xE7\xE3o no canal ${targetChannelId}`);
+          return res.json({ success: false, message: "Mensagem n\xE3o encontrada no canal do Discord para edi\xE7\xE3o." });
+        }
+      } else {
+        return res.status(400).json({ error: "Canal do Discord n\xE3o encontrado ou o bot n\xE3o tem permiss\xE3o para acess\xE1-lo." });
+      }
+    } catch (err) {
+      console.error("Erro ao editar mensagem no Discord Notebook:", err);
+      return res.status(500).json({ error: err?.message || "Falha ao editar mensagem no Discord" });
     }
   });
   app.post("/api/characters/import-pdf", async (req, res) => {
