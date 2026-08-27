@@ -251,7 +251,7 @@ async function startServer() {
     }
   });
   app.post("/api/discord/notebook/send", async (req, res) => {
-    const { channelId, remetente, conteudo, attachment } = req.body;
+    const { channelId, remetente, conteudo, attachment, attachments } = req.body;
     const targetChannelId = channelId || defaultChannelId;
     if (!targetChannelId) {
       return res.status(400).json({ error: "ID do canal n\xE3o fornecido" });
@@ -270,12 +270,31 @@ async function startServer() {
         let formattedText = `**[${remetente}]**
 ${conteudo || ""}`;
         sendOptions.content = formattedText;
-        if (attachment && typeof attachment === "string" && attachment.startsWith("data:image/")) {
-          const base64Data = attachment.split(",")[1];
-          const buffer = Buffer.from(base64Data, "base64");
-          const ext = attachment.substring(attachment.indexOf("/") + 1, attachment.indexOf(";"));
-          const file = new import_discord.AttachmentBuilder(buffer, { name: `upload_${Date.now()}.${ext || "png"}` });
-          sendOptions.files = [file];
+        const allAtts = [];
+        if (Array.isArray(attachments)) {
+          allAtts.push(...attachments.filter(Boolean));
+        } else if (attachment && typeof attachment === "string") {
+          allAtts.push(attachment);
+        }
+        const filesToSend = [];
+        let fileIdx = 1;
+        for (const att of allAtts) {
+          if (typeof att === "string" && att.startsWith("data:image/")) {
+            const base64Data = att.split(",")[1];
+            const buffer = Buffer.from(base64Data, "base64");
+            const rawExt = att.substring(att.indexOf("/") + 1, att.indexOf(";")) || "png";
+            const cleanExt = rawExt.replace("+xml", "").replace("jpeg", "jpg");
+            const file = new import_discord.AttachmentBuilder(buffer, { name: `galeria_${Date.now()}_${fileIdx}.${cleanExt}` });
+            filesToSend.push(file);
+            fileIdx++;
+          } else if (typeof att === "string" && (att.startsWith("http://") || att.startsWith("https://"))) {
+            const file = new import_discord.AttachmentBuilder(att, { name: `galeria_${Date.now()}_${fileIdx}.png` });
+            filesToSend.push(file);
+            fileIdx++;
+          }
+        }
+        if (filesToSend.length > 0) {
+          sendOptions.files = filesToSend.slice(0, 10);
         }
         const sentMsg = await channel.send(sendOptions);
         console.log(`[DISCORD] Mensagem enviada para o canal #${channel.name || targetChannelId} no Discord! ID: ${sentMsg.id}`);
@@ -309,16 +328,39 @@ ${conteudo || ""}`;
         if (searchId && /^\d{17,20}$/.test(searchId)) {
           msgToEdit = await channel.messages.fetch(searchId).catch(() => null);
         }
+        let originalContent = "";
         if (!msgToEdit && messageId && db) {
           try {
             const docSnap = await (0, import_firestore.getDoc)((0, import_firestore.doc)(db, "discord_notebook_messages", messageId));
-            if (docSnap.exists() && docSnap.data().discordMessageId) {
-              const dId = docSnap.data().discordMessageId;
-              if (/^\d{17,20}$/.test(dId)) {
+            if (docSnap.exists()) {
+              const data = docSnap.data();
+              originalContent = data.content || "";
+              const dId = data.discordMessageId;
+              if (dId && /^\d{17,20}$/.test(dId)) {
                 msgToEdit = await channel.messages.fetch(dId).catch(() => null);
               }
             }
           } catch (e) {
+          }
+        }
+        if (!msgToEdit) {
+          try {
+            const recentMessages = await channel.messages.fetch({ limit: 50 });
+            const botMessages = recentMessages.filter((m) => m.author.id === discordClient.user?.id);
+            if (remetente) {
+              const matched = botMessages.find((m) => m.content.startsWith(`**[${remetente}]**`));
+              if (matched) {
+                msgToEdit = matched;
+                if (messageId && db) {
+                  (0, import_firestore.updateDoc)((0, import_firestore.doc)(db, "discord_notebook_messages", messageId), {
+                    discordMessageId: matched.id
+                  }).catch(() => {
+                  });
+                }
+              }
+            }
+          } catch (fetchErr) {
+            console.warn("[DISCORD] Erro no fallback de busca de mensagens:", fetchErr);
           }
         }
         if (msgToEdit) {
