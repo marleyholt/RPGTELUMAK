@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { NPC, DiscordChannelItem, Character } from '../types';
-import { Search, Plus, Trash2, Edit2, LayoutGrid, List as ListIcon, X, Check, Image as ImageIcon, Download, FileText, RotateCcw } from 'lucide-react';
+import { Search, Plus, Trash2, Edit2, LayoutGrid, List as ListIcon, X, Check, Image as ImageIcon, Download, FileText, RotateCcw, Send, ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import RichTextEditor from './RichTextEditor';
 import { ImageUploadField } from './ImageUploadField';
 
@@ -12,9 +12,12 @@ export function NpcManager({ characters = [] }: { characters?: Character[] }) {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [editingNpc, setEditingNpc] = useState<Partial<NPC> | null>(null);
   const [viewingNpc, setViewingNpc] = useState<NPC | null>(null);
+  const [viewingPhotoIndex, setViewingPhotoIndex] = useState<number>(0);
   
   // Discord Send Modal
   const [showDiscordModal, setShowDiscordModal] = useState(false);
+  const [discordTargetItem, setDiscordTargetItem] = useState<{ id: string; name: string; images?: string[]; coverImageIndex?: number; _type?: string } | null>(null);
+  const [selectedPhotoIndexForSend, setSelectedPhotoIndexForSend] = useState<number>(0);
   const [discordChannels, setDiscordChannels] = useState<DiscordChannelItem[]>([]);
   const [selectedChannel, setSelectedChannel] = useState<string>('');
   const [sendingDiscord, setSendingDiscord] = useState(false);
@@ -22,11 +25,12 @@ export function NpcManager({ characters = [] }: { characters?: Character[] }) {
   const [filterType, setFilterType] = useState<'all' | 'npc' | 'character'>('all');
 
   useEffect(() => {
-    const handleOpenNpc = (e) => {
+    const handleOpenNpc = (e: any) => {
       const npcId = e.detail;
       const found = npcs.find(n => n.id === npcId);
       if (found) {
         setViewingNpc(found);
+        setViewingPhotoIndex(found.coverImageIndex || 0);
       }
     };
     window.addEventListener('openNpcSheet', handleOpenNpc);
@@ -52,6 +56,9 @@ export function NpcManager({ characters = [] }: { characters?: Character[] }) {
         channels.push({ id: doc.id, ...doc.data() } as DiscordChannelItem);
       });
       setDiscordChannels(channels);
+      if (channels.length > 0 && !selectedChannel) {
+        setSelectedChannel(channels[0].id);
+      }
     }, (err) => {
       console.warn("Discord Channels erro:", err);
       setDiscordChannels([]);
@@ -62,7 +69,7 @@ export function NpcManager({ characters = [] }: { characters?: Character[] }) {
       unsubChannels();
     };
   }, []);
-  
+
   const handleDownloadAll = (validImages: string[], npcName: string) => {
     validImages.forEach((url, idx) => {
       setTimeout(() => {
@@ -75,42 +82,105 @@ export function NpcManager({ characters = [] }: { characters?: Character[] }) {
       }, idx * 300);
     });
   };
-  
+
+  const handleOpenSendToDiscord = (
+    item: { id: string; name: string; images?: string[]; coverImageIndex?: number; _type?: string },
+    preferredPhotoIndex?: number
+  ) => {
+    setDiscordTargetItem(item);
+    if (preferredPhotoIndex !== undefined) {
+      setSelectedPhotoIndexForSend(preferredPhotoIndex);
+    } else {
+      setSelectedPhotoIndexForSend(item.coverImageIndex || 0);
+    }
+    setSendType('cover');
+    if (discordChannels.length > 0 && !selectedChannel) {
+      setSelectedChannel(discordChannels[0].id);
+    }
+    setShowDiscordModal(true);
+  };
+
+  const handleSetAsCover = async (npcId: string, photoIdx: number) => {
+    try {
+      const isChar = (viewingNpc as any)?._type === 'character';
+      const collName = isChar ? 'characters' : 'npcs';
+      await updateDoc(doc(db, collName, npcId), {
+        coverImageIndex: photoIdx
+      });
+      setViewingNpc(prev => prev ? ({ ...prev, coverImageIndex: photoIdx }) : null);
+    } catch (err) {
+      console.error("Erro ao definir capa:", err);
+      alert("Erro ao salvar foto como capa.");
+    }
+  };
+
   const handleSendToDiscord = async () => {
-    if (!selectedChannel || !viewingNpc) return;
+    const target = discordTargetItem || viewingNpc;
+    if (!selectedChannel || !target) return;
     setSendingDiscord(true);
     
     try {
-      const validImages = (viewingNpc.images || []).filter(Boolean);
+      const validImages = (target.images || []).filter(Boolean);
+      const chosenPhoto = validImages[selectedPhotoIndexForSend] || validImages[target.coverImageIndex || 0] || validImages[0];
       const imagesToSend = sendType === 'cover' 
-        ? (validImages.length > 0 ? [validImages[viewingNpc.coverImageIndex] || validImages[0]] : []) 
+        ? (chosenPhoto ? [chosenPhoto] : []) 
         : validImages;
         
       if (imagesToSend.length === 0) {
-        alert('Este NPC não possui imagens para enviar.');
+        alert('Este item não possui imagens para enviar.');
         setSendingDiscord(false);
         return;
       }
       
+      const targetChannelObj = discordChannels.find(c => c.id === selectedChannel);
+      // Resolve canal correto (discordChannelId se existir, senão id do firestore)
+      const effectiveChannelId = targetChannelObj?.discordChannelId || targetChannelObj?.id || selectedChannel;
+      
       const payload: Record<string, any> = {
-        channelId: selectedChannel,
+        channelId: effectiveChannelId,
         authorName: 'Mestre',
         authorAvatar: 'https://cdn-icons-png.flaticon.com/512/9055/9055160.png',
         authorEmail: 'gm@telumak.com',
-        content: `**${viewingNpc.name}**
-${sendType === 'cover' ? '(Foto Principal)' : '(Galeria de Fotos)'}`,
+        content: `**${target.name}**\n${sendType === 'cover' ? '(Foto)' : '(Galeria de Fotos)'}`,
         isFromDiscord: false,
         pinned: false,
         createdAt: serverTimestamp(),
         attachments: imagesToSend
       };
       
-      await addDoc(collection(db, 'discord_notebook_messages'), payload);
+      const docRef = await addDoc(collection(db, 'discord_notebook_messages'), payload);
+
+      // Também encaminhar para a API do Discord se o canal possuir discordChannelId
+      if (targetChannelObj?.discordChannelId) {
+        fetch(`${import.meta.env.VITE_API_URL || 'https://telumak-server.duckdns.org'}/api/discord/notebook/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            channelId: targetChannelObj.discordChannelId,
+            remetente: 'Mestre',
+            conteudo: `**${target.name}**\n${sendType === 'cover' ? '(Foto)' : '(Galeria de Fotos)'}`,
+            attachment: imagesToSend[0] || undefined
+          })
+        }).then(async (res) => {
+          if (res.ok) {
+            const data = await res.json().catch(() => ({}));
+            if (data.discordMessageId && docRef?.id) {
+              updateDoc(doc(db, 'discord_notebook_messages', docRef.id), {
+                discordMessageId: data.discordMessageId
+              }).catch(() => {});
+            }
+          }
+        }).catch(err => {
+          console.warn("Falha ao despachar imagem da biblioteca para a API do Discord:", err);
+        });
+      }
+
       setShowDiscordModal(false);
-      alert('Imagens enviadas para o Discord com sucesso!');
+      setDiscordTargetItem(null);
+      alert('Imagem enviada para o canal com sucesso!');
     } catch (e) {
       console.error(e);
-      alert('Erro ao enviar para o Discord.');
+      alert('Erro ao enviar para o canal.');
     } finally {
       setSendingDiscord(false);
     }
@@ -207,7 +277,7 @@ ${sendType === 'cover' ? '(Foto Principal)' : '(Galeria de Fotos)'}`,
 
   if (viewingNpc) {
     const validImages = (viewingNpc.images || []).filter(Boolean);
-    const coverImg = validImages.length > 0 ? (validImages[viewingNpc.coverImageIndex] || validImages[0]) : null;
+    const activePhoto = validImages.length > 0 ? (validImages[viewingPhotoIndex] || validImages[0]) : null;
 
     return (
       <div className="flex flex-col h-full bg-[#313338] animate-fade-in">
@@ -238,36 +308,86 @@ ${sendType === 'cover' ? '(Foto Principal)' : '(Galeria de Fotos)'}`,
             
             {/* Left side: Images */}
             <div className="w-full md:w-1/3 flex flex-col gap-4 overflow-hidden">
-              {coverImg ? (
+              {activePhoto ? (
                 <div className="flex flex-col gap-2 shrink-0">
                   <div className="relative aspect-[3/4] bg-[#1e1f22] rounded-lg overflow-hidden border border-white/5 shadow-lg group">
-                    <img src={coverImg} alt={viewingNpc.name} className="w-full h-full object-cover" />
+                    <img src={activePhoto} alt={viewingNpc.name} className="w-full h-full object-cover select-none" />
+                    
+                    {/* Gallery Navigation Controls */}
+                    {validImages.length > 1 && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setViewingPhotoIndex(prev => (prev > 0 ? prev - 1 : validImages.length - 1));
+                          }}
+                          className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center transition border border-white/20 shadow-lg z-10"
+                          title="Foto anterior"
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setViewingPhotoIndex(prev => (prev < validImages.length - 1 ? prev + 1 : 0));
+                          }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center transition border border-white/20 shadow-lg z-10"
+                          title="Próxima foto"
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </button>
+                        <div className="absolute top-2 right-2 px-2.5 py-1 rounded bg-black/70 backdrop-blur-sm border border-white/20 text-[10px] font-mono font-bold text-white z-10 shadow">
+                          {viewingPhotoIndex + 1} / {validImages.length}
+                        </div>
+                      </>
+                    )}
                   </div>
                   
                   {/* Actions for Images */}
-                  <div className="grid grid-cols-1 gap-2 mt-1">
-                    <div className="flex flex-col gap-1">
+                  <div className="flex flex-col gap-1.5 mt-1">
+                    <button 
+                      onClick={() => handleOpenSendToDiscord(viewingNpc, viewingPhotoIndex)}
+                      className="w-full py-2 bg-[#5865f2] hover:bg-[#4752c4] text-white text-xs font-black uppercase tracking-wider rounded shadow transition flex items-center justify-center gap-1.5"
+                      title="Enviar para Canal do Discord"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      Enviar para Canal
+                    </button>
+                    
+                    <div className="grid grid-cols-2 gap-1.5">
                       <button 
-                        onClick={() => handleDownload(coverImg, viewingNpc.name)}
-                        className="w-full py-1.5 bg-white/5 hover:bg-white/10 text-white text-[10px] font-bold uppercase tracking-wider rounded border border-white/10 flex items-center justify-center gap-1.5 transition"
-                        title="Baixar Foto Principal"
+                        onClick={() => handleDownload(activePhoto, `${viewingNpc.name}-foto-${viewingPhotoIndex + 1}`)}
+                        className="py-1.5 px-2 bg-white/5 hover:bg-white/10 text-white text-[10px] font-bold uppercase tracking-wider rounded border border-white/10 flex items-center justify-center gap-1 transition"
+                        title="Baixar Foto Selecionada"
                       >
                         <Download className="w-3 h-3 text-sky-400" />
-                        Baixar Capa
+                        Baixar Foto
                       </button>
-                      {validImages.length > 1 && (
+                      {validImages.length > 1 ? (
                         <button 
                           onClick={() => handleDownloadAll(validImages, viewingNpc.name)}
-                          className="w-full py-1.5 bg-white/5 hover:bg-white/10 text-white text-[10px] font-bold uppercase tracking-wider rounded border border-white/10 flex items-center justify-center gap-1.5 transition"
+                          className="py-1.5 px-2 bg-white/5 hover:bg-white/10 text-white text-[10px] font-bold uppercase tracking-wider rounded border border-white/10 flex items-center justify-center gap-1 transition"
                           title="Baixar Todas as Fotos"
                         >
                           <Download className="w-3 h-3 text-emerald-400" />
                           Baixar Todas
                         </button>
+                      ) : (
+                        <div />
                       )}
                     </div>
-                    
 
+                    {validImages.length > 1 && viewingPhotoIndex !== (viewingNpc.coverImageIndex || 0) && (
+                      <button
+                        onClick={() => handleSetAsCover(viewingNpc.id, viewingPhotoIndex)}
+                        className="w-full py-1.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 hover:text-white text-[10px] font-bold uppercase tracking-wider rounded border border-indigo-500/30 flex items-center justify-center gap-1 transition"
+                      >
+                        <Star className="w-3 h-3 text-indigo-400" />
+                        Definir Esta Foto como Capa
+                      </button>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -277,14 +397,32 @@ ${sendType === 'cover' ? '(Foto Principal)' : '(Galeria de Fotos)'}`,
                 </div>
               )}
               
-              {/* Camera Roll */}
+              {/* Camera Roll / Gallery Thumbnails */}
               {validImages.length > 1 && (
                 <div className="flex gap-2 overflow-x-auto pb-2 custom-scroll shrink-0">
-                  {validImages.map((img, idx) => (
-                    <div key={idx} className={`relative w-16 h-16 shrink-0 rounded overflow-hidden border-2 ${viewingNpc.coverImageIndex === idx ? 'border-indigo-500' : 'border-white/10 opacity-60'}`}>
-                      <img src={img} alt="" className="w-full h-full object-cover" />
-                    </div>
-                  ))}
+                  {validImages.map((img, idx) => {
+                    const isCurrent = viewingPhotoIndex === idx;
+                    const isCover = (viewingNpc.coverImageIndex || 0) === idx;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setViewingPhotoIndex(idx)}
+                        className={`relative w-16 h-16 shrink-0 rounded overflow-hidden border-2 transition group ${
+                          isCurrent 
+                            ? 'border-sky-400 ring-2 ring-sky-400/50 opacity-100 scale-105 shadow-md' 
+                            : 'border-white/10 opacity-60 hover:opacity-100'
+                        }`}
+                      >
+                        <img src={img} alt="" className="w-full h-full object-cover" />
+                        {isCover && (
+                          <span className="absolute bottom-0 inset-x-0 bg-indigo-600/90 text-white text-[8px] font-black uppercase text-center py-0.5">
+                            Capa
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -583,6 +721,16 @@ ${sendType === 'cover' ? '(Foto Principal)' : '(Galeria de Fotos)'}`,
                       {(npc.images?.filter(Boolean).length || 0)} Fotos
                     </p>
                     <div className="mt-auto flex gap-1">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenSendToDiscord(npc);
+                        }}
+                        className="py-1.5 px-2 bg-[#5865f2]/10 hover:bg-[#5865f2]/20 text-[#5865f2] hover:text-white text-[10px] font-bold uppercase tracking-wider rounded transition flex items-center justify-center gap-1 border border-transparent hover:border-[#5865f2]/30"
+                        title="Enviar para canal do Discord"
+                      >
+                        <Send className="w-3 h-3" />
+                      </button>
                       <button onClick={(e) => { 
                         e.stopPropagation(); 
                         if ((npc as any)._type === 'character') {
@@ -647,6 +795,13 @@ ${sendType === 'cover' ? '(Foto Principal)' : '(Galeria de Fotos)'}`,
                     <p className="text-[10px] text-white/40 uppercase tracking-wider">{(npc.images?.filter(Boolean).length || 0)} Fotos Cadastradas</p>
                   </div>
                   <div className="flex gap-2 px-2">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleOpenSendToDiscord(npc); }}
+                      className="w-8 h-8 rounded bg-white/5 border border-white/5 flex items-center justify-center text-white/60 hover:text-[#5865f2] hover:bg-[#5865f2]/10 hover:border-[#5865f2]/30 transition"
+                      title="Enviar para Canal do Discord"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
                     {coverImg && (
                       <button 
                         onClick={(e) => { e.stopPropagation(); handleDownload(coverImg, npc.name); }}
@@ -748,6 +903,142 @@ ${sendType === 'cover' ? '(Foto Principal)' : '(Galeria de Fotos)'}`,
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Envio Direto para Canal do Discord */}
+      {showDiscordModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-[#1e1f22] border border-[#5865f2]/30 p-6 shadow-2xl rounded-lg max-w-md w-full">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-4">
+              <div className="flex items-center gap-2 text-white">
+                <Send className="w-5 h-5 text-[#5865f2]" />
+                <h3 className="text-sm font-black uppercase tracking-wider">Enviar para Canal</h3>
+              </div>
+              <button 
+                onClick={() => { setShowDiscordModal(false); setDiscordTargetItem(null); }} 
+                className="text-white/40 hover:text-white transition"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-2">
+                  Item Selecionado
+                </label>
+                <div className="p-3 bg-black/40 rounded border border-white/5 flex items-center gap-3">
+                  {(() => {
+                    const target = discordTargetItem || viewingNpc;
+                    const validImgs = (target?.images || []).filter(Boolean);
+                    const imgUrl = validImgs[selectedPhotoIndexForSend] || validImgs[target?.coverImageIndex || 0] || validImgs[0] || null;
+                    return (
+                      <>
+                        <div className="w-10 h-10 rounded bg-[#2b2d31] overflow-hidden shrink-0 border border-white/10">
+                          {imgUrl ? (
+                            <img src={imgUrl} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <ImageIcon className="w-5 h-5 m-auto text-white/20" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-white truncate">{target?.name}</p>
+                          <p className="text-[10px] text-white/40 uppercase tracking-wider">
+                            {validImgs.length} Fotos disponíveis
+                          </p>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-2">
+                  Escolha o Canal de Texto
+                </label>
+                {discordChannels.length === 0 ? (
+                  <p className="text-xs text-amber-400 bg-amber-500/10 p-3 rounded border border-amber-500/20">
+                    Nenhum canal do Discord encontrado. Crie um canal na aba Discord primeiro.
+                  </p>
+                ) : (
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scroll pr-1">
+                    {discordChannels.map(ch => {
+                      const isSelected = selectedChannel === ch.id;
+                      return (
+                        <button
+                          key={ch.id}
+                          type="button"
+                          onClick={() => setSelectedChannel(ch.id)}
+                          className={`w-full flex items-center justify-between p-2.5 rounded text-left transition text-xs font-semibold ${
+                            isSelected 
+                              ? 'bg-[#5865f2] text-white shadow-md' 
+                              : 'bg-white/5 hover:bg-white/10 text-white/80 border border-white/5'
+                          }`}
+                        >
+                          <span className="flex items-center gap-1.5 truncate">
+                            <span className="opacity-60 text-sm">#</span>
+                            {ch.name}
+                          </span>
+                          {isSelected && <Check className="w-4 h-4 text-white shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-[10px] text-white/60 font-bold uppercase tracking-wider mb-2">
+                  Modo de Envio
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSendType('cover')}
+                    className={`py-2 px-3 rounded text-xs font-bold transition uppercase tracking-wider ${
+                      sendType === 'cover'
+                        ? 'bg-white/20 text-white border border-white/40'
+                        : 'bg-white/5 text-white/60 hover:text-white border border-white/5'
+                    }`}
+                  >
+                    Foto Principal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSendType('all')}
+                    className={`py-2 px-3 rounded text-xs font-bold transition uppercase tracking-wider ${
+                      sendType === 'all'
+                        ? 'bg-white/20 text-white border border-white/40'
+                        : 'bg-white/5 text-white/60 hover:text-white border border-white/5'
+                    }`}
+                  >
+                    Todas as Fotos
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2 border-t border-white/10">
+                <button 
+                  type="button"
+                  onClick={() => { setShowDiscordModal(false); setDiscordTargetItem(null); }}
+                  className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-white/70 text-xs font-bold uppercase rounded transition"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="button"
+                  disabled={sendingDiscord || !selectedChannel || discordChannels.length === 0}
+                  onClick={handleSendToDiscord}
+                  className="flex-1 py-2 bg-[#5865f2] hover:bg-[#4752c4] disabled:opacity-50 text-white text-xs font-black uppercase rounded shadow transition flex items-center justify-center gap-1.5"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  {sendingDiscord ? 'Enviando...' : 'Enviar Agora'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

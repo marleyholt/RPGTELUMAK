@@ -32,6 +32,10 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { PdfSheetImporterModal } from './components/PdfSheetImporterModal';
 import { trackRead, trackWrite, trackDelete } from './utils/firebaseUsageTracker';
 import { 
+  saveCharactersToCache, 
+  loadCharactersFromCache 
+} from './utils/browserCache';
+import { 
   logAudit, 
   logTelemetry, 
   subscribeToAuditLogs, 
@@ -45,8 +49,11 @@ export default function App() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
-  // Firestore Sync State
-  const [characters, setCharacters] = useState<Character[]>([]);
+  // Firestore Sync State (Loaded immediately from browser cache if present)
+  const [characters, setCharacters] = useState<Character[]>(() => {
+    const cached = loadCharactersFromCache();
+    return cached && cached.length > 0 ? cached : [];
+  });
   const [statuses, setStatuses] = useState<CustomStatusType[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [versionsMap, setVersionsMap] = useState<{ [charId: string]: CharVersion[] }>({});
@@ -313,6 +320,7 @@ export default function App() {
         list.push({ id: d.id, ...d.data() } as Character);
       });
       setCharacters(list);
+      saveCharactersToCache(list);
 
       // Select default character if Player has only one
       const myChars = list.filter(c => c.email_dono === currentUser.email);

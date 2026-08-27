@@ -182,6 +182,9 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
   const [messageLimit, setMessageLimit] = useState(50);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [editingMessage, setEditingMessage] = useState<DiscordNotebookMessage | null>(null);
+  const [editContentText, setEditContentText] = useState('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatScrollContainerRef = useRef<HTMLDivElement>(null);
@@ -376,6 +379,67 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
       console.error("Erro ao fixar/desafixar mensagem:", err);
     } finally {
       setIsPinning(null);
+    }
+  };
+
+  // Start editing message
+  const handleStartEditMessage = (msg: DiscordNotebookMessage) => {
+    setEditingMessage(msg);
+    setEditContentText(msg.content || '');
+  };
+
+  const handleCancelEditMessage = () => {
+    setEditingMessage(null);
+    setEditContentText('');
+  };
+
+  const handleSaveEditMessage = async (msg: DiscordNotebookMessage) => {
+    if (!msg.id) return;
+    const newContent = editContentText.trim();
+    if (!newContent) {
+      alert("A mensagem não pode ficar vazia. Caso deseje removê-la, clique no ícone de lixeira.");
+      return;
+    }
+
+    if (newContent.length > DISCORD_FREE_MAX_CHARS) {
+      alert(`Sua mensagem ultrapassou o limite do Discord (${newContent.length}/${DISCORD_FREE_MAX_CHARS} caracteres).`);
+      return;
+    }
+
+    setIsSavingEdit(true);
+    try {
+      await updateDoc(doc(db, 'discord_notebook_messages', msg.id), {
+        content: newContent,
+        editedAt: serverTimestamp()
+      });
+      trackWrite('discord_notebook_messages', 1);
+
+      // Sincronizar edição com a API do Discord se disponível
+      const discordTargetId = activeChannel?.discordChannelId || (/^\d{17,20}$/.test(activeChannelId) ? activeChannelId : null);
+      if (discordTargetId) {
+        fetch(`${import.meta.env.VITE_API_URL || 'https://telumak-server.duckdns.org'}/api/discord/notebook/edit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            channelId: discordTargetId,
+            messageId: msg.id,
+            discordMessageId: (msg as any).discordMessageId || undefined,
+            conteudo: newContent,
+            remetente: msg.authorName || effectiveDiscordName
+          })
+        }).catch(err => {
+          console.warn("Falha na sincronização de edição com o Discord oficial:", err);
+        });
+      }
+
+      setEditingMessage(null);
+      setEditContentText('');
+      logEvent('info', `Mensagem editada com sucesso! (#${activeChannel?.name || 'canal'})`);
+    } catch (err: any) {
+      console.error("Erro ao salvar edição da mensagem:", err);
+      alert(`Erro ao editar mensagem: ${err?.message || err}`);
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
@@ -661,6 +725,11 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
           if (res.ok) {
             const data = await res.json().catch(() => ({}));
             if (data.success) {
+              if (data.discordMessageId && docRef?.id) {
+                updateDoc(doc(db, 'discord_notebook_messages', docRef.id), {
+                  discordMessageId: data.discordMessageId
+                }).catch(() => {});
+              }
               logEvent('success', `Mensagem sincronizada e enviada para o canal do Discord (#${discordTargetId})`);
             } else if (data.botOffline) {
               logEvent('info', `Mensagem salva localmente. O bot do Discord está offline.`);
@@ -1023,6 +1092,74 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
         continue;
       }
 
+      // Underline Combinations (__***, __**, __*, ___, __)
+      const uBoldItalicMatch = remaining.match(/^__\*\*\*([^*_]+)\*\*\*__/);
+      if (uBoldItalicMatch) {
+        parts.push(
+          <u key={`${msgId}-${lineIdx}-${keyCounter++}`} className="underline underline-offset-2">
+            <strong className="font-black text-white">
+              <em className="italic">
+                {highlightSearch(uBoldItalicMatch[1], `${msgId}-${lineIdx}-${keyCounter}`)}
+              </em>
+            </strong>
+          </u>
+        );
+        remaining = remaining.substring(uBoldItalicMatch[0].length);
+        continue;
+      }
+
+      const uBoldMatch = remaining.match(/^__\*\*([^*_]+)\*\*__/);
+      if (uBoldMatch) {
+        parts.push(
+          <u key={`${msgId}-${lineIdx}-${keyCounter++}`} className="underline underline-offset-2">
+            <strong className="font-black text-white">
+              {highlightSearch(uBoldMatch[1], `${msgId}-${lineIdx}-${keyCounter}`)}
+            </strong>
+          </u>
+        );
+        remaining = remaining.substring(uBoldMatch[0].length);
+        continue;
+      }
+
+      const uItalicMatch = remaining.match(/^__\*([^*_]+)\*__/) || remaining.match(/^___([^_]+)___/);
+      if (uItalicMatch) {
+        parts.push(
+          <u key={`${msgId}-${lineIdx}-${keyCounter++}`} className="underline underline-offset-2">
+            <em className="italic">
+              {highlightSearch(uItalicMatch[1], `${msgId}-${lineIdx}-${keyCounter}`)}
+            </em>
+          </u>
+        );
+        remaining = remaining.substring(uItalicMatch[0].length);
+        continue;
+      }
+
+      const underlineMatch = remaining.match(/^__([^_]+)__/);
+      if (underlineMatch) {
+        parts.push(
+          <u key={`${msgId}-${lineIdx}-${keyCounter++}`} className="underline underline-offset-2">
+            {highlightSearch(underlineMatch[1], `${msgId}-${lineIdx}-${keyCounter}`)}
+          </u>
+        );
+        remaining = remaining.substring(underlineMatch[0].length);
+        continue;
+      }
+
+      // Bold & Italic (***text***)
+      const boldItalicMatch = remaining.match(/^\*\*\*([^*]+)\*\*\*/);
+      if (boldItalicMatch) {
+        parts.push(
+          <strong key={`${msgId}-${lineIdx}-${keyCounter++}`} className="font-black text-white">
+            <em className="italic">
+              {highlightSearch(boldItalicMatch[1], `${msgId}-${lineIdx}-${keyCounter}`)}
+            </em>
+          </strong>
+        );
+        remaining = remaining.substring(boldItalicMatch[0].length);
+        continue;
+      }
+
+      // Bold (**text**)
       const boldMatch = remaining.match(/^\*\*([^*]+)\*\*/);
       if (boldMatch) {
         parts.push(
@@ -1034,19 +1171,54 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
         continue;
       }
 
-      const strikeMatch = remaining.match(/^~~([^~]+)~~/);
-      if (strikeMatch) {
+      // Italic (*text* or _text_)
+      const italicAsteriskMatch = remaining.match(/^\*([^*\n]+)\*/);
+      if (italicAsteriskMatch) {
+        parts.push(
+          <em key={`${msgId}-${lineIdx}-${keyCounter++}`} className="italic text-[#e0e1e5]">
+            {highlightSearch(italicAsteriskMatch[1], `${msgId}-${lineIdx}-${keyCounter}`)}
+          </em>
+        );
+        remaining = remaining.substring(italicAsteriskMatch[0].length);
+        continue;
+      }
+
+      const italicUnderscoreMatch = remaining.match(/^_([^_\n]+)_/);
+      if (italicUnderscoreMatch) {
+        parts.push(
+          <em key={`${msgId}-${lineIdx}-${keyCounter++}`} className="italic text-[#e0e1e5]">
+            {highlightSearch(italicUnderscoreMatch[1], `${msgId}-${lineIdx}-${keyCounter}`)}
+          </em>
+        );
+        remaining = remaining.substring(italicUnderscoreMatch[0].length);
+        continue;
+      }
+
+      // Strikethrough (~~text~~ or ~text~)
+      const strikeDoubleMatch = remaining.match(/^~~([^~]+)~~/);
+      if (strikeDoubleMatch) {
         parts.push(
           <del key={`${msgId}-${lineIdx}-${keyCounter++}`} className="line-through text-white/50">
-            {highlightSearch(strikeMatch[1], `${msgId}-${lineIdx}-${keyCounter}`)}
+            {highlightSearch(strikeDoubleMatch[1], `${msgId}-${lineIdx}-${keyCounter}`)}
           </del>
         );
-        remaining = remaining.substring(strikeMatch[0].length);
+        remaining = remaining.substring(strikeDoubleMatch[0].length);
+        continue;
+      }
+
+      const strikeSingleMatch = remaining.match(/^~([^~\n]+)~/);
+      if (strikeSingleMatch) {
+        parts.push(
+          <del key={`${msgId}-${lineIdx}-${keyCounter++}`} className="line-through text-white/50">
+            {highlightSearch(strikeSingleMatch[1], `${msgId}-${lineIdx}-${keyCounter}`)}
+          </del>
+        );
+        remaining = remaining.substring(strikeSingleMatch[0].length);
         continue;
       }
 
       // Match plain text up to next special markdown syntax token
-      const plainMatch = remaining.match(/^[^*~`|>h\n]+/i);
+      const plainMatch = remaining.match(/^[^*~`|>h\n_]+/i);
       if (plainMatch) {
         parts.push(highlightSearch(plainMatch[0], `${msgId}-${lineIdx}-${keyCounter++}`));
         remaining = remaining.substring(plainMatch[0].length);
@@ -1570,10 +1742,58 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
                         </span>
                       </div>
 
-                      {/* Message Content with Discord Markdown */}
-                      <div className="text-[13px] text-[#dbdee1] mt-0.5 font-sans break-words select-text leading-relaxed">
-                        {renderDiscordMarkdown(msg.content, msg.id || `${idx}`)}
-                      </div>
+                      {/* Message Content or Edit Form */}
+                      {editingMessage?.id === msg.id ? (
+                        <div className="mt-2 space-y-2 bg-[#2b2d31] p-3 rounded border border-[#5865f2]/40">
+                          <textarea
+                            value={editContentText}
+                            onChange={(e) => setEditContentText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSaveEditMessage(msg);
+                              } else if (e.key === 'Escape') {
+                                handleCancelEditMessage();
+                              }
+                            }}
+                            rows={3}
+                            className="w-full bg-[#1e1f22] text-white text-[13px] p-2 rounded border border-white/10 focus:outline-none focus:border-[#5865f2] resize-none font-sans leading-relaxed custom-scroll"
+                            placeholder="Editar anotação..."
+                            autoFocus
+                          />
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-[#949ba4]">
+                              pressione <strong className="text-white">Enter</strong> para salvar • <strong className="text-white">Esc</strong> para cancelar
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={handleCancelEditMessage}
+                                className="px-2.5 py-1 text-white/70 hover:text-white bg-white/5 hover:bg-white/10 rounded transition font-medium"
+                              >
+                                Cancelar
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isSavingEdit || !editContentText.trim()}
+                                onClick={() => handleSaveEditMessage(msg)}
+                                className="px-3 py-1 bg-[#5865f2] hover:bg-[#4752c4] disabled:opacity-50 text-white rounded transition font-bold flex items-center gap-1 shadow-sm"
+                              >
+                                {isSavingEdit ? 'Salvando...' : 'Salvar'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-[13px] text-[#dbdee1] mt-0.5 font-sans break-words select-text leading-relaxed">
+                          {renderDiscordMarkdown(msg.content, msg.id || `${idx}`)}
+                          {(msg as any).editedAt && (
+                            <span className="text-[10px] text-[#949ba4] font-normal ml-1 select-none">
+                              (editado)
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                       {/* Attachment Images */}
                       {msg.attachments && msg.attachments.length > 0 && (
@@ -1589,6 +1809,17 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
 
                     {/* Quick Action Floating Bar */}
                     <div className="absolute right-3 top-2 opacity-0 group-hover:opacity-100 transition-opacity bg-[#2b2d31] border border-[#3f4147] rounded shadow-md flex items-center p-0.5 z-10">
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditMessage(msg)}
+                          className="p-1.5 text-white/60 hover:text-white hover:bg-[#35373c] rounded transition"
+                          title="Editar anotação"
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => handleTogglePin(msg)}

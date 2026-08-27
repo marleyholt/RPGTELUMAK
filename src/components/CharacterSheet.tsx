@@ -4,6 +4,7 @@ import { db } from '../firebase';
 import { Character, CustomStatusType, CharVersion } from '../types';
 import { handleFirestoreError, OperationType } from '../utils/errors';
 import { logAudit } from '../utils/auditTelemetry';
+import { saveSingleCharacterToCache } from '../utils/browserCache';
 import { SheetVersions } from './SheetVersions';
 import { ImageUploadField } from './ImageUploadField';
 import { PrintableSankoteiSheet } from './PrintableSankoteiSheet';
@@ -13,7 +14,7 @@ import {
   Heart, Zap, Star, Shield, Crosshair, Activity, Dumbbell, 
   Printer, Edit, Plus, Minus, Flame, Sparkles, Swords, 
   BookOpen, Backpack, Eye, Check, X, User, Image as ImageIcon,
-  Trash2, RotateCcw, History, Package
+  Trash2, RotateCcw, History, Package, Save, CheckCircle
 } from 'lucide-react';
 
 
@@ -149,13 +150,51 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
   const rHtmlEquip = activeVersion?.html_equipamentos || character.html_equipamentos;
   const rHtmlDefesa = activeVersion?.html_defesa || character.html_defesa;
 
+  // Local State for Interactive Indicators (HP, Éter, Destino, Ferramentas)
+  const [localHp, setLocalHp] = useState<number>(character.hp_atual ?? 0);
+  const [localEther, setLocalEther] = useState<number>(character.ether_atual ?? 0);
+  const [localDestino, setLocalDestino] = useState<number>(character.destino_atual ?? 0);
+  const [localToolFisico, setLocalToolFisico] = useState<number>(character.ferramenta_fisico_atual ?? character.ferramenta_fisico_max ?? 2);
+  const [localToolFisicoSec, setLocalToolFisicoSec] = useState<number>(character.ferramenta_fisico_sec_atual ?? character.ferramenta_fisico_sec_max ?? 3);
+  const [localToolDestreza, setLocalToolDestreza] = useState<number>(character.ferramenta_destreza_atual ?? character.ferramenta_destreza_max ?? 0);
+  const [localToolCognicao, setLocalToolCognicao] = useState<number>(character.ferramenta_cognicao_atual ?? character.ferramenta_cognicao_max ?? 0);
+  const [localToolCarisma, setLocalToolCarisma] = useState<number>(character.ferramenta_carisma_atual ?? character.ferramenta_carisma_max ?? 1);
+  const [isSavingVitals, setIsSavingVitals] = useState(false);
+
+  // Sync local indicators when character changes, unless user has pending unsaved changes
+  useEffect(() => {
+    setLocalHp(character.hp_atual ?? 0);
+    setLocalEther(character.ether_atual ?? 0);
+    setLocalDestino(character.destino_atual ?? 0);
+    setLocalToolFisico(character.ferramenta_fisico_atual ?? character.ferramenta_fisico_max ?? 2);
+    setLocalToolFisicoSec(character.ferramenta_fisico_sec_atual ?? character.ferramenta_fisico_sec_max ?? 3);
+    setLocalToolDestreza(character.ferramenta_destreza_atual ?? character.ferramenta_destreza_max ?? 0);
+    setLocalToolCognicao(character.ferramenta_cognicao_atual ?? character.ferramenta_cognicao_max ?? 0);
+    setLocalToolCarisma(character.ferramenta_carisma_atual ?? character.ferramenta_carisma_max ?? 1);
+  }, [character.id]);
+
+  // Detect pending indicator changes
+  const hasPendingVitalChanges = 
+    localHp !== (character.hp_atual ?? 0) ||
+    localEther !== (character.ether_atual ?? 0) ||
+    localDestino !== (character.destino_atual ?? 0) ||
+    localToolFisico !== (character.ferramenta_fisico_atual ?? character.ferramenta_fisico_max ?? 2) ||
+    localToolFisicoSec !== (character.ferramenta_fisico_sec_atual ?? character.ferramenta_fisico_sec_max ?? 3) ||
+    localToolDestreza !== (character.ferramenta_destreza_atual ?? character.ferramenta_destreza_max ?? 0) ||
+    localToolCognicao !== (character.ferramenta_cognicao_atual ?? character.ferramenta_cognicao_max ?? 0) ||
+    localToolCarisma !== (character.ferramenta_carisma_atual ?? character.ferramenta_carisma_max ?? 1);
+
   // HP dependent dynamic artwork
   // 51% to 100%: Saudável
   // 26% to 50%: Ferido
   // <= 25%: Muito Ferido (Crítico)
-  const hpPct = Math.min(100, Math.max(0, (character.hp_atual / (rHpMax || 1)) * 100));
-  const etherPct = Math.min(100, Math.max(0, (character.ether_atual / (rEtherMax || 1)) * 100));
-  const destinoPct = Math.min(100, Math.max(0, (character.destino_atual / (rDestinoMax || 1)) * 100));
+  const currentHpForDisplay = localHp;
+  const currentEtherForDisplay = localEther;
+  const currentDestinoForDisplay = localDestino;
+
+  const hpPct = Math.min(100, Math.max(0, (currentHpForDisplay / (rHpMax || 1)) * 100));
+  const etherPct = Math.min(100, Math.max(0, (currentEtherForDisplay / (rEtherMax || 1)) * 100));
+  const destinoPct = Math.min(100, Math.max(0, (currentDestinoForDisplay / (rDestinoMax || 1)) * 100));
 
   let activeAvatarUrl = rImgSaudavel || 'https://via.placeholder.com/340x578?text=Sem+Avatar';
   let healthStatusLabel = 'Saudável (51% - 100%)';
@@ -171,67 +210,94 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
     healthStatusColor = 'text-amber-400 border-amber-500/30 bg-amber-950/20';
   }
 
-  const handleUpdateVital = async (field: 'hp_atual' | 'ether_atual' | 'destino_atual', delta: number) => {
-    const docPath = `characters/${character.id}`;
-    let max = rHpMax;
-    if (field === 'ether_atual') max = rEtherMax;
-    if (field === 'destino_atual') max = rDestinoMax;
-
-    let newVal = (character[field] || 0) + delta;
-    if (newVal < 0) newVal = 0;
-    if (newVal > max) newVal = max;
-
-    try {
-      await updateDoc(doc(db, 'characters', character.id), {
-        [field]: newVal
-      });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, docPath);
+  // Adjust indicator locally in memory
+  const handleUpdateVital = (field: 'hp_atual' | 'ether_atual' | 'destino_atual', delta: number) => {
+    if (field === 'hp_atual') {
+      const max = rHpMax;
+      setLocalHp(prev => Math.min(max, Math.max(0, prev + delta)));
+    } else if (field === 'ether_atual') {
+      const max = rEtherMax;
+      setLocalEther(prev => Math.min(max, Math.max(0, prev + delta)));
+    } else if (field === 'destino_atual') {
+      const max = rDestinoMax;
+      setLocalDestino(prev => Math.min(max, Math.max(0, prev + delta)));
     }
   };
 
-  const handleUpdateToolCounter = async (
+  const handleUpdateToolCounter = (
     field: 'ferramenta_fisico_atual' | 'ferramenta_fisico_sec_atual' | 'ferramenta_destreza_atual' | 'ferramenta_cognicao_atual' | 'ferramenta_carisma_atual',
     delta: number,
     maxVal: number
   ) => {
-    const docPath = `characters/${character.id}`;
-    let current = character[field];
-    if (current === undefined || current === null) {
-      current = maxVal;
-    }
-    let newVal = current + delta;
-    if (newVal < 0) newVal = 0;
-    if (newVal > maxVal) newVal = maxVal;
-
-    try {
-      await updateDoc(doc(db, 'characters', character.id), {
-        [field]: newVal
-      });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, docPath);
+    if (field === 'ferramenta_fisico_atual') {
+      setLocalToolFisico(prev => Math.min(maxVal, Math.max(0, prev + delta)));
+    } else if (field === 'ferramenta_fisico_sec_atual') {
+      setLocalToolFisicoSec(prev => Math.min(maxVal, Math.max(0, prev + delta)));
+    } else if (field === 'ferramenta_destreza_atual') {
+      setLocalToolDestreza(prev => Math.min(maxVal, Math.max(0, prev + delta)));
+    } else if (field === 'ferramenta_cognicao_atual') {
+      setLocalToolCognicao(prev => Math.min(maxVal, Math.max(0, prev + delta)));
+    } else if (field === 'ferramenta_carisma_atual') {
+      setLocalToolCarisma(prev => Math.min(maxVal, Math.max(0, prev + delta)));
     }
   };
 
-  const handleRestoreAllTools = async () => {
+  const handleRestoreAllTools = () => {
+    setLocalToolFisico(character.ferramenta_fisico_max ?? 2);
+    setLocalToolFisicoSec(character.ferramenta_fisico_sec_max ?? 3);
+    setLocalToolDestreza(character.ferramenta_destreza_max ?? 0);
+    setLocalToolCognicao(character.ferramenta_cognicao_max ?? 0);
+    setLocalToolCarisma(character.ferramenta_carisma_max ?? 1);
+  };
+
+  // Discard local changes
+  const handleDiscardVitalChanges = () => {
+    setLocalHp(character.hp_atual ?? 0);
+    setLocalEther(character.ether_atual ?? 0);
+    setLocalDestino(character.destino_atual ?? 0);
+    setLocalToolFisico(character.ferramenta_fisico_atual ?? character.ferramenta_fisico_max ?? 2);
+    setLocalToolFisicoSec(character.ferramenta_fisico_sec_atual ?? character.ferramenta_fisico_sec_max ?? 3);
+    setLocalToolDestreza(character.ferramenta_destreza_atual ?? character.ferramenta_destreza_max ?? 0);
+    setLocalToolCognicao(character.ferramenta_cognicao_atual ?? character.ferramenta_cognicao_max ?? 0);
+    setLocalToolCarisma(character.ferramenta_carisma_atual ?? character.ferramenta_carisma_max ?? 1);
+  };
+
+  // Commit and apply local indicator changes to Firestore
+  const handleApplyVitalChanges = async () => {
     const docPath = `characters/${character.id}`;
+    setIsSavingVitals(true);
     try {
-      await updateDoc(doc(db, 'characters', character.id), {
-        ferramenta_fisico_atual: character.ferramenta_fisico_max ?? 2,
-        ferramenta_fisico_sec_atual: character.ferramenta_fisico_sec_max ?? 3,
-        ferramenta_destreza_atual: character.ferramenta_destreza_max ?? 0,
-        ferramenta_cognicao_atual: character.ferramenta_cognicao_max ?? 0,
-        ferramenta_carisma_atual: character.ferramenta_carisma_max ?? 1,
+      const updatedData = {
+        hp_atual: localHp,
+        ether_atual: localEther,
+        destino_atual: localDestino,
+        ferramenta_fisico_atual: localToolFisico,
+        ferramenta_fisico_sec_atual: localToolFisicoSec,
+        ferramenta_destreza_atual: localToolDestreza,
+        ferramenta_cognicao_atual: localToolCognicao,
+        ferramenta_carisma_atual: localToolCarisma,
+      };
+
+      await updateDoc(doc(db, 'characters', character.id), updatedData);
+      
+      // Update local storage cache immediately
+      saveSingleCharacterToCache({
+        ...character,
+        ...updatedData
       });
+
+      logAudit('PERSONAGEM', `Indicadores de ${character.nome} atualizados (HP: ${localHp}, Éter: ${localEther}, Destino: ${localDestino})`, character.id);
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, docPath);
+    } finally {
+      setIsSavingVitals(false);
     }
   };
 
   const handleSaveTextBlocks = async () => {
     const docPath = `characters/${character.id}`;
     try {
-      await updateDoc(doc(db, 'characters', character.id), {
+      const updatedFields = {
         nome: eNome.trim() || character.nome,
         cla: eCla.trim(),
         ocupacao: eOcupacao.trim(),
@@ -278,6 +344,11 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
         movimento_max: eMovimento,
         fortitude_max: eFortitude,
         tecnicas_max: eTecnicas
+      };
+      await updateDoc(doc(db, 'characters', character.id), updatedFields);
+      saveSingleCharacterToCache({
+        ...character,
+        ...updatedFields
       });
       setIsEditingTexts(false);
     } catch (err) {
@@ -505,6 +576,46 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
         {/* 2. RIGHT COLUMN: SCROLLABLE INDICATIVES, ATTRIBUTES & TEXT CONTENT */}
         <div className="flex-1 min-w-0 space-y-6 w-full">
 
+          {/* BARRA DE APLICAR MUDANÇAS (APARECE QUANDO HÁ ALTERAÇÕES NOS INDICADORES) */}
+          {hasPendingVitalChanges && (
+            <div className="bg-amber-500/10 border-2 border-amber-500/60 p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-[0_0_20px_rgba(245,158,11,0.15)] animate-pulse">
+              <div className="flex items-center gap-2.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-amber-400 animate-ping" />
+                <span className="text-xs font-mono font-bold text-amber-300 uppercase tracking-wider">
+                  Modificações pendentes na Ficha (HP, Éter, Destino ou Usos)
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDiscardVitalChanges}
+                  disabled={isSavingVitals}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10 text-xs font-mono uppercase font-bold transition disabled:opacity-50"
+                  title="Descartar alterações locais não salvas"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span>Descartar</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApplyVitalChanges}
+                  disabled={isSavingVitals}
+                  className="flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-black font-black text-xs font-mono uppercase tracking-wider shadow-lg transition disabled:opacity-50"
+                  title="Salvar alterações no Firebase e cache do navegador"
+                >
+                  {isSavingVitals ? (
+                    <span>Salvando...</span>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4 stroke-[3]" />
+                      <span>Aplicar Mudanças</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* 2.1 & 2.2 STATUS E MARCADORES (DUAS COLUNAS) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             
@@ -520,7 +631,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       Saúde
                     </span>
                     <span className="font-mono font-bold text-sm text-white">
-                      {character.hp_atual} <span className="text-white/40">/ {rHpMax}</span>
+                      {localHp} <span className="text-white/40">/ {rHpMax}</span>
                     </span>
                   </div>
 
@@ -560,7 +671,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       Energia
                     </span>
                     <span className="font-mono font-bold text-sm text-white">
-                      {character.ether_atual} <span className="text-white/40">/ {rEtherMax}</span>
+                      {localEther} <span className="text-white/40">/ {rEtherMax}</span>
                     </span>
                   </div>
 
@@ -599,7 +710,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       Destino
                     </span>
                     <span className="font-mono font-bold text-sm text-white">
-                      {character.destino_atual} <span className="text-white/40">/ {rDestinoMax}</span>
+                      {localDestino} <span className="text-white/40">/ {rDestinoMax}</span>
                     </span>
                   </div>
 
@@ -833,7 +944,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       </button>
                     )}
                     <span className="font-mono font-bold text-xs text-sky-400">
-                      {character.ferramenta_fisico_atual ?? character.ferramenta_fisico_max ?? 2}
+                      {localToolFisico}
                       <span className="text-white/40 font-normal">/{character.ferramenta_fisico_max ?? 2}</span>
                     </span>
                     {isGM && (
@@ -865,7 +976,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                         </button>
                       )}
                       <span className="font-mono font-bold text-xs text-sky-400">
-                        {character.ferramenta_fisico_sec_atual ?? character.ferramenta_fisico_sec_max ?? 3}
+                        {localToolFisicoSec}
                         <span className="text-white/40 font-normal">/{character.ferramenta_fisico_sec_max ?? 3}</span>
                       </span>
                       {isGM && (
@@ -909,7 +1020,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       </button>
                     )}
                     <span className="font-mono font-bold text-xs text-sky-400">
-                      {character.ferramenta_destreza_atual ?? character.ferramenta_destreza_max ?? 0}
+                      {localToolDestreza}
                       <span className="text-white/40 font-normal">/{character.ferramenta_destreza_max ?? 0}</span>
                     </span>
                     {isGM && (
@@ -952,7 +1063,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       </button>
                     )}
                     <span className="font-mono font-bold text-xs text-sky-400">
-                      {character.ferramenta_cognicao_atual ?? character.ferramenta_cognicao_max ?? 0}
+                      {localToolCognicao}
                       <span className="text-white/40 font-normal">/{character.ferramenta_cognicao_max ?? 0}</span>
                     </span>
                     {isGM && (
@@ -995,7 +1106,7 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
                       </button>
                     )}
                     <span className="font-mono font-bold text-xs text-sky-400">
-                      {character.ferramenta_carisma_atual ?? character.ferramenta_carisma_max ?? 1}
+                      {localToolCarisma}
                       <span className="text-white/40 font-normal">/{character.ferramenta_carisma_max ?? 1}</span>
                     </span>
                     {isGM && (
