@@ -43,6 +43,7 @@ import {
   AuditLogEntry, 
   TelemetryLogEntry 
 } from './utils/auditTelemetry';
+import { getApiUrl } from './utils/apiConfig';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -647,7 +648,7 @@ export default function App() {
       
       // Envia para o Discord se for mensagem pública
       if (type === 'CHAT') {
-        fetch(`${import.meta.env.VITE_API_URL || 'https://telumak-server.duckdns.org'}/api/discord/send`, {
+        fetch(getApiUrl('/api/discord/send'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

@@ -280,7 +280,7 @@ async function startServer() {
 
   // Rota para o NOTEBOOK enviar mensagem para um canal específico do Discord
   app.post("/api/discord/notebook/send", async (req, res) => {
-    const { channelId, remetente, conteudo, attachment } = req.body;
+    const { channelId, remetente, conteudo, attachment, attachments } = req.body;
     const targetChannelId = channelId || defaultChannelId;
 
     if (!targetChannelId) {
@@ -303,13 +303,35 @@ async function startServer() {
         let formattedText = `**[${remetente}]**\n${conteudo || ''}`;
         sendOptions.content = formattedText;
 
-        // Se houver imagem base64 anexada, converte em arquivo do Discord
-        if (attachment && typeof attachment === 'string' && attachment.startsWith('data:image/')) {
-          const base64Data = attachment.split(',')[1];
-          const buffer = Buffer.from(base64Data, 'base64');
-          const ext = attachment.substring(attachment.indexOf('/') + 1, attachment.indexOf(';'));
-          const file = new AttachmentBuilder(buffer, { name: `upload_${Date.now()}.${ext || 'png'}` });
-          sendOptions.files = [file];
+        // Lista de anexos unificada (suporta attachment único e array attachments)
+        const allAtts: string[] = [];
+        if (Array.isArray(attachments)) {
+          allAtts.push(...attachments.filter(Boolean));
+        } else if (attachment && typeof attachment === 'string') {
+          allAtts.push(attachment);
+        }
+
+        const filesToSend: AttachmentBuilder[] = [];
+        let fileIdx = 1;
+        for (const att of allAtts) {
+          if (typeof att === 'string' && att.startsWith('data:image/')) {
+            const base64Data = att.split(',')[1];
+            const buffer = Buffer.from(base64Data, 'base64');
+            const rawExt = att.substring(att.indexOf('/') + 1, att.indexOf(';')) || 'png';
+            const cleanExt = rawExt.replace('+xml', '').replace('jpeg', 'jpg');
+            const file = new AttachmentBuilder(buffer, { name: `galeria_${Date.now()}_${fileIdx}.${cleanExt}` });
+            filesToSend.push(file);
+            fileIdx++;
+          } else if (typeof att === 'string' && (att.startsWith('http://') || att.startsWith('https://'))) {
+            const file = new AttachmentBuilder(att, { name: `galeria_${Date.now()}_${fileIdx}.png` });
+            filesToSend.push(file);
+            fileIdx++;
+          }
+        }
+
+        if (filesToSend.length > 0) {
+          // Limite oficial da API do Discord de até 10 anexos por mensagem
+          sendOptions.files = filesToSend.slice(0, 10);
         }
 
         const sentMsg = await channel.send(sendOptions);
@@ -354,16 +376,43 @@ async function startServer() {
         }
 
         // 2. Se não encontrou ou ID não é snowflake, tenta buscar no Firestore se temos o discordMessageId gravado
+        let originalContent = '';
         if (!msgToEdit && messageId && db) {
           try {
             const docSnap = await getDoc(doc(db, 'discord_notebook_messages', messageId));
-            if (docSnap.exists() && docSnap.data().discordMessageId) {
-              const dId = docSnap.data().discordMessageId;
-              if (/^\d{17,20}$/.test(dId)) {
+            if (docSnap.exists()) {
+              const data = docSnap.data();
+              originalContent = data.content || '';
+              const dId = data.discordMessageId;
+              if (dId && /^\d{17,20}$/.test(dId)) {
                 msgToEdit = await channel.messages.fetch(dId).catch(() => null);
               }
             }
           } catch (e) {}
+        }
+
+        // 3. Fallback inteligente: se ainda não achou a mensagem do bot (por exemplo, enviada antes de salvar o ID), busca nas últimas 50 mensagens do canal
+        if (!msgToEdit) {
+          try {
+            const recentMessages = await channel.messages.fetch({ limit: 50 });
+            const botMessages = recentMessages.filter(m => m.author.id === discordClient.user?.id);
+            
+            // Tenta casar pelo remetente ou prefixo
+            if (remetente) {
+              const matched = botMessages.find(m => m.content.startsWith(`**[${remetente}]**`));
+              if (matched) {
+                msgToEdit = matched;
+                // Atualiza o documento no Firestore com o ID descoberto
+                if (messageId && db) {
+                  updateDoc(doc(db, 'discord_notebook_messages', messageId), {
+                    discordMessageId: matched.id
+                  }).catch(() => {});
+                }
+              }
+            }
+          } catch (fetchErr) {
+            console.warn("[DISCORD] Erro no fallback de busca de mensagens:", fetchErr);
+          }
         }
 
         if (msgToEdit) {

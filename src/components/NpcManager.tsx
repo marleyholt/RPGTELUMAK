@@ -5,6 +5,7 @@ import { NPC, DiscordChannelItem, Character } from '../types';
 import { Search, Plus, Trash2, Edit2, LayoutGrid, List as ListIcon, X, Check, Image as ImageIcon, Download, FileText, RotateCcw, Send, ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import RichTextEditor from './RichTextEditor';
 import { ImageUploadField } from './ImageUploadField';
+import { getApiUrl } from '../utils/apiConfig';
 
 export function NpcManager({ characters = [] }: { characters?: Character[] }) {
   const [npcs, setNpcs] = useState<NPC[]>([]);
@@ -150,16 +151,17 @@ export function NpcManager({ characters = [] }: { characters?: Character[] }) {
       
       const docRef = await addDoc(collection(db, 'discord_notebook_messages'), payload);
 
-      // Também encaminhar para a API do Discord se o canal possuir discordChannelId
-      if (targetChannelObj?.discordChannelId) {
-        fetch(`${import.meta.env.VITE_API_URL || 'https://telumak-server.duckdns.org'}/api/discord/notebook/send`, {
+      // Também encaminhar para a API do Discord se o canal possuir discordChannelId ou for ID de canal do Discord
+      const targetDiscordChannelId = targetChannelObj?.discordChannelId || (/^\d{17,20}$/.test(effectiveChannelId) ? effectiveChannelId : (/^\d{17,20}$/.test(selectedChannel) ? selectedChannel : null));
+      if (targetDiscordChannelId) {
+        fetch(getApiUrl('/api/discord/notebook/send'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            channelId: targetChannelObj.discordChannelId,
+            channelId: targetDiscordChannelId,
             remetente: 'Mestre',
             conteudo: `**${target.name}**\n${sendType === 'cover' ? '(Foto)' : '(Galeria de Fotos)'}`,
-            attachment: imagesToSend[0] || undefined
+            attachments: imagesToSend
           })
         }).then(async (res) => {
           if (res.ok) {

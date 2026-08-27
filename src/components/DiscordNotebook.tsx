@@ -26,6 +26,7 @@ import { PcSelectorWindow } from './PcSelectorWindow';
 import { NPC } from '../types';
 import { trackRead, trackWrite, trackDelete } from '../utils/firebaseUsageTracker';
 import { parseAndRollDice, extractDiceRollsFromMessage } from '../utils/diceRoller';
+import { getApiUrl } from '../utils/apiConfig';
 
 // Discord Free tier message character limit
 const DISCORD_FREE_MAX_CHARS = 2000;
@@ -417,7 +418,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
       // Sincronizar edição com a API do Discord se disponível
       const discordTargetId = activeChannel?.discordChannelId || (/^\d{17,20}$/.test(activeChannelId) ? activeChannelId : null);
       if (discordTargetId) {
-        fetch(`${import.meta.env.VITE_API_URL || 'https://telumak-server.duckdns.org'}/api/discord/notebook/edit`, {
+        fetch(getApiUrl('/api/discord/notebook/edit'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -427,6 +428,15 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
             conteudo: newContent,
             remetente: msg.authorName || effectiveDiscordName
           })
+        }).then(async (res) => {
+          if (res.ok) {
+            const data = await res.json().catch(() => ({}));
+            if (data.success) {
+              logEvent('success', `Edição sincronizada com o Discord oficial (#${discordTargetId})`);
+            } else if (data.note) {
+              logEvent('info', data.note);
+            }
+          }
         }).catch(err => {
           console.warn("Falha na sincronização de edição com o Discord oficial:", err);
         });
@@ -712,7 +722,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
       // Se o canal estiver vinculado a um ID do Discord oficial, despacha para o bot enviar no Discord
       const discordTargetId = activeChannel?.discordChannelId || (/^\d{17,20}$/.test(activeChannelId) ? activeChannelId : null);
       if (discordTargetId) {
-        fetch(`${import.meta.env.VITE_API_URL || 'https://telumak-server.duckdns.org'}/api/discord/notebook/send`, {
+        fetch(getApiUrl('/api/discord/notebook/send'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -785,7 +795,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
     setDetectChannelStatus(null);
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'https://telumak-server.duckdns.org'}/api/discord/channel-info?channelId=${encodeURIComponent(targetId)}`);
+      const res = await fetch(getApiUrl(`/api/discord/channel-info?channelId=${encodeURIComponent(targetId)}`));
       
       if (res.status === 405 || !res.headers.get('content-type')?.includes('application/json')) {
         setDetectChannelStatus({
