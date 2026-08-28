@@ -1701,28 +1701,75 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
                 const isOwner = currentUserProfile?.email && msg.authorEmail === currentUserProfile.email;
                 const canDelete = isGM || isOwner;
                 
+                // Helper para extrair data do objeto Firestore Timestamp ou Date
+                const getMsgDateObj = (m: any): Date | null => {
+                  if (!m || !m.createdAt) return null;
+                  if (typeof m.createdAt.toDate === 'function') return m.createdAt.toDate();
+                  if (m.createdAt.seconds) return new Date(m.createdAt.seconds * 1000);
+                  const d = new Date(m.createdAt);
+                  return isNaN(d.getTime()) ? null : d;
+                };
+
+                const msgDate = getMsgDateObj(msg);
+                const prevMsg = idx > 0 ? filteredMessages[idx - 1] : null;
+                const prevMsgDate = getMsgDateObj(prevMsg);
+
+                // Detecta virada de dia entre mensagens consecutivas
+                const isNewDay = (() => {
+                  if (!msgDate) return false;
+                  if (idx === 0) return true;
+                  if (!prevMsgDate) return true;
+                  return (
+                    msgDate.getFullYear() !== prevMsgDate.getFullYear() ||
+                    msgDate.getMonth() !== prevMsgDate.getMonth() ||
+                    msgDate.getDate() !== prevMsgDate.getDate()
+                  );
+                })();
+
+                const formatDateSeparator = (date: Date): string => {
+                  try {
+                    const weekday = date.toLocaleDateString('pt-BR', { weekday: 'long' });
+                    const capitalizedWeekday = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+                    const day = date.getDate();
+                    const month = date.toLocaleDateString('pt-BR', { month: 'long' });
+                    const year = date.getFullYear();
+                    return `${capitalizedWeekday}, ${day} de ${month} de ${year}`;
+                  } catch {
+                    return date.toLocaleDateString('pt-BR');
+                  }
+                };
+
                 let timeStr = 'Agora';
                 let fullDateStr = '';
-                if (msg.createdAt) {
-                  const d = msg.createdAt.toDate ? msg.createdAt.toDate() : new Date(msg.createdAt);
-                  if (!isNaN(d.getTime())) {
-                    timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    fullDateStr = d.toLocaleDateString([], { day: '2-digit', month: '2-digit', year: 'numeric' });
-                  }
+                if (msgDate) {
+                  timeStr = msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                  fullDateStr = msgDate.toLocaleDateString([], { day: '2-digit', month: '2-digit', year: 'numeric' });
                 }
 
                 return (
-                  <div 
-                    key={msg.id || idx}
-                    id={`msg-${msg.id}`}
-                    className={`group relative flex items-start gap-3.5 -mx-4 px-4 py-2 transition-all duration-300 rounded ${
-                      isHighlighted
-                        ? 'bg-[#5865f2]/25 ring-2 ring-[#5865f2] border-l-4 border-[#5865f2] shadow-md'
-                        : isPinned 
-                          ? 'bg-amber-500/[0.06] border-l-4 border-amber-500 hover:bg-amber-500/[0.09]' 
-                          : 'hover:bg-[#2e3035] border-l-4 border-transparent'
-                    }`}
-                  >
+                  <React.Fragment key={msg.id || idx}>
+                    {/* Separador de Data Estilo Discord */}
+                    {isNewDay && msgDate && (
+                      <div className="relative flex items-center justify-center my-5 select-none -mx-4 px-4">
+                        <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                          <div className="w-full border-t border-[#3f4147]" />
+                        </div>
+                        <span className="relative bg-[#313338] px-3 py-0.5 rounded text-xs font-semibold text-[#949ba4] border border-[#3f4147]/50 shadow-sm">
+                          {formatDateSeparator(msgDate)}
+                        </span>
+                      </div>
+                    )}
+
+                    <div 
+                      id={`msg-${msg.id}`}
+                      className={`group relative flex items-start gap-3.5 -mx-4 px-4 py-2 transition-all duration-300 rounded ${
+                        isHighlighted
+                          ? 'bg-[#5865f2]/25 ring-2 ring-[#5865f2] border-l-4 border-[#5865f2] shadow-md'
+                          : isPinned 
+                            ? 'bg-amber-500/[0.06] border-l-4 border-amber-500 hover:bg-amber-500/[0.09]' 
+                            : 'hover:bg-[#2e3035] border-l-4 border-transparent'
+                      }`}
+                    >
                     {/* Avatar */}
                     <div className="w-10 h-10 rounded-full bg-[#1e1f22] overflow-hidden shrink-0 mt-0.5 shadow border border-white/5">
                       <img src={avatarUrl} alt={msg.authorName} className="w-full h-full object-cover" />
@@ -1885,8 +1932,8 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
                         </button>
                       )}
                     </div>
-
                   </div>
+                </React.Fragment>
                 );
               })}
 
