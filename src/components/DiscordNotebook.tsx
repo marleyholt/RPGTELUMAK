@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { 
   collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, 
-  deleteDoc, serverTimestamp, doc, setDoc, getDocs, limitToLast 
+  deleteDoc, serverTimestamp, doc, setDoc, getDocs, limitToLast, limit 
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Character, DiscordNotebookMessage, DiscordChannelItem, UserProfile } from '../types';
@@ -192,6 +192,144 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Unread channels tracking
+  const [recentGlobalMessages, setRecentGlobalMessages] = useState<any[]>([]);
+
+  const userReadStorageKey = useMemo(() => {
+    const email = currentUserProfile?.email ? currentUserProfile.email.toLowerCase().trim() : 'guest';
+    return `telumak_discord_channel_reads_${email}`;
+  }, [currentUserProfile]);
+
+  const [channelReadTimes, setChannelReadTimes] = useState<{ [key: string]: number }>(() => {
+    try {
+      const saved = localStorage.getItem(userReadStorageKey);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Global listener for recent messages across channels to detect unread activity
+  useEffect(() => {
+    const q = query(
+      collection(db, 'discord_notebook_messages'),
+      orderBy('createdAt', 'desc'),
+      limit(100)
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      const list: any[] = [];
+      snap.forEach(docSnap => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      setRecentGlobalMessages(list);
+    }, (err) => {
+      console.warn("Snapshot global unread messages:", err);
+    });
+
+    return () => unsub();
+  }, []);
+
+  const markChannelAsRead = useCallback((ch: DiscordChannelItem | null) => {
+    if (!ch) return;
+    const now = Date.now();
+    setChannelReadTimes(prev => {
+      const next = { ...prev };
+      if (ch.id) next[ch.id] = now;
+      if (ch.discordChannelId) next[ch.discordChannelId] = now;
+      if (ch.name) next[ch.name.toLowerCase().trim()] = now;
+      try {
+        localStorage.setItem(userReadStorageKey, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, [userReadStorageKey]);
+
+  // Determine if a channel has unread messages
+  const isChannelUnread = useCallback((channel: DiscordChannelItem): boolean => {
+    if (!channel) return false;
+    
+    // If it's the currently active channel, it's considered read
+    const isCurrentActive = 
+      activeChannel?.id === channel.id || 
+      (activeChannel?.discordChannelId && channel.discordChannelId && activeChannel.discordChannelId === channel.discordChannelId) ||
+      (activeChannel?.name && channel.name && activeChannel.name.toLowerCase().trim() === channel.name.toLowerCase().trim());
+
+    if (isCurrentActive) {
+      return false;
+    }
+
+    const channelKeys = [
+      channel.id, 
+      channel.discordChannelId, 
+      channel.name?.toLowerCase?.().trim(),
+      channel.name?.toLowerCase?.().replace(/^#/, '').trim()
+    ].filter(Boolean) as string[];
+
+    // Obter timestamp da última leitura deste canal pelo usuário
+    let lastRead = 0;
+    for (const key of channelKeys) {
+      if (channelReadTimes[key] && channelReadTimes[key] > lastRead) {
+        lastRead = channelReadTimes[key];
+      }
+    }
+
+    const myEmail = currentUserProfile?.email?.toLowerCase().trim();
+
+    return recentGlobalMessages.some(m => {
+      if (!m) return false;
+      const mChannelId = String(m.channelId || '').trim().toLowerCase();
+      const mChannelName = String(m.channelName || '').trim().toLowerCase().replace(/^#/, '');
+
+      const belongsToThisChannel = 
+        channelKeys.some(k => String(k).trim().toLowerCase() === mChannelId) ||
+        (mChannelName && channelKeys.some(k => String(k).trim().toLowerCase() === mChannelName));
+
+      if (!belongsToThisChannel) return false;
+
+      // Se a mensagem foi escrita pelo próprio usuário logado, não marca como não lida
+      if (myEmail && m.authorEmail && String(m.authorEmail).toLowerCase().trim() === myEmail) {
+        return false;
+      }
+
+      let msgTime = 0;
+      if (m.createdAt) {
+        if (typeof m.createdAt.toDate === 'function') {
+          msgTime = m.createdAt.toDate().getTime();
+        } else if (m.createdAt.seconds) {
+          msgTime = m.createdAt.seconds * 1000;
+        } else {
+          const parsed = new Date(m.createdAt).getTime();
+          msgTime = isNaN(parsed) ? Date.now() : parsed;
+        }
+      } else {
+        msgTime = Date.now();
+      }
+
+      // Se nunca lido (lastRead === 0): qualquer mensagem nos últimos 3 dias é unread
+      if (lastRead === 0) {
+        const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
+        return msgTime > threeDaysAgo;
+      }
+
+      return msgTime > lastRead;
+    });
+  }, [activeChannel, channelReadTimes, recentGlobalMessages, currentUserProfile]);
+
+  // Mark current channel as read whenever it changes
+  useEffect(() => {
+    if (activeChannel) {
+      markChannelAsRead(activeChannel);
+    }
+  }, [activeChannel, markChannelAsRead]);
+
+  // Mark current channel as read whenever messages in it change
+  useEffect(() => {
+    if (activeChannel && messages.length > 0) {
+      markChannelAsRead(activeChannel);
+    }
+  }, [messages, activeChannel, markChannelAsRead]);
+
   // Load NPCs for GM
   useEffect(() => {
     if (!isGM) return;
@@ -287,7 +425,16 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
     }
   }, [visibleChannels, activeChannel]);
 
-  // 5. Compute Active Channel ID for Messages Query & Discord Send
+  // 5. Compute Active Channel IDs for Messages Query & Discord Send
+  const activeChannelKeys = useMemo(() => {
+    if (!activeChannel) return [];
+    const keys = [
+      activeChannel.discordChannelId,
+      activeChannel.id
+    ].filter(Boolean) as string[];
+    return Array.from(new Set(keys));
+  }, [activeChannel]);
+
   const activeChannelId = useMemo(() => {
     if (!activeChannel) return '';
     return activeChannel.discordChannelId || activeChannel.id;
@@ -295,17 +442,24 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
 
   // 6. Listen to messages for active channel with smart limitToLast pagination
   useEffect(() => {
-    if (!activeChannelId) {
+    if (activeChannelKeys.length === 0) {
       setMessages([]);
       return;
     }
 
-    const q = query(
-      collection(db, 'discord_notebook_messages'),
-      where('channelId', '==', activeChannelId),
-      orderBy('createdAt', 'asc'),
-      limitToLast(messageLimit)
-    );
+    const q = activeChannelKeys.length === 1
+      ? query(
+          collection(db, 'discord_notebook_messages'),
+          where('channelId', '==', activeChannelKeys[0]),
+          orderBy('createdAt', 'asc'),
+          limitToLast(messageLimit)
+        )
+      : query(
+          collection(db, 'discord_notebook_messages'),
+          where('channelId', 'in', activeChannelKeys),
+          orderBy('createdAt', 'asc'),
+          limitToLast(messageLimit)
+        );
 
     const unsub = onSnapshot(q, (snap) => {
       trackRead('discord_notebook_messages', snap.docChanges().length || snap.size);
@@ -328,7 +482,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
     });
 
     return unsub;
-  }, [activeChannelId, messageLimit, filterPinnedOnly, searchQuery]);
+  }, [activeChannelKeys, messageLimit, filterPinnedOnly, searchQuery]);
 
   const myActiveCharacter = characters?.find(c => c.email_dono === currentUserProfile?.email && c.ativo_na_mesa && !c.arquivado);
 
@@ -343,18 +497,69 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Filter messages based on search query and pinned toggle
+  // Filter messages based on search query, pinned toggle and strict deduplication
   const filteredMessages = useMemo(() => {
-    return messages.filter(msg => {
-      if (filterPinnedOnly && !msg.pinned) return false;
+    const seenDiscordIds = new Set<string>();
+    const seenDocIds = new Set<string>();
+    const seenFingerprints = new Set<string>();
+
+    const deduplicated: DiscordNotebookMessage[] = [];
+
+    for (const msg of messages) {
+      if (!msg) continue;
+
+      // 1. Deduplicação por discordMessageId
+      if (msg.discordMessageId) {
+        if (seenDiscordIds.has(msg.discordMessageId)) continue;
+        seenDiscordIds.add(msg.discordMessageId);
+      }
+
+      // 2. Deduplicação por Doc ID do Firestore
+      if (msg.id) {
+        if (seenDocIds.has(msg.id)) continue;
+        seenDocIds.add(msg.id);
+      }
+
+      // 3. Deduplicação inteligente de instâncias / bots múltiplos (mesmo autor + mesmo texto + janela de 10s)
+      const cleanContent = (msg.content || '').trim();
+      const cleanAuthor = (msg.authorName || '').trim();
+      
+      let msgTime = 0;
+      if (msg.createdAt) {
+        if (typeof msg.createdAt.toDate === 'function') {
+          msgTime = msg.createdAt.toDate().getTime();
+        } else if (msg.createdAt.seconds) {
+          msgTime = msg.createdAt.seconds * 1000;
+        } else {
+          const parsed = new Date(msg.createdAt).getTime();
+          msgTime = isNaN(parsed) ? 0 : parsed;
+        }
+      }
+
+      // Janela de 10 segundos
+      const timeBucket = Math.floor(msgTime / 10000);
+      const fingerprint = `${cleanAuthor}__${cleanContent}__${timeBucket}`;
+
+      if (cleanContent && seenFingerprints.has(fingerprint)) {
+        continue;
+      }
+      if (cleanContent) {
+        seenFingerprints.add(fingerprint);
+      }
+
+      // 4. Filtros de Fixados e Busca
+      if (filterPinnedOnly && !msg.pinned) continue;
       if (searchQuery.trim()) {
         const queryLower = searchQuery.toLowerCase().trim();
-        const contentMatch = (msg.content || '').toLowerCase().includes(queryLower);
-        const authorMatch = (msg.authorName || '').toLowerCase().includes(queryLower);
-        if (!contentMatch && !authorMatch) return false;
+        const contentMatch = cleanContent.toLowerCase().includes(queryLower);
+        const authorMatch = cleanAuthor.toLowerCase().includes(queryLower);
+        if (!contentMatch && !authorMatch) continue;
       }
-      return true;
-    });
+
+      deduplicated.push(msg);
+    }
+
+    return deduplicated;
   }, [messages, filterPinnedOnly, searchQuery]);
 
   const pinnedCount = useMemo(() => {
@@ -1339,34 +1544,44 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
                 <div key={catIdx} className="space-y-0.5">
                   
                   {/* Category Header */}
-                  <div className="flex items-center justify-between px-1 py-1 text-[11px] font-black tracking-wider text-[#949ba4] hover:text-white cursor-pointer group">
-                    <div 
-                      onClick={() => toggleCategory(category)}
-                      className="flex items-center gap-1 uppercase truncate flex-1"
-                    >
-                      {isCollapsed ? (
-                        <ChevronRight className="h-3 w-3 shrink-0" />
-                      ) : (
-                        <ChevronDown className="h-3 w-3 shrink-0" />
-                      )}
-                      <span className="truncate">{category}</span>
-                    </div>
+                  {(() => {
+                    const hasUnreadInCategory = items.some(ch => isChannelUnread(ch));
+                    return (
+                      <div className={`flex items-center justify-between px-1 py-1 text-[11px] font-black tracking-wider transition cursor-pointer group ${
+                        hasUnreadInCategory && isCollapsed ? 'text-white' : 'text-[#949ba4] hover:text-white'
+                      }`}>
+                        <div 
+                          onClick={() => toggleCategory(category)}
+                          className="flex items-center gap-1 uppercase truncate flex-1"
+                        >
+                          {isCollapsed ? (
+                            <ChevronRight className="h-3 w-3 shrink-0" />
+                          ) : (
+                            <ChevronDown className="h-3 w-3 shrink-0" />
+                          )}
+                          <span className="truncate">{category}</span>
+                          {hasUnreadInCategory && isCollapsed && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-white ml-1 shrink-0 animate-pulse" title="Mensagens não lidas nesta categoria" />
+                          )}
+                        </div>
 
-                    {/* GM Quick Add to Category */}
-                    {isGM && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenAddChannel(category);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-0.5 text-[#949ba4] hover:text-white transition"
-                        title={`Adicionar canal em ${category}`}
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
+                        {/* GM Quick Add to Category */}
+                        {isGM && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenAddChannel(category);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-0.5 text-[#949ba4] hover:text-white transition"
+                            title={`Adicionar canal em ${category}`}
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Channels in Category */}
                   {!isCollapsed && (
@@ -1374,28 +1589,42 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
                       {items.map((channel) => {
                         const isActive = activeChannel?.id === channel.id;
                         const isVoice = channel.type === 'voice';
+                        const isUnread = isChannelUnread(channel);
 
                         return (
                           <div
                             key={channel.id}
                             onClick={() => {
                               setActiveChannel(channel);
+                              markChannelAsRead(channel);
                               setIsSidebarOpen(false);
                             }}
-                            className={`w-full px-2 py-1.5 rounded flex items-center justify-between group transition cursor-pointer text-xs ${
+                            className={`relative w-full px-2 py-1.5 rounded flex items-center justify-between group transition cursor-pointer text-xs ${
                               isActive 
                                 ? 'bg-[#404249] text-white font-bold' 
-                                : 'text-[#949ba4] hover:bg-[#35373c] hover:text-[#dbdee1]'
+                                : isUnread
+                                  ? 'text-white font-bold bg-white/[0.06] hover:bg-[#35373c]'
+                                  : 'text-[#949ba4] hover:bg-[#35373c] hover:text-[#dbdee1]'
                             }`}
                           >
+                            {/* Discord-style White Pill / Bar on the far-left for unread channels */}
+                            {isUnread && !isActive && (
+                              <div 
+                                className="absolute -left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-2.5 bg-white rounded-r-full shadow-md z-10 animate-pulse"
+                                title="Novas mensagens não lidas" 
+                              />
+                            )}
+
                             <div className="flex items-center gap-1.5 min-w-0 flex-1">
                               {isVoice ? (
-                                <Volume2 className="h-4 w-4 text-[#949ba4] shrink-0" />
+                                <Volume2 className={`h-4 w-4 shrink-0 transition-colors ${isActive || isUnread ? 'text-white' : 'text-[#949ba4]'}`} />
                               ) : (
-                                <Hash className="h-4 w-4 text-[#949ba4] shrink-0" />
+                                <Hash className={`h-4 w-4 shrink-0 transition-colors ${isActive || isUnread ? 'text-white' : 'text-[#949ba4]'}`} />
                               )}
                               
-                              <span className="truncate">{channel.name}</span>
+                              <span className={`truncate ${isUnread && !isActive ? 'text-white font-bold' : ''}`}>
+                                {channel.name}
+                              </span>
 
                               {/* Lock badge if private */}
                               {channel.isPrivate && (

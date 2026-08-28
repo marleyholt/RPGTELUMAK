@@ -6,7 +6,7 @@ import { createServer as createViteServer } from "vite";
 import { Client, GatewayIntentBits, AttachmentBuilder } from 'discord.js';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, collection, addDoc, serverTimestamp, getDoc, doc, query, where, getDocs, updateDoc } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, serverTimestamp, getDoc, doc, query, where, getDocs, updateDoc, setDoc } from 'firebase/firestore';
 import { GoogleGenAI } from "@google/genai";
 import fs from 'fs';
 
@@ -108,9 +108,12 @@ async function startServer() {
         try {
           const attachments = message.attachments ? Array.from(message.attachments.values()).map(att => att.url) : [];
           
-          // 1. Salva na coleção do NOTEBOOK do Discord
+          // 1. Salva na coleção do NOTEBOOK do Discord com ID determinístico para evitar duplicatas
+          const docId = `discord_${message.id}`;
+          const chanName = ('name' in message.channel && typeof (message.channel as any).name === 'string') ? (message.channel as any).name : '';
           const notebookDoc: any = {
             channelId: message.channelId,
+            channelName: chanName,
             discordMessageId: message.id,
             authorName: message.member?.displayName || message.author.globalName || message.author.username,
             authorAvatar: message.author.displayAvatarURL() || 'https://cdn.discordapp.com/embed/avatars/0.png',
@@ -125,8 +128,8 @@ async function startServer() {
             notebookDoc.attachments = attachments;
           }
 
-          const docRef = await addDoc(collection(db, 'discord_notebook_messages'), notebookDoc);
-          console.log(`[DISCORD -> FIRESTORE] Mensagem gravada com sucesso! Doc ID: ${docRef.id} no canal ${message.channelId}`);
+          await setDoc(doc(db, 'discord_notebook_messages', docId), notebookDoc, { merge: true });
+          console.log(`[DISCORD -> FIRESTORE] Mensagem gravada/atualizada com sucesso! Doc ID: ${docId} no canal ${message.channelId}`);
 
           // 2. Se for o canal principal/padrão, salva também no chat rápido de jogo
           if (defaultChannelId && message.channelId === defaultChannelId) {

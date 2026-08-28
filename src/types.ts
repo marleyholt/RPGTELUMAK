@@ -206,6 +206,8 @@ export interface DiscordChannelConfig {
 export interface DiscordNotebookMessage {
   id: string;
   channelId: string;
+  channelName?: string;
+  discordMessageId?: string;
   authorName: string;
   authorEmail?: string;
   authorAvatar?: string;
@@ -215,6 +217,7 @@ export interface DiscordNotebookMessage {
   pinned?: boolean;
   pinnedBy?: string;
   pinnedAt?: any;
+  editedAt?: any;
   createdAt: any;
 }
 
