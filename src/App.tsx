@@ -48,6 +48,7 @@ import { getApiUrl } from './utils/apiConfig';
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [authLoading, setAuthLoading] = useState(true);
 
   // Firestore Sync State (Loaded immediately from browser cache if present)
@@ -246,6 +247,86 @@ export default function App() {
 
     return unsub;
   }, []);
+
+  // Sync all registered users list in real-time
+  useEffect(() => {
+    if (!currentUser) {
+      setAllUsers([]);
+      return;
+    }
+    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+      trackRead('users', snapshot.docChanges().length || snapshot.size);
+      const list: UserProfile[] = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data() as UserProfile;
+        list.push({
+          uid: docSnap.id,
+          email: data.email || '',
+          displayName: data.displayName || 'Gamer',
+          photoURL: data.photoURL || null,
+          role: data.role || 'PLAYER',
+          discordDisplayName: data.discordDisplayName,
+          discordTag: data.discordTag,
+          discordAvatar: data.discordAvatar,
+          quickSheetSections: data.quickSheetSections,
+          lastSeen: data.lastSeen,
+          isOnline: data.isOnline,
+          statusMessage: data.statusMessage
+        });
+      });
+      setAllUsers(list);
+    }, (err) => {
+      console.warn("Snapshot users warning:", err);
+    });
+    return () => unsubUsers();
+  }, [currentUser]);
+
+  // Presence / Online status tracking (Ultra-low Firebase consumption: heartbeat throttled to 3 minutes)
+  useEffect(() => {
+    if (!currentUser?.uid) return;
+
+    let lastWriteTime = 0;
+    const updatePresence = async () => {
+      const now = Date.now();
+      // Throttle: don't write more than once every 2.5 minutes
+      if (now - lastWriteTime < 150000 && lastWriteTime > 0) return;
+
+      try {
+        const userRef = doc(db, 'users', currentUser.uid);
+        await updateDoc(userRef, {
+          lastSeen: serverTimestamp(),
+          isOnline: true
+        });
+        lastWriteTime = Date.now();
+        trackWrite('users', 1);
+      } catch (err) {
+        // Silent catch for harmless offline or permission errors
+      }
+    };
+
+    // 1. Initial presence ping on login/mount
+    updatePresence();
+
+    // 2. Heartbeat every 3 minutes (180.000 ms), only if document is visible
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        updatePresence();
+      }
+    }, 180000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        updatePresence();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [currentUser?.uid]);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1107,6 +1188,7 @@ export default function App() {
               isGM={isGM}
               currentUserProfile={userProfile}
               characters={characters}
+              allUsers={allUsers}
               onAddLog={addGlobalLog}
             />
           </div>

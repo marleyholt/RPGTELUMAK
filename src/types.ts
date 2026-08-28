@@ -8,6 +8,9 @@ export interface UserProfile {
   discordTag?: string;
   discordAvatar?: string;
   quickSheetSections?: string[];
+  lastSeen?: any;
+  isOnline?: boolean;
+  statusMessage?: string;
 }
 
 export interface Character {
@@ -214,6 +217,9 @@ export interface DiscordNotebookMessage {
   content: string;
   attachments?: string[];
   isFromDiscord?: boolean;
+  isDm?: boolean;
+  recipientEmail?: string;
+  dmParticipants?: string[];
   pinned?: boolean;
   pinnedBy?: string;
   pinnedAt?: any;
@@ -229,6 +235,8 @@ export interface DiscordChannelItem {
   icon?: string;
   topic?: string;
   isPrivate?: boolean;
+  isDm?: boolean;
+  dmRecipient?: UserProfile;
   allowedEmails?: string[];
   order?: number;
   charKey?: string;

@@ -8,10 +8,10 @@ import { Character, DiscordNotebookMessage, DiscordChannelItem, UserProfile } fr
 import { 
   Send, Hash, Bold, Italic, Underline, Strikethrough, EyeOff, Quote, Code, 
   RefreshCw, X, Dices, Pin, PinOff, Search, Copy, Trash2, ArrowDown, 
-  MessageSquareQuote, Volume2, Mic, MicOff, Headphones, ChevronDown, 
+  MessageSquareQuote, MessageSquare, Circle, Volume2, Mic, MicOff, Headphones, ChevronDown, 
   ChevronRight, Plus, Download, FileText, Lock, Edit2, Check, Radio, UserCheck, Shield,
   Smile, Terminal, AlertTriangle, CheckCircle2, Info, Bug, ShieldAlert, Cpu, ArrowUp,
-  Bot, Sparkles, ExternalLink, Sliders, Users, Video, Menu, PanelLeftClose, Link2
+  Bot, Sparkles, ExternalLink, Sliders, Users, Video, Menu, PanelLeftClose, PanelLeftOpen, PanelLeft, Link2
 } from 'lucide-react';
 import { processImageFile } from '../utils/imageUpload';
 import { ImageCropModal } from './ImageCropModal';
@@ -35,10 +35,11 @@ interface DiscordNotebookProps {
   isGM: boolean;
   currentUserProfile: UserProfile | null;
   characters: Character[];
+  allUsers?: UserProfile[];
   onAddLog?: (type: 'info' | 'success' | 'warn' | 'error', title: string, details?: any) => void;
 }
 
-export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog }: DiscordNotebookProps) {
+export function DiscordNotebook({ isGM, currentUserProfile, characters, allUsers = [], onAddLog }: DiscordNotebookProps) {
   // Channels stored in Firestore (real channels created by GM)
   const [dbChannels, setDbChannels] = useState<DiscordChannelItem[]>([]);
   const [activeChannel, setActiveChannel] = useState<DiscordChannelItem | null>(null);
@@ -171,6 +172,9 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
 
   // UI States
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [showChannelsSidebar, setShowChannelsSidebar] = useState(true);
+  const [showMembersSidebar, setShowMembersSidebar] = useState(true);
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
   const [collapsedCategories, setCollapsedCategories] = useState<{ [key: string]: boolean }>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPinnedOnly, setFilterPinnedOnly] = useState(false);
@@ -186,11 +190,122 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
   const [editingMessage, setEditingMessage] = useState<DiscordNotebookMessage | null>(null);
   const [editContentText, setEditContentText] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  // Active DM channels stored in state with persistence
+  const dmsStorageKey = useMemo(() => {
+    const email = currentUserProfile?.email ? currentUserProfile.email.toLowerCase().trim() : 'guest';
+    return `telumak_discord_active_dms_${email}`;
+  }, [currentUserProfile]);
+
+  const [activeDms, setActiveDms] = useState<DiscordChannelItem[]>(() => {
+    try {
+      const email = currentUserProfile?.email ? currentUserProfile.email.toLowerCase().trim() : 'guest';
+      const saved = localStorage.getItem(`telumak_discord_active_dms_${email}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Sync activeDms to localStorage
+  useEffect(() => {
+    if (dmsStorageKey) {
+      try {
+        localStorage.setItem(dmsStorageKey, JSON.stringify(activeDms));
+      } catch {}
+    }
+  }, [activeDms, dmsStorageKey]);
   
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatScrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Helper to test if a user is online (Heartbeat active in last 6 minutes or is self)
+  const isUserOnline = useCallback((user: UserProfile) => {
+    if (!user) return false;
+    if (user.uid === currentUserProfile?.uid) return true;
+    if (!user.lastSeen) return false;
+    let lastSeenMs = 0;
+    if (typeof user.lastSeen.toDate === 'function') {
+      lastSeenMs = user.lastSeen.toDate().getTime();
+    } else if (user.lastSeen.seconds) {
+      lastSeenMs = user.lastSeen.seconds * 1000;
+    } else {
+      const d = new Date(user.lastSeen).getTime();
+      lastSeenMs = isNaN(d) ? 0 : d;
+    }
+    // Online if active within last 6 minutes
+    return (Date.now() - lastSeenMs) < 6 * 60 * 1000;
+  }, [currentUserProfile]);
+
+  // Split all users into Online and Offline
+  const onlineMembers = useMemo(() => {
+    return allUsers.filter(u => isUserOnline(u)).sort((a, b) => {
+      if (a.role === 'GM' && b.role !== 'GM') return -1;
+      if (a.role !== 'GM' && b.role === 'GM') return 1;
+      return (a.discordDisplayName || a.displayName || '').localeCompare(b.discordDisplayName || b.displayName || '');
+    });
+  }, [allUsers, isUserOnline]);
+
+  const offlineMembers = useMemo(() => {
+    return allUsers.filter(u => !isUserOnline(u)).sort((a, b) => {
+      if (a.role === 'GM' && b.role !== 'GM') return -1;
+      if (a.role !== 'GM' && b.role === 'GM') return 1;
+      return (a.discordDisplayName || a.displayName || '').localeCompare(b.discordDisplayName || b.displayName || '');
+    });
+  }, [allUsers, isUserOnline]);
+
+  const filteredOnlineMembers = useMemo(() => {
+    if (!memberSearchQuery.trim()) return onlineMembers;
+    const q = memberSearchQuery.toLowerCase().trim();
+    return onlineMembers.filter(u => 
+      (u.displayName && u.displayName.toLowerCase().includes(q)) ||
+      (u.discordDisplayName && u.discordDisplayName.toLowerCase().includes(q)) ||
+      (u.email && u.email.toLowerCase().includes(q))
+    );
+  }, [onlineMembers, memberSearchQuery]);
+
+  const filteredOfflineMembers = useMemo(() => {
+    if (!memberSearchQuery.trim()) return offlineMembers;
+    const q = memberSearchQuery.toLowerCase().trim();
+    return offlineMembers.filter(u => 
+      (u.displayName && u.displayName.toLowerCase().includes(q)) ||
+      (u.discordDisplayName && u.discordDisplayName.toLowerCase().includes(q)) ||
+      (u.email && u.email.toLowerCase().includes(q))
+    );
+  }, [offlineMembers, memberSearchQuery]);
+
+  // Open or switch to a direct 1-to-1 private conversation (DM)
+  const handleOpenDmWithUser = useCallback((targetUser: UserProfile) => {
+    if (!targetUser || !currentUserProfile?.email || !targetUser.email) return;
+    const myEmail = currentUserProfile.email.toLowerCase().trim();
+    const otherEmail = targetUser.email.toLowerCase().trim();
+    if (myEmail === otherEmail) return;
+
+    const dmChannelId = `dm_${[myEmail, otherEmail].sort().join('_').replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+    const dmName = targetUser.discordDisplayName || targetUser.displayName || targetUser.email.split('@')[0];
+
+    const dmChannel: DiscordChannelItem = {
+      id: dmChannelId,
+      name: `@${dmName}`,
+      category: 'MENSAGENS DIRETAS',
+      type: 'text',
+      isPrivate: true,
+      isDm: true,
+      dmRecipient: targetUser,
+      allowedEmails: [myEmail, otherEmail],
+      topic: `Conversa privada e sigilosa com @${dmName}.`
+    };
+
+    setActiveDms(prev => {
+      if (prev.some(ch => ch.id === dmChannelId)) return prev;
+      return [dmChannel, ...prev];
+    });
+
+    setActiveChannel(dmChannel);
+    setIsSidebarOpen(false);
+  }, [currentUserProfile]);
 
   // Unread channels tracking
   const [recentGlobalMessages, setRecentGlobalMessages] = useState<any[]>([]);
@@ -412,18 +527,61 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
     }));
   }, [visibleChannels]);
 
+  // Auto-detect incoming DMs from recent messages
+  useEffect(() => {
+    if (!currentUserProfile?.email || allUsers.length === 0) return;
+    const myEmailClean = currentUserProfile.email.toLowerCase().trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+    
+    recentGlobalMessages.forEach(msg => {
+      const chId = String(msg.channelId || '');
+      if (chId.startsWith('dm_') && chId.includes(myEmailClean)) {
+        const otherUser = allUsers.find(u => {
+          if (!u.email) return false;
+          const uClean = u.email.toLowerCase().trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+          return u.email.toLowerCase().trim() !== currentUserProfile.email.toLowerCase().trim() && chId.includes(uClean);
+        });
+
+        if (otherUser && otherUser.email) {
+          const otherEmail = otherUser.email.toLowerCase().trim();
+          const myEmail = currentUserProfile.email.toLowerCase().trim();
+          const dmName = otherUser.discordDisplayName || otherUser.displayName || otherUser.email.split('@')[0];
+          
+          setActiveDms(prev => {
+            if (prev.some(c => c.id === chId)) return prev;
+            return [...prev, {
+              id: chId,
+              name: `@${dmName}`,
+              category: 'MENSAGENS DIRETAS',
+              type: 'text',
+              isPrivate: true,
+              isDm: true,
+              dmRecipient: otherUser,
+              allowedEmails: [myEmail, otherEmail],
+              topic: `Conversa privada e sigilosa com @${dmName}.`
+            }];
+          });
+        }
+      }
+    });
+  }, [recentGlobalMessages, currentUserProfile, allUsers]);
+
+  // Combined channels (Server channels + Active DMs)
+  const allAvailableChannels = useMemo(() => {
+    return [...visibleChannels, ...activeDms];
+  }, [visibleChannels, activeDms]);
+
   // 4. Select Default Active Channel
   useEffect(() => {
-    if (visibleChannels.length > 0) {
-      const currentStillExists = activeChannel && visibleChannels.some(c => c.id === activeChannel.id);
+    if (allAvailableChannels.length > 0) {
+      const currentStillExists = activeChannel && allAvailableChannels.some(c => c.id === activeChannel.id);
       if (!currentStillExists) {
         const firstText = visibleChannels.find(c => c.type === 'text');
-        setActiveChannel(firstText || visibleChannels[0]);
+        setActiveChannel(firstText || allAvailableChannels[0]);
       }
     } else {
       setActiveChannel(null);
     }
-  }, [visibleChannels, activeChannel]);
+  }, [allAvailableChannels, visibleChannels, activeChannel]);
 
   // 5. Compute Active Channel IDs for Messages Query & Discord Send
   const activeChannelKeys = useMemo(() => {
@@ -1467,10 +1625,11 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
       {/* 1. CHANNELS SIDEBAR */}
       <div className={`
         fixed md:relative inset-y-0 left-0 z-40 md:z-10
-        w-72 md:w-64 bg-[#2b2d31] flex flex-col shrink-0 border-r border-[#1f2023]
-        transition-all duration-300 ease-in-out
-        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:flex'}
-        ${!isSidebarOpen ? 'hidden md:flex' : 'flex shadow-2xl'}
+        bg-[#2b2d31] flex flex-col shrink-0 border-r border-[#1f2023]
+        transition-all duration-200 ease-in-out
+        ${isSidebarOpen ? 'w-72 translate-x-0 flex shadow-2xl' : '-translate-x-full md:translate-x-0'}
+        ${showChannelsSidebar ? 'md:w-64 md:flex' : 'md:w-0 md:hidden md:border-none'}
+        ${!isSidebarOpen && !showChannelsSidebar ? 'hidden' : ''}
       `}>
         
         {/* Header */}
@@ -1494,14 +1653,17 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
               </button>
             )}
 
-            {/* Mobile close sidebar button */}
+            {/* Close / Collapse Sidebar button (Desktop & Mobile) */}
             <button
               type="button"
-              onClick={() => setIsSidebarOpen(false)}
-              className="p-1.5 text-[#949ba4] hover:text-white hover:bg-[#35373c] rounded transition md:hidden"
-              title="Recolher Menu de Canais"
+              onClick={() => {
+                setIsSidebarOpen(false);
+                setShowChannelsSidebar(false);
+              }}
+              className="p-1.5 text-[#949ba4] hover:text-white hover:bg-[#35373c] rounded transition"
+              title="Recolher Menu de Canais (expandir chat)"
             >
-              <X className="h-4 w-4" />
+              <PanelLeftClose className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -1522,6 +1684,111 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
 
         {/* Channels List (Grouped by Category) */}
         <div className="flex-1 overflow-y-auto px-2 py-3 space-y-4 custom-scroll">
+          
+          {/* MENSAGENS DIRETAS (DMs) - Secção Fixa */}
+          {allUsers.length > 1 && (
+            <div className="space-y-0.5 pb-2 border-b border-[#1f2023]/80">
+              <div 
+                onClick={() => setCollapsedCategories(prev => ({ ...prev, '__dms__': !prev['__dms__'] }))}
+                className="flex items-center justify-between px-1 py-1 text-[11px] font-black tracking-wider text-[#949ba4] hover:text-white transition cursor-pointer group uppercase"
+              >
+                <div className="flex items-center gap-1">
+                  {collapsedCategories['__dms__'] ? (
+                    <ChevronRight className="h-3 w-3 shrink-0" />
+                  ) : (
+                    <ChevronDown className="h-3 w-3 shrink-0" />
+                  )}
+                  <span className="flex items-center gap-1">
+                    <MessageSquare className="h-3 w-3 text-[#5865f2]" />
+                    Mensagens Diretas
+                  </span>
+                </div>
+                <span className="text-[10px] text-[#949ba4] font-normal lowercase">
+                  {activeDms.length > 0 ? `${activeDms.length}` : 'privado'}
+                </span>
+              </div>
+
+              {!collapsedCategories['__dms__'] && (
+                <div className="space-y-0.5 pl-1">
+                  {/* Se houver DMs ativas, lista-as */}
+                  {activeDms.map(dm => {
+                    const isActive = activeChannel?.id === dm.id;
+                    const isUnread = isChannelUnread(dm);
+                    const targetUser = dm.dmRecipient || allUsers.find(u => dm.allowedEmails?.includes(u.email?.toLowerCase().trim()));
+                    const isOnline = targetUser ? isUserOnline(targetUser) : false;
+
+                    return (
+                      <div
+                        key={dm.id}
+                        onClick={() => {
+                          setActiveChannel(dm);
+                          markChannelAsRead(dm);
+                          setIsSidebarOpen(false);
+                        }}
+                        className={`relative w-full px-2 py-1.5 rounded flex items-center justify-between group transition cursor-pointer text-xs ${
+                          isActive 
+                            ? 'bg-[#404249] text-white font-bold' 
+                            : isUnread
+                              ? 'text-white font-bold bg-white/[0.06] hover:bg-[#35373c]'
+                              : 'text-[#949ba4] hover:bg-[#35373c] hover:text-[#dbdee1]'
+                        }`}
+                      >
+                        {isUnread && !isActive && (
+                          <div 
+                            className="absolute -left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-2.5 bg-white rounded-r-full shadow-md z-10 animate-pulse"
+                            title="Novas mensagens diretas não lidas" 
+                          />
+                        )}
+
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <div className="relative shrink-0">
+                            <div className="w-5 h-5 rounded-full bg-[#1e1f22] overflow-hidden flex items-center justify-center text-[10px] font-bold text-white">
+                              {targetUser?.discordAvatar || targetUser?.photoURL ? (
+                                <img src={targetUser.discordAvatar || targetUser.photoURL || ''} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <span>{(targetUser?.displayName || targetUser?.email || '?')[0].toUpperCase()}</span>
+                              )}
+                            </div>
+                            <div className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-[#2b2d31] ${
+                              isOnline ? 'bg-[#23a55a]' : 'bg-[#80848e]'
+                            }`} />
+                          </div>
+
+                          <span className={`truncate ${isUnread && !isActive ? 'text-white font-bold' : ''}`}>
+                            {dm.name}
+                          </span>
+                        </div>
+
+                        {/* Fechar DM da lista */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveDms(prev => prev.filter(c => c.id !== dm.id));
+                            if (activeChannel?.id === dm.id) {
+                              const firstNormal = visibleChannels.find(c => c.type === 'text') || visibleChannels[0];
+                              setActiveChannel(firstNormal || null);
+                            }
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-0.5 text-[#949ba4] hover:text-white rounded transition"
+                          title="Fechar conversa privada"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
+
+                  {activeDms.length === 0 && (
+                    <div className="py-1 px-2 text-[11px] text-[#949ba4]/70 italic">
+                      Clique em um membro à direita para iniciar uma conversa privada.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {groupedCategories.length === 0 ? (
             <div className="py-8 text-center px-4 space-y-2">
               <p className="text-xs text-[#949ba4]">
@@ -1752,129 +2019,189 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
 
       </div>
 
-      {/* 2. MAIN CENTER AREA: MESSAGES STREAM & RICH INPUT */}
-      <div className="flex-1 flex flex-col bg-[#313338] min-w-0 relative">
+      {/* 2. MAIN CONTAINER: CHAT MESSAGES + RIGHT MEMBERS SIDEBAR */}
+      <div className="flex-1 flex bg-[#313338] min-w-0 relative overflow-hidden">
         
-        {/* Top Channel Header */}
-        <div className="h-12 border-b border-[#1f2023] px-3 sm:px-4 flex items-center justify-between shrink-0 shadow-sm">
-          <div className="flex items-center gap-2 min-w-0">
-            {/* Mobile Sidebar Toggle Button */}
-            <button
-              type="button"
-              onClick={() => setIsSidebarOpen(prev => !prev)}
-              className="p-1.5 -ml-1 text-[#b5bac1] hover:text-white hover:bg-[#35373c] rounded transition flex items-center gap-1 md:hidden"
-              title={isSidebarOpen ? "Recolher canais" : "Abrir menu de canais"}
-            >
-              <Menu className="h-5 w-5" />
-            </button>
+        {/* CENTER CHAT COLUMN */}
+        <div className="flex-1 flex flex-col min-w-0 relative h-full">
+          
+          {/* Top Channel Header */}
+          <div className="h-12 border-b border-[#1f2023] px-3 sm:px-4 flex items-center justify-between shrink-0 shadow-sm bg-[#313338] z-10">
+            <div className="flex items-center gap-2 min-w-0">
+              {/* Left Sidebar Toggle Button (Mobile & Desktop) */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                    setIsSidebarOpen(prev => !prev);
+                  } else {
+                    setShowChannelsSidebar(prev => !prev);
+                  }
+                }}
+                className={`p-1.5 -ml-1 rounded transition flex items-center gap-1 shrink-0 ${
+                  showChannelsSidebar
+                    ? 'text-[#b5bac1] hover:text-white hover:bg-[#35373c]'
+                    : 'bg-[#5865f2]/20 text-[#5865f2] hover:bg-[#5865f2]/30 border border-[#5865f2]/40 shadow-sm'
+                }`}
+                title={showChannelsSidebar ? "Recolher barra lateral de canais (expandir área de leitura)" : "Mostrar barra lateral de canais"}
+              >
+                {showChannelsSidebar ? (
+                  <PanelLeftClose className="h-5 w-5" />
+                ) : (
+                  <PanelLeft className="h-5 w-5" />
+                )}
+              </button>
 
-            {activeChannel?.type === 'voice' ? (
-              <Volume2 className="h-5 w-5 text-[#80848e] shrink-0" />
-            ) : (
-              <Hash className="h-5 w-5 text-[#80848e] shrink-0" />
-            )}
-            <h3 className="font-black text-sm text-white truncate">
-              {activeChannel?.name || 'Selecione um canal'}
-            </h3>
-          </div>
+              {activeChannel?.isDm ? (
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <div className="relative shrink-0">
+                    <MessageSquare className="h-5 w-5 text-[#5865f2] shrink-0" />
+                  </div>
+                  <h3 className="font-black text-sm text-white truncate flex items-center gap-2">
+                    <span>{activeChannel.name}</span>
+                    {activeChannel.dmRecipient && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold flex items-center gap-1 ${
+                        isUserOnline(activeChannel.dmRecipient)
+                          ? 'bg-[#23a55a]/20 text-[#23a55a] border border-[#23a55a]/30'
+                          : 'bg-[#80848e]/20 text-[#80848e] border border-[#80848e]/30'
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${
+                          isUserOnline(activeChannel.dmRecipient) ? 'bg-[#23a55a] animate-pulse' : 'bg-[#80848e]'
+                        }`} />
+                        {isUserOnline(activeChannel.dmRecipient) ? 'Online' : 'Offline'}
+                      </span>
+                    )}
+                  </h3>
+                </div>
+              ) : activeChannel?.type === 'voice' ? (
+                <div className="flex items-center gap-2 min-w-0">
+                  <Volume2 className="h-5 w-5 text-[#80848e] shrink-0" />
+                  <h3 className="font-black text-sm text-white truncate">
+                    {activeChannel?.name || 'Selecione um canal'}
+                  </h3>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 min-w-0">
+                  <Hash className="h-5 w-5 text-[#80848e] shrink-0" />
+                  <h3 className="font-black text-sm text-white truncate">
+                    {activeChannel?.name || 'Selecione um canal'}
+                  </h3>
+                </div>
+              )}
+            </div>
 
-          <div className="flex items-center gap-2 text-[#b5bac1]">
-                        {/* Google Meet Button */}
-            {isGM ? (
-              meetSession?.url ? (
-                <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 text-[#b5bac1]">
+              {/* Google Meet Button */}
+              {isGM ? (
+                meetSession?.url ? (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <a
+                      href={meetSession.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 px-3 py-1.5 rounded flex items-center gap-1.5 text-xs font-bold transition border border-emerald-500/30"
+                    >
+                      <Video className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Entrar na Mesa</span>
+                    </a>
+                    <button
+                      onClick={handleCloseMeet}
+                      className="p-1.5 text-red-400 hover:bg-red-500/20 rounded transition border border-transparent hover:border-red-500/30"
+                      title="Fechar Mesa (Remover link)"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleMeetLogin()}
+                    disabled={isCreatingMeet}
+                    className="bg-sky-500/20 text-sky-400 hover:bg-sky-500/30 px-3 py-1.5 rounded flex items-center gap-1.5 text-xs font-bold transition border border-sky-500/30 disabled:opacity-50 shrink-0"
+                    title="Criar sala do Google Meet para a mesa"
+                  >
+                    <Video className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">{isCreatingMeet ? 'Criando...' : 'Abrir Mesa no Meet'}</span>
+                  </button>
+                )
+              ) : (
+                (myActiveCharacter?.ativo_na_mesa && meetSession?.url) && (
                   <a
                     href={meetSession.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 px-3 py-1.5 rounded flex items-center gap-1.5 text-xs font-bold transition border border-emerald-500/30"
+                    className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 px-3 py-1.5 rounded flex items-center gap-1.5 text-xs font-bold transition border border-emerald-500/30 animate-pulse shrink-0"
                   >
                     <Video className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">Entrar na Mesa</span>
                   </a>
-                  <button
-                    onClick={handleCloseMeet}
-                    className="p-1.5 text-red-400 hover:bg-red-500/20 rounded transition border border-transparent hover:border-red-500/30"
-                    title="Fechar Mesa (Remover link)"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => handleMeetLogin()}
-                  disabled={isCreatingMeet}
-                  className="bg-sky-500/20 text-sky-400 hover:bg-sky-500/30 px-3 py-1.5 rounded flex items-center gap-1.5 text-xs font-bold transition border border-sky-500/30 disabled:opacity-50 shrink-0"
-                  title="Criar sala do Google Meet para a mesa"
-                >
-                  <Video className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">{isCreatingMeet ? 'Criando...' : 'Abrir Mesa no Meet'}</span>
-                </button>
-              )
-            ) : (
-              (myActiveCharacter?.ativo_na_mesa && meetSession?.url) && (
-                <a
-                  href={meetSession.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 px-3 py-1.5 rounded flex items-center gap-1.5 text-xs font-bold transition border border-emerald-500/30 animate-pulse shrink-0"
-                >
-                  <Video className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Entrar na Mesa</span>
-                </a>
-              )
-            )}
-            
-            <div className="w-px h-6 bg-[#4e5058] mx-1 hidden sm:block"></div>
-
-            {/* Export Messages Button */}
-            <button
-              type="button"
-              onClick={() => setShowExportModal(true)}
-              className="text-[#b5bac1] hover:text-[#dbdee1] p-1 rounded hover:bg-[#3f4147] transition-colors flex items-center"
-              title="Exportar Mensagens"
-            >
-              <Download className="h-5 w-5" />
-            </button>
-            
-            {/* Pinned Messages Filter Toggle */}
-            <button
-              type="button"
-              onClick={() => setFilterPinnedOnly(!filterPinnedOnly)}
-              className={`p-1.5 rounded transition flex items-center gap-1 text-xs font-bold ${
-                filterPinnedOnly 
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' 
-                  : 'hover:bg-[#35373c] hover:text-white'
-              }`}
-              title="Filtrar apenas mensagens fixadas"
-            >
-              <Pin className={`h-4 w-4 ${filterPinnedOnly ? 'fill-current' : ''}`} />
-              {pinnedCount > 0 && <span>{pinnedCount}</span>}
-            </button>
-
-            {/* Search Box */}
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Buscar no canal..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-32 sm:w-48 bg-[#1e1f22] text-xs text-white placeholder-[#80848e] pl-7 pr-6 py-1 rounded focus:outline-none focus:ring-1 focus:ring-[#5865f2] transition-all"
-              />
-              <Search className="h-3.5 w-3.5 text-[#80848e] absolute left-2 top-2" />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-1.5 text-white/50 hover:text-white"
-                >
-                  <X className="h-3 w-3" />
-                </button>
+                )
               )}
+              
+              <div className="w-px h-6 bg-[#4e5058] mx-1 hidden sm:block"></div>
+
+              {/* Export Messages Button */}
+              <button
+                type="button"
+                onClick={() => setShowExportModal(true)}
+                className="text-[#b5bac1] hover:text-[#dbdee1] p-1.5 rounded hover:bg-[#3f4147] transition-colors flex items-center"
+                title="Exportar Mensagens"
+              >
+                <Download className="h-4 w-4" />
+              </button>
+              
+              {/* Pinned Messages Filter Toggle */}
+              <button
+                type="button"
+                onClick={() => setFilterPinnedOnly(!filterPinnedOnly)}
+                className={`p-1.5 rounded transition flex items-center gap-1 text-xs font-bold ${
+                  filterPinnedOnly 
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' 
+                    : 'hover:bg-[#35373c] hover:text-white'
+                }`}
+                title="Filtrar apenas mensagens fixadas"
+              >
+                <Pin className={`h-4 w-4 ${filterPinnedOnly ? 'fill-current' : ''}`} />
+                {pinnedCount > 0 && <span>{pinnedCount}</span>}
+              </button>
+
+              {/* Toggle Right Members Sidebar */}
+              <button
+                type="button"
+                onClick={() => setShowMembersSidebar(prev => !prev)}
+                className={`p-1.5 rounded transition flex items-center gap-1.5 text-xs font-bold ${
+                  showMembersSidebar 
+                    ? 'bg-white/10 text-white shadow-inner' 
+                    : 'hover:bg-[#35373c] hover:text-white'
+                }`}
+                title={showMembersSidebar ? "Ocultar Lista de Membros" : "Mostrar Lista de Membros"}
+              >
+                <Users className="h-4 w-4" />
+                <span className="hidden sm:inline text-[11px] text-[#23a55a] font-black">{onlineMembers.length}</span>
+              </button>
+
+              {/* Search Box */}
+              <div className="relative hidden sm:block">
+                <input
+                  type="text"
+                  placeholder="Buscar no canal..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-28 md:w-44 bg-[#1e1f22] text-xs text-white placeholder-[#80848e] pl-7 pr-6 py-1 rounded focus:outline-none focus:ring-1 focus:ring-[#5865f2] transition-all"
+                />
+                <Search className="h-3.5 w-3.5 text-[#80848e] absolute left-2 top-2" />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1.5 text-white/50 hover:text-white"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
         {/* Messages Stream Container */}
         <div 
@@ -2471,6 +2798,210 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, onAddLog
               </div>
 
             </form>
+          </div>
+        )}
+
+        </div>
+
+        {/* 3. RIGHT MEMBERS SIDEBAR (DISCORD STYLE) */}
+        {showMembersSidebar && (
+          <div className="w-56 sm:w-64 bg-[#2b2d31] border-l border-[#1f2023] flex flex-col shrink-0 overflow-y-auto custom-scroll p-3 space-y-4 select-none z-10">
+            
+            {/* Member Search filter */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Filtrar membros..."
+                value={memberSearchQuery}
+                onChange={(e) => setMemberSearchQuery(e.target.value)}
+                className="w-full bg-[#1e1f22] text-xs text-white placeholder-[#80848e] pl-7 pr-6 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-[#5865f2] transition-all"
+              />
+              <Search className="h-3 w-3 text-[#80848e] absolute left-2.5 top-2.5" />
+              {memberSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setMemberSearchQuery('')}
+                  className="absolute right-2 top-2 text-white/50 hover:text-white"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+
+            {/* Section: ONLINE / DISPONÍVEL */}
+            <div className="space-y-1">
+              <div className="px-1 py-0.5 text-[11px] font-black uppercase tracking-wider text-[#949ba4] flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#23a55a] animate-pulse" />
+                  Disponível
+                </span>
+                <span>{filteredOnlineMembers.length}</span>
+              </div>
+
+              <div className="space-y-0.5">
+                {filteredOnlineMembers.map(user => {
+                  const userChar = characters.find(c => c.email_dono && user.email && c.email_dono.toLowerCase().trim() === user.email.toLowerCase().trim() && c.ativo_na_mesa && !c.arquivado);
+                  const isSelf = user.uid === currentUserProfile?.uid;
+                  const displayName = user.discordDisplayName || user.displayName || user.email.split('@')[0];
+
+                  return (
+                    <div
+                      key={user.uid || user.email}
+                      onClick={() => {
+                        if (!isSelf) handleOpenDmWithUser(user);
+                      }}
+                      className={`w-full px-2 py-1.5 rounded-lg flex items-center justify-between group transition text-left ${
+                        isSelf 
+                          ? 'hover:bg-[#35373c]/50 cursor-default' 
+                          : 'hover:bg-[#35373c] cursor-pointer'
+                      }`}
+                      title={isSelf ? 'Você (Online)' : `Clique para abrir chat privado com ${displayName}`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        {/* Avatar with Green Online Dot */}
+                        <div className="relative shrink-0">
+                          <div className="w-8 h-8 rounded-full bg-[#1e1f22] overflow-hidden border border-white/10 flex items-center justify-center text-xs font-bold text-white shadow">
+                            {user.discordAvatar || user.photoURL ? (
+                              <img src={user.discordAvatar || user.photoURL || ''} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <span>{displayName[0].toUpperCase()}</span>
+                            )}
+                          </div>
+                          <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-[#23a55a] rounded-full border-2 border-[#2b2d31]" />
+                        </div>
+
+                        {/* Name & Subtitle */}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1">
+                            <p className={`text-xs font-bold truncate ${
+                              user.role === 'GM' ? 'text-amber-300' : 'text-white'
+                            }`}>
+                              {displayName}
+                            </p>
+                            {user.role === 'GM' && (
+                              <span className="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30 shrink-0">
+                                GM
+                              </span>
+                            )}
+                          </div>
+
+                          {userChar ? (
+                            <p className="text-[10px] text-[#949ba4] truncate font-medium flex items-center gap-0.5">
+                              <span>🧙</span>
+                              <span className="truncate">{userChar.nome}</span>
+                            </p>
+                          ) : user.statusMessage ? (
+                            <p className="text-[10px] text-[#949ba4] truncate italic">
+                              {user.statusMessage}
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      {/* DM Action Button */}
+                      {!isSelf && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenDmWithUser(user);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-[#404249] text-[#949ba4] hover:text-white rounded transition shrink-0 ml-1"
+                          title="Mensagem Direta Privada (DM)"
+                        >
+                          <MessageSquare className="h-3.5 w-3.5 text-[#5865f2]" />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Section: OFFLINE / INDISPONÍVEL */}
+            <div className="space-y-1 pt-2 border-t border-[#1f2023]/60">
+              <div className="px-1 py-0.5 text-[11px] font-black uppercase tracking-wider text-[#949ba4] flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#80848e]" />
+                  Offline
+                </span>
+                <span>{filteredOfflineMembers.length}</span>
+              </div>
+
+              <div className="space-y-0.5 opacity-70 hover:opacity-100 transition-opacity">
+                {filteredOfflineMembers.map(user => {
+                  const userChar = characters.find(c => c.email_dono && user.email && c.email_dono.toLowerCase().trim() === user.email.toLowerCase().trim() && c.ativo_na_mesa && !c.arquivado);
+                  const isSelf = user.uid === currentUserProfile?.uid;
+                  const displayName = user.discordDisplayName || user.displayName || user.email.split('@')[0];
+
+                  return (
+                    <div
+                      key={user.uid || user.email}
+                      onClick={() => {
+                        if (!isSelf) handleOpenDmWithUser(user);
+                      }}
+                      className={`w-full px-2 py-1.5 rounded-lg flex items-center justify-between group transition text-left ${
+                        isSelf 
+                          ? 'hover:bg-[#35373c]/50 cursor-default' 
+                          : 'hover:bg-[#35373c] cursor-pointer'
+                      }`}
+                      title={isSelf ? 'Você (Offline)' : `Clique para deixar mensagem privada para ${displayName}`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        {/* Avatar with Gray Offline Dot */}
+                        <div className="relative shrink-0">
+                          <div className="w-8 h-8 rounded-full bg-[#1e1f22] overflow-hidden border border-white/10 flex items-center justify-center text-xs font-bold text-white/60 grayscale-[40%]">
+                            {user.discordAvatar || user.photoURL ? (
+                              <img src={user.discordAvatar || user.photoURL || ''} alt="" className="w-full h-full object-cover opacity-70" />
+                            ) : (
+                              <span>{displayName[0].toUpperCase()}</span>
+                            )}
+                          </div>
+                          <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-[#80848e] rounded-full border-2 border-[#2b2d31]" />
+                        </div>
+
+                        {/* Name & Subtitle */}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1">
+                            <p className="text-xs font-bold truncate text-[#949ba4]">
+                              {displayName}
+                            </p>
+                            {user.role === 'GM' && (
+                              <span className="text-[9px] px-1 py-0.2 rounded bg-amber-500/10 text-amber-300/70 font-black border border-amber-500/20 shrink-0">
+                                GM
+                              </span>
+                            )}
+                          </div>
+
+                          {userChar ? (
+                            <p className="text-[10px] text-[#949ba4]/70 truncate font-medium flex items-center gap-0.5">
+                              <span>🧙</span>
+                              <span className="truncate">{userChar.nome}</span>
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      {/* DM Action Button */}
+                      {!isSelf && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenDmWithUser(user);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-[#404249] text-[#949ba4] hover:text-white rounded transition shrink-0 ml-1"
+                          title="Deixar Mensagem Direta (DM)"
+                        >
+                          <MessageSquare className="h-3.5 w-3.5 text-[#5865f2]" />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
           </div>
         )}
 
