@@ -108,8 +108,11 @@ async function startServer() {
       if (db) {
         try {
           const attachments = message.attachments ? Array.from(message.attachments.values()).map((att) => att.url) : [];
+          const docId = `discord_${message.id}`;
+          const chanName = "name" in message.channel && typeof message.channel.name === "string" ? message.channel.name : "";
           const notebookDoc = {
             channelId: message.channelId,
+            channelName: chanName,
             discordMessageId: message.id,
             authorName: message.member?.displayName || message.author.globalName || message.author.username,
             authorAvatar: message.author.displayAvatarURL() || "https://cdn.discordapp.com/embed/avatars/0.png",
@@ -122,8 +125,8 @@ async function startServer() {
           if (attachments.length > 0) {
             notebookDoc.attachments = attachments;
           }
-          const docRef = await (0, import_firestore.addDoc)((0, import_firestore.collection)(db, "discord_notebook_messages"), notebookDoc);
-          console.log(`[DISCORD -> FIRESTORE] Mensagem gravada com sucesso! Doc ID: ${docRef.id} no canal ${message.channelId}`);
+          await (0, import_firestore.setDoc)((0, import_firestore.doc)(db, "discord_notebook_messages", docId), notebookDoc, { merge: true });
+          console.log(`[DISCORD -> FIRESTORE] Mensagem gravada/atualizada com sucesso! Doc ID: ${docId} no canal ${message.channelId}`);
           if (defaultChannelId && message.channelId === defaultChannelId) {
             const chatMsg = {
               remetente: `[Discord] ${message.author.username}`,
