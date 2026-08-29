@@ -30,7 +30,7 @@ import { AuditModal } from './components/AuditModal';
 import { TelemetryModal } from './components/TelemetryModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { PdfSheetImporterModal } from './components/PdfSheetImporterModal';
-import { trackRead, trackWrite, trackDelete } from './utils/firebaseUsageTracker';
+import { trackRead, trackWrite, trackDelete, initGlobalTelemetrySync } from './utils/firebaseUsageTracker';
 import { 
   saveCharactersToCache, 
   loadCharactersFromCache 
@@ -82,9 +82,11 @@ export default function App() {
   useEffect(() => {
     const unsubAudit = subscribeToAuditLogs((logs) => setAuditLogs(logs));
     const unsubTelemetry = subscribeToTelemetryLogs((logs) => setTelemetryLogs(logs));
+    const unsubGlobalTelemetry = initGlobalTelemetrySync();
     return () => {
       unsubAudit();
       unsubTelemetry();
+      unsubGlobalTelemetry();
     };
   }, []);
 
