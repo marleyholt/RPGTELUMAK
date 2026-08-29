@@ -61,8 +61,15 @@ export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [versionsMap, setVersionsMap] = useState<{ [charId: string]: CharVersion[] }>({});
 
-  // Discord Unread Tracking State
-  const [discordChannels, setDiscordChannels] = useState<DiscordChannelMeta[]>([]);
+  // Discord Unread Tracking State (Hydrated from local cache first for 0ms startup)
+  const [discordChannels, setDiscordChannels] = useState<DiscordChannelMeta[]>(() => {
+    try {
+      const saved = localStorage.getItem('telumak_cached_discord_channels');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [discordRecentMessages, setDiscordRecentMessages] = useState<any[]>([]);
   const [discordUnreadCount, setDiscordUnreadCount] = useState<number>(0);
 
@@ -518,30 +525,36 @@ export default function App() {
     return () => window.removeEventListener('openNpcSheet', handleOpenNpcSheet);
   }, []);
 
-  // Sync Discord Channels for Unread Counter
+  // Sync Discord Channels for Unread Counter & Shared State with Local Storage Cache
   useEffect(() => {
     if (!currentUser) return;
     const unsub = onSnapshot(collection(db, 'discord_channels'), (snap) => {
+      trackRead('discord_channels', snap.docChanges().length || snap.size);
       const list: DiscordChannelMeta[] = [];
       snap.forEach(d => {
         list.push({ id: d.id, ...d.data() } as DiscordChannelMeta);
       });
+      list.sort((a: any, b: any) => (a.order ?? 999) - (b.order ?? 999));
       setDiscordChannels(list);
+      try {
+        localStorage.setItem('telumak_cached_discord_channels', JSON.stringify(list));
+      } catch {}
     }, (err) => {
       console.warn("Discord channels snapshot error:", err);
     });
     return () => unsub();
   }, [currentUser]);
 
-  // Sync Recent Discord Messages for Unread Counter
+  // Sync Recent Discord Messages for Unread Counter (Optimized to limit 30 for low-quota consumption)
   useEffect(() => {
     if (!currentUser) return;
     const q = query(
       collection(db, 'discord_notebook_messages'),
       orderBy('createdAt', 'desc'),
-      limit(100)
+      limit(30)
     );
     const unsub = onSnapshot(q, (snap) => {
+      trackRead('discord_notebook_messages', snap.docChanges().length || snap.size);
       const list: any[] = [];
       snap.forEach(d => {
         list.push({ id: d.id, ...d.data() });
@@ -1264,6 +1277,8 @@ export default function App() {
               currentUserProfile={userProfile}
               characters={characters}
               allUsers={allUsers}
+              sharedChannels={discordChannels as any}
+              sharedRecentMessages={discordRecentMessages}
               onAddLog={addGlobalLog}
             />
           </div>

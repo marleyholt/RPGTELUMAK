@@ -37,12 +37,31 @@ interface DiscordNotebookProps {
   currentUserProfile: UserProfile | null;
   characters: Character[];
   allUsers?: UserProfile[];
+  sharedChannels?: DiscordChannelItem[];
+  sharedRecentMessages?: any[];
   onAddLog?: (type: 'info' | 'success' | 'warn' | 'error', title: string, details?: any) => void;
 }
 
-export function DiscordNotebook({ isGM, currentUserProfile, characters, allUsers = [], onAddLog }: DiscordNotebookProps) {
-  // Channels stored in Firestore (real channels created by GM)
-  const [dbChannels, setDbChannels] = useState<DiscordChannelItem[]>([]);
+export function DiscordNotebook({ 
+  isGM, 
+  currentUserProfile, 
+  characters, 
+  allUsers = [], 
+  sharedChannels, 
+  sharedRecentMessages, 
+  onAddLog 
+}: DiscordNotebookProps) {
+  // Channels stored in Firestore (real channels created by GM with local storage cache fallback)
+  const [internalDbChannels, setInternalDbChannels] = useState<DiscordChannelItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('telumak_cached_discord_channels');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const dbChannels = (sharedChannels && sharedChannels.length > 0) ? sharedChannels : internalDbChannels;
   const [activeChannel, setActiveChannel] = useState<DiscordChannelItem | null>(null);
   
   // Messages and Input
@@ -185,7 +204,7 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, allUsers
   const [targetJumpMsgId, setTargetJumpMsgId] = useState<string | null>(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const [isPinning, setIsPinning] = useState<string | null>(null);
-  const [messageLimit, setMessageLimit] = useState(50);
+  const [messageLimit, setMessageLimit] = useState(35);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [editingMessage, setEditingMessage] = useState<DiscordNotebookMessage | null>(null);
@@ -309,7 +328,10 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, allUsers
   }, [currentUserProfile]);
 
   // Unread channels tracking
-  const [recentGlobalMessages, setRecentGlobalMessages] = useState<any[]>([]);
+  const [internalRecentGlobalMessages, setInternalRecentGlobalMessages] = useState<any[]>([]);
+  const recentGlobalMessages = (sharedRecentMessages && sharedRecentMessages.length >= 0)
+    ? sharedRecentMessages
+    : internalRecentGlobalMessages;
 
   const userReadStorageKey = useMemo(() => {
     const email = currentUserProfile?.email ? currentUserProfile.email.toLowerCase().trim() : 'guest';
@@ -329,26 +351,29 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, allUsers
     return () => window.removeEventListener('discord_unread_update', handleUnreadUpdate);
   }, [currentUserProfile?.email]);
 
-  // Global listener for recent messages across channels to detect unread activity
+  // Global listener for recent messages across channels (only if not provided by parent App.tsx)
   useEffect(() => {
+    if (sharedRecentMessages) return; // Prop provided from App.tsx - skip duplicate listener
+
     const q = query(
       collection(db, 'discord_notebook_messages'),
       orderBy('createdAt', 'desc'),
-      limit(100)
+      limit(30)
     );
 
     const unsub = onSnapshot(q, (snap) => {
+      trackRead('discord_notebook_messages', snap.docChanges().length || snap.size);
       const list: any[] = [];
       snap.forEach(docSnap => {
         list.push({ id: docSnap.id, ...docSnap.data() });
       });
-      setRecentGlobalMessages(list);
+      setInternalRecentGlobalMessages(list);
     }, (err) => {
       console.warn("Snapshot global unread messages:", err);
     });
 
     return () => unsub();
-  }, []);
+  }, [sharedRecentMessages]);
 
   const markChannelAsRead = useCallback((ch: DiscordChannelItem | null) => {
     if (!ch) return;
@@ -455,8 +480,10 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, allUsers
     return () => unsub();
   }, [isGM]);
 
-  // 1. Load Real-Time Channels directly from Firestore (NO fake default channels)
+  // 1. Load Real-Time Channels directly from Firestore (only if not provided by App.tsx)
   useEffect(() => {
+    if (sharedChannels && sharedChannels.length > 0) return;
+
     const unsub = onSnapshot(collection(db, 'discord_channels'), (snap) => {
       trackRead('discord_channels', snap.docChanges().length || snap.size);
       const items: DiscordChannelItem[] = [];
@@ -464,14 +491,17 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, allUsers
         items.push({ id: d.id, ...d.data() } as DiscordChannelItem);
       });
       items.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
-      setDbChannels(items);
+      setInternalDbChannels(items);
+      try {
+        localStorage.setItem('telumak_cached_discord_channels', JSON.stringify(items));
+      } catch {}
     }, (err) => {
       console.warn("Snapshot discord_channels:", err);
-      setDbChannels([]);
+      setInternalDbChannels([]);
     });
 
     return unsub;
-  }, []);
+  }, [sharedChannels]);
 
   // 2. Compute Visible Channels (GM sees ALL channels; players see public + permitted channels)
   const visibleChannels = useMemo(() => {
@@ -2231,11 +2261,11 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, allUsers
                 <div className="text-center py-2">
                   <button
                     type="button"
-                    onClick={() => setMessageLimit(prev => prev + 50)}
-                    className="px-4 py-1.5 bg-[#2b2d31] hover:bg-[#35373c] text-sky-400 hover:text-white border border-blue-500/20 text-xs font-bold transition flex items-center gap-1.5 mx-auto rounded"
+                    onClick={() => setMessageLimit(prev => prev + 35)}
+                    className="px-4 py-1.5 bg-[#2b2d31] hover:bg-[#35373c] text-sky-400 hover:text-white border border-blue-500/20 text-xs font-bold transition flex items-center gap-1.5 mx-auto rounded shadow-sm"
                   >
                     <ArrowUp className="h-3.5 w-3.5" />
-                    <span>Carregar mensagens anteriores (+50)</span>
+                    <span>Carregar mensagens anteriores (+35)</span>
                   </button>
                 </div>
               )}
