@@ -44,6 +44,7 @@ import {
   TelemetryLogEntry 
 } from './utils/auditTelemetry';
 import { getApiUrl } from './utils/apiConfig';
+import { countUnreadDiscordMessages, DiscordChannelMeta } from './utils/discordUnreadTracker';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -59,6 +60,11 @@ export default function App() {
   const [statuses, setStatuses] = useState<CustomStatusType[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [versionsMap, setVersionsMap] = useState<{ [charId: string]: CharVersion[] }>({});
+
+  // Discord Unread Tracking State
+  const [discordChannels, setDiscordChannels] = useState<DiscordChannelMeta[]>([]);
+  const [discordRecentMessages, setDiscordRecentMessages] = useState<any[]>([]);
+  const [discordUnreadCount, setDiscordUnreadCount] = useState<number>(0);
 
   // Global Separate Modals State: 1. Audit Trail (Actions) and 2. Telemetry (Errors & Quota)
   const [showAuditModal, setShowAuditModal] = useState(false);
@@ -511,6 +517,69 @@ export default function App() {
     window.addEventListener('openNpcSheet', handleOpenNpcSheet);
     return () => window.removeEventListener('openNpcSheet', handleOpenNpcSheet);
   }, []);
+
+  // Sync Discord Channels for Unread Counter
+  useEffect(() => {
+    if (!currentUser) return;
+    const unsub = onSnapshot(collection(db, 'discord_channels'), (snap) => {
+      const list: DiscordChannelMeta[] = [];
+      snap.forEach(d => {
+        list.push({ id: d.id, ...d.data() } as DiscordChannelMeta);
+      });
+      setDiscordChannels(list);
+    }, (err) => {
+      console.warn("Discord channels snapshot error:", err);
+    });
+    return () => unsub();
+  }, [currentUser]);
+
+  // Sync Recent Discord Messages for Unread Counter
+  useEffect(() => {
+    if (!currentUser) return;
+    const q = query(
+      collection(db, 'discord_notebook_messages'),
+      orderBy('createdAt', 'desc'),
+      limit(100)
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const list: any[] = [];
+      snap.forEach(d => {
+        list.push({ id: d.id, ...d.data() });
+      });
+      setDiscordRecentMessages(list);
+    }, (err) => {
+      console.warn("Discord recent messages snapshot error:", err);
+    });
+    return () => unsub();
+  }, [currentUser]);
+
+  // Recalculate Discord Unread Count
+  useEffect(() => {
+    if (!currentUser || !userProfile) {
+      setDiscordUnreadCount(0);
+      return;
+    }
+
+    const myChars = characters.filter(c => c.email_dono === currentUser.email);
+    const compute = () => {
+      const count = countUnreadDiscordMessages(
+        discordRecentMessages,
+        discordChannels,
+        userProfile,
+        myChars
+      );
+      setDiscordUnreadCount(count);
+    };
+
+    compute();
+
+    const handleUnreadUpdate = () => {
+      compute();
+    };
+
+    window.addEventListener('discord_unread_update', handleUnreadUpdate);
+    return () => window.removeEventListener('discord_unread_update', handleUnreadUpdate);
+  }, [currentUser, userProfile, discordRecentMessages, discordChannels, characters]);
 
   // 30s Polling Check for Player Character Sheet Changes
   useEffect(() => {
@@ -1092,12 +1161,18 @@ export default function App() {
 
             <button
               onClick={() => setCurrentTab('discord')}
-              className={`flex items-center gap-1.5 px-5 py-2 text-xs font-black uppercase tracking-widest transition duration-150 ${
+              className={`relative flex items-center gap-1.5 px-4 sm:px-5 py-2 text-xs font-black uppercase tracking-widest transition duration-150 ${
                 currentTab === 'discord' ? 'bg-[#5865F2] text-white shadow' : 'text-white/40 hover:text-white hover:bg-white/5'
               }`}
+              title={discordUnreadCount > 0 ? `${discordUnreadCount} mensagem(ns) não lida(s) no Discord` : 'Grimório & Discord'}
             >
               <MessageSquareText className="h-3.5 w-3.5" />
-              Discord
+              <span>Discord</span>
+              {discordUnreadCount > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 bg-rose-600 text-white rounded-full text-[9px] font-black leading-none animate-pulse shadow-md border border-white/20">
+                  {discordUnreadCount > 99 ? '99+' : discordUnreadCount}
+                </span>
+              )}
             </button>
           </div>
 

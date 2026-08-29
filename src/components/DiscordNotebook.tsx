@@ -27,6 +27,7 @@ import { NPC } from '../types';
 import { trackRead, trackWrite, trackDelete } from '../utils/firebaseUsageTracker';
 import { parseAndRollDice, extractDiceRollsFromMessage } from '../utils/diceRoller';
 import { getApiUrl } from '../utils/apiConfig';
+import { saveChannelReadTime, getChannelReadTimes } from '../utils/discordUnreadTracker';
 
 // Discord Free tier message character limit
 const DISCORD_FREE_MAX_CHARS = 2000;
@@ -316,13 +317,17 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, allUsers
   }, [currentUserProfile]);
 
   const [channelReadTimes, setChannelReadTimes] = useState<{ [key: string]: number }>(() => {
-    try {
-      const saved = localStorage.getItem(userReadStorageKey);
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
+    return getChannelReadTimes(currentUserProfile?.email);
   });
+
+  // Listen to unread update events across windows/components
+  useEffect(() => {
+    const handleUnreadUpdate = () => {
+      setChannelReadTimes(getChannelReadTimes(currentUserProfile?.email));
+    };
+    window.addEventListener('discord_unread_update', handleUnreadUpdate);
+    return () => window.removeEventListener('discord_unread_update', handleUnreadUpdate);
+  }, [currentUserProfile?.email]);
 
   // Global listener for recent messages across channels to detect unread activity
   useEffect(() => {
@@ -348,17 +353,10 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, allUsers
   const markChannelAsRead = useCallback((ch: DiscordChannelItem | null) => {
     if (!ch) return;
     const now = Date.now();
-    setChannelReadTimes(prev => {
-      const next = { ...prev };
-      if (ch.id) next[ch.id] = now;
-      if (ch.discordChannelId) next[ch.discordChannelId] = now;
-      if (ch.name) next[ch.name.toLowerCase().trim()] = now;
-      try {
-        localStorage.setItem(userReadStorageKey, JSON.stringify(next));
-      } catch {}
-      return next;
-    });
-  }, [userReadStorageKey]);
+    const keys = [ch.id, ch.discordChannelId, ch.name].filter(Boolean) as string[];
+    saveChannelReadTime(currentUserProfile?.email, keys, now);
+    setChannelReadTimes(getChannelReadTimes(currentUserProfile?.email));
+  }, [currentUserProfile?.email]);
 
   // Determine if a channel has unread messages
   const isChannelUnread = useCallback((channel: DiscordChannelItem): boolean => {
@@ -3443,10 +3441,11 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, allUsers
 
       {/* Discord Identity Customization Modal (GM & Player Name & #tag) */}
       {showIdentityModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#313338] border border-[#232428] rounded-xl w-full max-w-md overflow-hidden shadow-2xl animate-fade-in text-[#dbdee1]">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-[#313338] border border-[#232428] rounded-xl w-full max-w-md max-h-[92vh] flex flex-col overflow-hidden shadow-2xl animate-fade-in text-[#dbdee1]">
             
-            <div className="px-6 py-4 bg-[#2b2d31] border-b border-[#1f2023] flex items-center justify-between">
+            {/* Modal Header */}
+            <div className="px-5 sm:px-6 py-3.5 bg-[#2b2d31] border-b border-[#1f2023] flex items-center justify-between shrink-0">
               <h3 className="text-base font-black text-white flex items-center gap-2">
                 <Sliders className="h-5 w-5 text-[#5865f2]" />
                 Personalizar Perfil no Discord
@@ -3454,157 +3453,162 @@ export function DiscordNotebook({ isGM, currentUserProfile, characters, allUsers
               <button
                 type="button"
                 onClick={() => setShowIdentityModal(false)}
-                className="text-[#949ba4] hover:text-white transition"
+                className="p-1 text-[#949ba4] hover:text-white hover:bg-white/10 rounded transition"
+                title="Fechar"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveIdentity} className="p-6 space-y-4 text-xs">
-              <p className="text-[11px] text-[#949ba4] leading-relaxed">
-                Configure como seu nome, tag discriminador (<code className="text-sky-400 font-mono">#tag</code>) e avatar aparecerão nas mensagens e na barra de canais do Discord.
-              </p>
+            {/* Scrollable Form Body */}
+            <form onSubmit={handleSaveIdentity} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="p-5 sm:p-6 space-y-4 text-xs overflow-y-auto flex-1 custom-scrollbar">
+                <p className="text-[11px] text-[#949ba4] leading-relaxed">
+                  Configure como seu nome, tag discriminador (<code className="text-sky-400 font-mono">#tag</code>) e avatar aparecerão nas mensagens e na barra de canais do Discord.
+                </p>
 
-              {/* Live Preview Card */}
-              <div className="bg-[#232428] p-3.5 rounded-lg border border-white/10 space-y-2">
-                <span className="text-[10px] uppercase font-black tracking-wider text-[#949ba4] block">
-                  Pré-visualização em Tempo Real
-                </span>
-                <div className="flex items-center gap-3 bg-[#2b2d31] p-2.5 rounded border border-white/5">
-                  <div className="w-10 h-10 rounded-full bg-[#1e1f22] overflow-hidden border border-[#5865f2]/40 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                    {identityAvatar ? (
-                      <img src={identityAvatar} alt="Preview" className="w-full h-full object-cover" />
-                    ) : (
-                      <span>{identityName?.[0]?.toUpperCase() || (isGM ? 'GM' : 'U')}</span>
-                    )}
-                  </div>
-                  <div className="overflow-hidden min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-white text-sm truncate">
-                        {identityName || (isGM ? 'Alex AP (Mestre)' : 'Jogador')}
-                      </span>
-                      <span className="text-[10px] font-mono text-[#5865f2] bg-[#5865f2]/10 px-1.5 py-0.5 rounded font-bold border border-[#5865f2]/30">
-                        {identityTag.startsWith('#') ? identityTag : (identityTag ? `#${identityTag}` : '#0001')}
-                      </span>
+                {/* Live Preview Card */}
+                <div className="bg-[#232428] p-3.5 rounded-lg border border-white/10 space-y-2">
+                  <span className="text-[10px] uppercase font-black tracking-wider text-[#949ba4] block">
+                    Pré-visualização em Tempo Real
+                  </span>
+                  <div className="flex items-center gap-3 bg-[#2b2d31] p-2.5 rounded border border-white/5">
+                    <div className="w-10 h-10 rounded-full bg-[#1e1f22] overflow-hidden border border-[#5865f2]/40 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                      {identityAvatar ? (
+                        <img src={identityAvatar} alt="Preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <span>{identityName?.[0]?.toUpperCase() || (isGM ? 'GM' : 'U')}</span>
+                      )}
                     </div>
-                    <p className="text-[11px] text-[#949ba4] truncate mt-0.5">
-                      {isGM ? '👑 Mestre da Sessão' : '⚔️ Jogador de Telumak RPG'}
-                    </p>
+                    <div className="overflow-hidden min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-white text-sm truncate">
+                          {identityName || (isGM ? 'Alex AP (Mestre)' : 'Jogador')}
+                        </span>
+                        <span className="text-[10px] font-mono text-[#5865f2] bg-[#5865f2]/10 px-1.5 py-0.5 rounded font-bold border border-[#5865f2]/30">
+                          {identityTag.startsWith('#') ? identityTag : (identityTag ? `#${identityTag}` : '#0001')}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[#949ba4] truncate mt-0.5">
+                        {isGM ? '👑 Mestre da Sessão' : '⚔️ Jogador de Telumak RPG'}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Nome de Exibição */}
-              <div>
-                <label className="block text-[11px] font-black uppercase tracking-wider text-[#949ba4] mb-1.5">
-                  Nome de Exibição no Discord *
-                </label>
-                <input
-                  type="text"
-                  value={identityName}
-                  onChange={(e) => setIdentityName(e.target.value)}
-                  placeholder={isGM ? "ex: Alex AP, Mestre Supremo" : "ex: Gabriel, Kaelen, Arthur"}
-                  required
-                  className="w-full bg-[#1e1f22] text-white px-3 py-2 rounded border border-white/10 text-xs focus:outline-none focus:border-[#5865f2]"
-                />
-              </div>
-
-              {/* Tag Discriminador (#) */}
-              <div>
-                <label className="block text-[11px] font-black uppercase tracking-wider text-[#949ba4] mb-1.5">
-                  Tag Discriminador Personalizada (#) *
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2 text-[#949ba4] font-mono font-bold">#</span>
+                {/* Nome de Exibição */}
+                <div>
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-[#949ba4] mb-1.5">
+                    Nome de Exibição no Discord *
+                  </label>
                   <input
                     type="text"
-                    value={identityTag.replace(/^#/, '')}
-                    onChange={(e) => setIdentityTag(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''))}
-                    placeholder={isGM ? "mestre" : "0001"}
-                    maxLength={16}
+                    value={identityName}
+                    onChange={(e) => setIdentityName(e.target.value)}
+                    placeholder={isGM ? "ex: Alex AP, Mestre Supremo" : "ex: Gabriel, Kaelen, Arthur"}
                     required
-                    className="w-full bg-[#1e1f22] text-white pl-7 pr-3 py-2 rounded border border-white/10 font-mono text-xs focus:outline-none focus:border-[#5865f2]"
+                    className="w-full bg-[#1e1f22] text-white px-3 py-2 rounded border border-white/10 text-xs focus:outline-none focus:border-[#5865f2]"
                   />
                 </div>
-                <span className="text-[10px] text-[#949ba4] block mt-1">
-                  Exemplos: <code className="text-[#5865f2]">mestre</code>, <code className="text-[#5865f2]">0001</code>, <code className="text-[#5865f2]">gm</code>, <code className="text-[#5865f2]">boss</code>
-                </span>
-              </div>
 
-              {/* Foto / Avatar com Upload */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-[#949ba4]">
-                    Avatar do Discord (Upload / Recorte)
+                {/* Tag Discriminador (#) */}
+                <div>
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-[#949ba4] mb-1.5">
+                    Tag Discriminador Personalizada (#) *
                   </label>
-                  {(() => {
-                    const senderChar = characters.find(c => c.email_dono === currentUserProfile?.email);
-                    if (senderChar?.img_saudavel) {
-                      return (
-                        <button
-                          type="button"
-                          onClick={() => setIdentityAvatar(senderChar.img_saudavel)}
-                          className="text-[10px] text-sky-400 hover:text-sky-300 underline font-mono flex items-center gap-1"
-                        >
-                          Usar Foto da Ficha ({senderChar.nome})
-                        </button>
-                      );
-                    }
-                    return null;
-                  })()}
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-[#949ba4] font-mono font-bold">#</span>
+                    <input
+                      type="text"
+                      value={identityTag.replace(/^#/, '')}
+                      onChange={(e) => setIdentityTag(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''))}
+                      placeholder={isGM ? "mestre" : "0001"}
+                      maxLength={16}
+                      required
+                      className="w-full bg-[#1e1f22] text-white pl-7 pr-3 py-2 rounded border border-white/10 font-mono text-xs focus:outline-none focus:border-[#5865f2]"
+                    />
+                  </div>
+                  <span className="text-[10px] text-[#949ba4] block mt-1">
+                    Exemplos: <code className="text-[#5865f2]">mestre</code>, <code className="text-[#5865f2]">0001</code>, <code className="text-[#5865f2]">gm</code>, <code className="text-[#5865f2]">boss</code>
+                  </span>
+                </div>
+
+                {/* Foto / Avatar com Upload */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[11px] font-black uppercase tracking-wider text-[#949ba4]">
+                      Avatar do Discord (Upload / Recorte)
+                    </label>
+                    {(() => {
+                      const senderChar = characters.find(c => c.email_dono === currentUserProfile?.email);
+                      if (senderChar?.img_saudavel) {
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setIdentityAvatar(senderChar.img_saudavel)}
+                            className="text-[10px] text-sky-400 hover:text-sky-300 underline font-mono flex items-center gap-1"
+                          >
+                            Usar Foto da Ficha ({senderChar.nome})
+                          </button>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
+                  
+                  <ImageUploadField
+                    label=""
+                    value={identityAvatar}
+                    onChange={(val) => setIdentityAvatar(val)}
+                    maxWidth={400}
+                    maxHeight={400}
+                    aspectRatio="square"
+                    helperText="Envie um arquivo PNG, JPG ou WEBP. Você pode arrastar, enviar e recortar a imagem perfeitamente."
+                  />
                 </div>
                 
-                <ImageUploadField
-                  label=""
-                  value={identityAvatar}
-                  onChange={(val) => setIdentityAvatar(val)}
-                  maxWidth={400}
-                  maxHeight={400}
-                  aspectRatio="square"
-                  helperText="Envie um arquivo PNG, JPG ou WEBP. Você pode arrastar, enviar e recortar a imagem perfeitamente."
-                />
-              </div>
-              
-              {/* Ficha Rápida config */}
-              <div className="pt-2">
-                <label className="block text-[11px] font-black uppercase tracking-wider text-[#949ba4] mb-1">
-                  Ocultar Abas da Ficha Rápida
-                </label>
-                <p className="text-[10px] text-[#949ba4] mb-3 leading-tight">
-                  Por padrão, todas as abas são exibidas. Selecione abaixo as que você <strong>NÃO</strong> quer ver.
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { id: 'indicadores', label: 'Indicadores' },
-                    { id: 'ataque', label: 'Ataque' },
-                    { id: 'defesa', label: 'Defesa' },
-                    { id: 'dons', label: 'Dons' },
-                    { id: 'equipamento', label: 'Equipamentos' }
-                  ].map(sec => {
-                    const isHidden = identityQuickSheet.includes(sec.id);
-                    return (
-                      <label key={sec.id} className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition ${isHidden ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-[#1e1f22] border-white/5 text-[#949ba4] hover:bg-[#2b2d31]'}`}>
-                        <input
-                          type="checkbox"
-                          className="hidden"
-                          checked={isHidden}
-                          onChange={() => {
-                            if (isHidden) {
-                              setIdentityQuickSheet(prev => prev.filter(x => x !== sec.id));
-                            } else {
-                              setIdentityQuickSheet(prev => [...prev, sec.id]);
-                            }
-                          }}
-                        />
-                        <span className="text-[11px] font-bold truncate">{sec.label}</span>
-                        {isHidden && <Check className="h-3 w-3 ml-auto text-rose-400 shrink-0" />}
-                      </label>
-                    );
-                  })}
+                {/* Ficha Rápida config */}
+                <div className="pt-2">
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-[#949ba4] mb-1">
+                    Ocultar Abas da Ficha Rápida
+                  </label>
+                  <p className="text-[10px] text-[#949ba4] mb-3 leading-tight">
+                    Por padrão, todas as abas são exibidas. Selecione abaixo as que você <strong>NÃO</strong> quer ver.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { id: 'indicadores', label: 'Indicadores' },
+                      { id: 'ataque', label: 'Ataque' },
+                      { id: 'defesa', label: 'Defesa' },
+                      { id: 'dons', label: 'Dons' },
+                      { id: 'equipamento', label: 'Equipamentos' }
+                    ].map(sec => {
+                      const isHidden = identityQuickSheet.includes(sec.id);
+                      return (
+                        <label key={sec.id} className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition ${isHidden ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-[#1e1f22] border-white/5 text-[#949ba4] hover:bg-[#2b2d31]'}`}>
+                          <input
+                            type="checkbox"
+                            className="hidden"
+                            checked={isHidden}
+                            onChange={() => {
+                              if (isHidden) {
+                                setIdentityQuickSheet(prev => prev.filter(x => x !== sec.id));
+                              } else {
+                                setIdentityQuickSheet(prev => [...prev, sec.id]);
+                              }
+                            }}
+                          />
+                          <span className="text-[11px] font-bold truncate">{sec.label}</span>
+                          {isHidden && <Check className="h-3 w-3 ml-auto text-rose-400 shrink-0" />}
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-[#1f2023]">
+              {/* Sticky Footer with Save / Cancel */}
+              <div className="px-5 sm:px-6 py-3.5 bg-[#2b2d31] border-t border-[#1f2023] flex items-center justify-end gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowIdentityModal(false)}

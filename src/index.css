@@ -118,6 +118,88 @@ body {
   background-color: rgba(255, 255, 255, 0.1);
   font-weight: bold;
 }
+
+/* APENAS NA VERSÃO MOBILE (telas <= 768px): As colunas de texto inseridas são empilhadas verticalmente */
+@media (max-width: 768px) {
+  .rich-text-content table,
+  .rich-content table,
+  .markdown-body table,
+  .prose table,
+  table.editor-layout-table,
+  .editor-layout-table {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: auto !important;
+    border-collapse: separate !important;
+    margin: 0.5rem 0 !important;
+  }
+
+  .rich-text-content tbody,
+  .rich-content tbody,
+  .markdown-body tbody,
+  .prose tbody,
+  .editor-layout-table tbody {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  .rich-text-content tr,
+  .rich-content tr,
+  .markdown-body tr,
+  .prose tr,
+  .editor-layout-table tr {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 0.5rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .rich-text-content td,
+  .rich-content td,
+  .rich-text-content th,
+  .rich-content th,
+  .markdown-body td,
+  .markdown-body th,
+  .prose td,
+  .prose th,
+  .editor-layout-table td,
+  .editor-layout-table th {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+  }
+
+  /* Empilhar flex/grid personalizados inseridos no texto em telas mobile */
+  .rich-text-content [style*="display: flex"],
+  .rich-content [style*="display: flex"],
+  .markdown-body [style*="display: flex"],
+  .prose [style*="display: flex"] {
+    flex-direction: column !important;
+    width: 100% !important;
+  }
+
+  .rich-text-content [style*="display: grid"],
+  .rich-content [style*="display: grid"],
+  .markdown-body [style*="display: grid"],
+  .prose [style*="display: grid"] {
+    grid-template-columns: 1fr !important;
+    width: 100% !important;
+  }
+
+  .rich-text-content [style*="columns:"],
+  .rich-content [style*="columns:"],
+  .rich-text-content [style*="column-count:"],
+  .rich-content [style*="column-count:"] {
+    columns: 1 !important;
+    column-count: 1 !important;
+  }
+}
 @media print {
   .rich-text-content table, .rich-content table {
     border-collapse: collapse !important;
