@@ -14,7 +14,7 @@ import {
 } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { 
-  Plus, Trash2, LogOut, Heart, Shield, Swords, User as UserIcon, Send, EyeOff, Eye, LayoutGrid, Scroll, Flame, RefreshCw, Sparkles, BookOpen, UserPlus, Star, Sliders, Lock, HelpCircle, Settings, MessageSquareText, Bell, X, ShieldAlert, Users, FileText, History, Activity
+  Plus, Trash2, LogOut, Heart, Shield, Swords, User as UserIcon, Send, EyeOff, Eye, LayoutGrid, Scroll, Flame, RefreshCw, Sparkles, BookOpen, UserPlus, Star, Sliders, Lock, HelpCircle, Settings, MessageSquareText, Bell, X, ShieldAlert, Users, FileText, History, Activity, AlertOctagon, AlertTriangle, HardDrive, Database
 } from 'lucide-react';
 
 import { Character, CustomStatusType, ChatMessage, CharVersion, UserProfile } from './types';
@@ -23,6 +23,7 @@ import { CharacterSheet } from './components/CharacterSheet';
 import { GameTable } from './components/GameTable';
 import { DiscordNotebook } from './components/DiscordNotebook';
 import { GMConfigModal } from './components/GMConfigModal';
+import { CampaignBackupModal } from './components/CampaignBackupModal';
 import { NpcManager } from './components/NpcManager';
 import { PlayerConfigModal } from './components/PlayerConfigModal';
 import { ImageUploadField } from './components/ImageUploadField';
@@ -30,11 +31,18 @@ import { AuditModal } from './components/AuditModal';
 import { TelemetryModal } from './components/TelemetryModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { PdfSheetImporterModal } from './components/PdfSheetImporterModal';
-import { trackRead, trackWrite, trackDelete, initGlobalTelemetrySync } from './utils/firebaseUsageTracker';
+import { UserManualModal } from './components/UserManualModal';
+import { trackRead, trackWrite, trackDelete, initGlobalTelemetrySync, subscribeToUsageStats, FirebaseUsageStats } from './utils/firebaseUsageTracker';
 import { 
   saveCharactersToCache, 
   loadCharactersFromCache 
 } from './utils/browserCache';
+import { 
+  isOfflineModeActive, 
+  setOfflineModeActive, 
+  loadOfflineCharacters, 
+  saveOfflineCharacters 
+} from './utils/offlineModeManager';
 import { 
   logAudit, 
   logTelemetry, 
@@ -76,17 +84,54 @@ export default function App() {
   // Global Separate Modals State: 1. Audit Trail (Actions) and 2. Telemetry (Errors & Quota)
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [showTelemetryModal, setShowTelemetryModal] = useState(false);
+  const [showCampaignBackupModal, setShowCampaignBackupModal] = useState(false);
+  const [showUserManual, setShowUserManual] = useState(false);
+  const [isOfflineMode, setIsOfflineMode] = useState(isOfflineModeActive());
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [telemetryLogs, setTelemetryLogs] = useState<TelemetryLogEntry[]>([]);
+  const [usageStats, setUsageStats] = useState<FirebaseUsageStats | null>(null);
+
+  // Auto-show user manual on first login for the user
+  useEffect(() => {
+    if (!currentUser?.uid || !userProfile?.role) return;
+    const manualStorageKey = `telumak_manual_v1_seen_${currentUser.uid}_${userProfile.role.toLowerCase()}`;
+    try {
+      const hasSeen = localStorage.getItem(manualStorageKey);
+      if (!hasSeen) {
+        setShowUserManual(true);
+        localStorage.setItem(manualStorageKey, 'true');
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, [currentUser?.uid, userProfile?.role]);
+
+  useEffect(() => {
+    const handleOfflineChanged = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const active = !!customEvent.detail;
+      setIsOfflineMode(active);
+      if (active) {
+        const offChars = loadOfflineCharacters();
+        if (offChars && offChars.length > 0) {
+          setCharacters(offChars);
+        }
+      }
+    };
+    window.addEventListener('telumakOfflineModeChanged', handleOfflineChanged);
+    return () => window.removeEventListener('telumakOfflineModeChanged', handleOfflineChanged);
+  }, []);
 
   useEffect(() => {
     const unsubAudit = subscribeToAuditLogs((logs) => setAuditLogs(logs));
     const unsubTelemetry = subscribeToTelemetryLogs((logs) => setTelemetryLogs(logs));
     const unsubGlobalTelemetry = initGlobalTelemetrySync();
+    const unsubUsage = subscribeToUsageStats((stats) => setUsageStats(stats));
     return () => {
       unsubAudit();
       unsubTelemetry();
       unsubGlobalTelemetry();
+      unsubUsage();
     };
   }, []);
 
@@ -408,6 +453,15 @@ export default function App() {
   useEffect(() => {
     if (!currentUser) return;
 
+    if (isOfflineMode) {
+      // In offline preparation mode: 0 Firestore reads! Load purely from local storage.
+      const offChars = loadOfflineCharacters() || loadCharactersFromCache() || [];
+      if (offChars.length > 0) {
+        setCharacters(offChars);
+      }
+      return;
+    }
+
     // 1. Sync Characters
     const charsPath = 'characters';
     const unsubChars = onSnapshot(collection(db, charsPath), (snap) => {
@@ -418,6 +472,7 @@ export default function App() {
       });
       setCharacters(list);
       saveCharactersToCache(list);
+      saveOfflineCharacters(list);
 
       // Select default character if Player has only one
       const myChars = list.filter(c => c.email_dono === currentUser.email);
@@ -464,7 +519,7 @@ export default function App() {
       unsubMsgs();
       unsubStatus();
     };
-  }, [currentUser, userProfile?.role]);
+  }, [currentUser, userProfile?.role, isOfflineMode]);
 
   // Sync alternative Sheet Versions (Transformations) ONLY for the selected character to optimize traffic
   useEffect(() => {
@@ -1194,6 +1249,25 @@ export default function App() {
           {/* GM / Player Config & User Actions */}
           <div className="flex items-center gap-2 sm:gap-3">
             
+            {/* 0. Mode & Campaign Hub Button (GM Only) */}
+            {isGM && (
+              <button
+                type="button"
+                onClick={() => setShowCampaignBackupModal(true)}
+                className={`px-2.5 py-1.5 border text-xs font-black uppercase tracking-wider transition shadow flex items-center gap-1.5 ${
+                  isOfflineMode
+                    ? 'bg-amber-950/70 border-amber-500 text-amber-300 hover:bg-amber-900 animate-pulse'
+                    : 'bg-[#151515] hover:bg-[#202020] border-emerald-500/40 text-emerald-400'
+                }`}
+                title="Central de Campanha, Modo Offline e Backup JSON"
+              >
+                {isOfflineMode ? <HardDrive className="h-3.5 w-3.5 text-amber-400" /> : <Database className="h-3.5 w-3.5 text-emerald-400" />}
+                <span className="hidden md:inline">
+                  {isOfflineMode ? 'Modo Offline' : 'Nuvem Ativa'}
+                </span>
+              </button>
+            )}
+
             {/* 1. Audit Trail Window Button (Ações Realizadas) */}
             <button
               type="button"
@@ -1246,9 +1320,19 @@ export default function App() {
               </button>
             )}
 
-            <span className="text-[10px] bg-blue-500/15 font-bold tracking-widest text-sky-400 border border-blue-500/30 rounded px-2.5 py-1">
-              {userProfile?.role || 'PLAYER'}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] bg-blue-500/15 font-bold tracking-widest text-sky-400 border border-blue-500/30 rounded px-2.5 py-1">
+                {userProfile?.role || 'PLAYER'}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowUserManual(true)}
+                className="w-6 h-6 rounded-full border border-white/20 hover:border-sky-400/80 bg-white/5 hover:bg-sky-500/20 text-white/70 hover:text-sky-300 flex items-center justify-center transition shadow-sm"
+                title={`Manual do Usuário (${isGM ? 'Mestre' : 'Jogador'})`}
+              >
+                <HelpCircle className="h-3.5 w-3.5" />
+              </button>
+            </div>
             <button
               onClick={handleLogout}
               className="text-white/40 hover:text-sky-400 transition-colors"
@@ -1260,6 +1344,62 @@ export default function App() {
 
         </div>
       </nav>
+
+      {/* OFFLINE PREPARATION MODE GLOBAL BANNER */}
+      {isOfflineMode && (
+        <div className="no-print bg-amber-950/90 border-b-2 border-amber-500 px-4 py-2.5 text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 bg-amber-600/30 border border-amber-500/50 rounded shrink-0">
+              <HardDrive className="h-4 w-4 text-amber-400" />
+            </div>
+            <div>
+              <p className="text-xs sm:text-sm font-black uppercase tracking-wider text-amber-200 flex items-center gap-2">
+                <span>Modo Preparação do Mestre Ativo (Offline / Zero Cota)</span>
+              </p>
+              <p className="text-[11px] sm:text-xs text-amber-300/80">
+                O portal está desconectado da nuvem para economizar cotas. Você pode planejar fichas, criar NPCs e consultar canais do Discord com zero consumo de cotas.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowCampaignBackupModal(true)}
+              className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-black uppercase text-[10px] tracking-wider transition border border-amber-400/30 shadow flex items-center gap-1.5"
+            >
+              <Database className="h-3.5 w-3.5" />
+              <span>Gerenciar Campanha / Backup</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* QUOTA EXHAUSTED GLOBAL BANNER */}
+      {usageStats?.isQuotaExhausted && (
+        <div className="no-print bg-rose-950/90 border-b-2 border-rose-500 px-4 py-3 text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 animate-fadeIn">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-rose-600/30 border border-rose-500/50 rounded shrink-0">
+              <AlertOctagon className="h-5 w-5 text-rose-400 animate-pulse" />
+            </div>
+            <div>
+              <p className="text-xs sm:text-sm font-black uppercase tracking-wider text-rose-200">
+                🚨 Cota Diária do Firebase Atingida (50.000 leituras/dia)
+              </p>
+              <p className="text-[11px] sm:text-xs text-rose-300/80">
+                O limite gratuito do Google Cloud foi temporariamente atingido hoje. O sistema continua ativo em modo cache/offline e os contadores serão resetados automaticamente às <strong>04:00 (Horário de Brasília)</strong>.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowTelemetryModal(true)}
+            className="shrink-0 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-black uppercase text-[10px] tracking-wider transition border border-rose-400/30 shadow flex items-center gap-1.5"
+          >
+            <Activity className="h-3.5 w-3.5" />
+            <span>Ver Telemetria</span>
+          </button>
+        </div>
+      )}
 
       {/* Main Tab Render inside ErrorBoundary for Real-Time Exception Telemetry */}
       <ErrorBoundary onOpenTelemetry={() => setShowTelemetryModal(true)}>
@@ -1600,8 +1740,22 @@ export default function App() {
             setPdfTargetChar(null);
             setShowPdfImporterModal(true);
           }}
+          onOpenCampaignBackupModal={() => {
+            setShowGMConfig(false);
+            setShowCampaignBackupModal(true);
+          }}
         />
       )}
+
+      {/* CAMPAIGN BACKUP & OFFLINE PREP MODAL */}
+      <CampaignBackupModal
+        isOpen={showCampaignBackupModal}
+        onClose={() => setShowCampaignBackupModal(false)}
+        characters={characters}
+        userEmail={currentUser?.email || ''}
+        isGM={isGM}
+        onCharactersUpdated={(updated) => setCharacters(updated)}
+      />
 
       {/* PLAYER CONFIG MODAL (Profile, Avatar, Password) */}
       {!isGM && userProfile && (
@@ -1628,6 +1782,13 @@ export default function App() {
         currentUserProfile={userProfile}
         characters={characters}
         currentTab={currentTab}
+      />
+
+      {/* USER MANUAL MODAL (GM & PLAYER) */}
+      <UserManualModal
+        isOpen={showUserManual}
+        onClose={() => setShowUserManual(false)}
+        userRole={userProfile?.role || 'PLAYER'}
       />
 
       {/* PDF SHEET IMPORTER MODAL */}

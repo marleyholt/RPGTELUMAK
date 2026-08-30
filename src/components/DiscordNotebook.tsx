@@ -106,6 +106,8 @@ export function DiscordNotebook({
       } else {
         setMeetSession(null);
       }
+    }, (err) => {
+      console.warn("Meet session snapshot notice:", err);
     });
     return () => unsub();
   }, []);
@@ -476,6 +478,8 @@ export function DiscordNotebook({
       snap.forEach(d => items.push({ id: d.id, ...d.data() } as NPC));
       items.sort((a, b) => (a.name || (a as any).nome || "").localeCompare(b.name || (b as any).nome || ""));
       setAllNpcs(items);
+    }, (err) => {
+      console.warn("DiscordNotebook NPCs snapshot notice:", err);
     });
     return () => unsub();
   }, [isGM]);

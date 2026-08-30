@@ -8,7 +8,7 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 import { ImageUploadField } from './ImageUploadField';
-import { DataBackupSystem } from './DataBackupSystem';
+import { CampaignBackupModal } from './CampaignBackupModal';
 import { handleFirestoreError, OperationType } from '../utils/errors';
 
 interface GMConfigModalProps {
@@ -17,9 +17,17 @@ interface GMConfigModalProps {
   characters: Character[];
   onOpenCreateCharModal?: () => void;
   onOpenImportPdfModal?: () => void;
+  onOpenCampaignBackupModal?: () => void;
 }
 
-export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharModal, onOpenImportPdfModal }: GMConfigModalProps) {
+export function GMConfigModal({ 
+  isOpen, 
+  onClose, 
+  characters, 
+  onOpenCreateCharModal, 
+  onOpenImportPdfModal,
+  onOpenCampaignBackupModal
+}: GMConfigModalProps) {
   // Accounts and Permissions State
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
@@ -263,8 +271,35 @@ export function GMConfigModal({ isOpen, onClose, characters, onOpenCreateCharMod
               )}
             </div>
 
-            {/* System Logo Customization (Branding) */}
-            <DataBackupSystem characters={characters} />
+            {/* Campaign Backup & Offline Management */}
+            <div className="bg-[#080808] border border-blue-500/30 p-4 space-y-3 shadow-lg">
+              <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                <div className="flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-sky-400" />
+                  <h3 className="text-xs font-black uppercase tracking-wider text-white">
+                    Central de Campanha, Backup & Modo Offline
+                  </h3>
+                </div>
+                <span className="text-[9px] text-sky-400 bg-sky-950/40 border border-sky-500/30 px-2 py-0.5 font-mono">
+                  Zero Cota
+                </span>
+              </div>
+              
+              <p className="text-[10px] text-white/50 font-mono leading-relaxed">
+                Exporte e importe backups completos em <strong>.JSON</strong> (Fichas de Jogadores com todos os atributos base, Catálogo de NPCs e Canais do Discord) ou ative o <strong>Modo Preparação (Offline)</strong> para trabalhar sem consumir o limite do Firebase.
+              </p>
+
+              {onOpenCampaignBackupModal && (
+                <button
+                  type="button"
+                  onClick={onOpenCampaignBackupModal}
+                  className="w-full sm:w-auto py-2.5 px-4 bg-sky-950/40 hover:bg-sky-900/60 border border-sky-500/40 text-sky-300 text-[11px] font-black uppercase tracking-widest transition flex items-center justify-center gap-2 shadow"
+                >
+                  <Shield className="h-3.5 w-3.5" />
+                  Abrir Central de Campanha & Backups (.JSON)
+                </button>
+              )}
+            </div>
 
             <div className="bg-[#080808] border border-blue-500/30 p-4 space-y-4 shadow-lg">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">

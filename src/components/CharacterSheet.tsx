@@ -5,6 +5,7 @@ import { Character, CustomStatusType, CharVersion } from '../types';
 import { handleFirestoreError, OperationType } from '../utils/errors';
 import { logAudit } from '../utils/auditTelemetry';
 import { saveSingleCharacterToCache } from '../utils/browserCache';
+import { isOfflineModeActive } from '../utils/offlineModeManager';
 import { SheetVersions } from './SheetVersions';
 import { ImageUploadField } from './ImageUploadField';
 import { PrintableSankoteiSheet } from './PrintableSankoteiSheet';
@@ -278,7 +279,9 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
         ferramenta_carisma_atual: localToolCarisma,
       };
 
-      await updateDoc(doc(db, 'characters', character.id), updatedData);
+      if (!isOfflineModeActive()) {
+        await updateDoc(doc(db, 'characters', character.id), updatedData);
+      }
       
       // Update local storage cache immediately
       saveSingleCharacterToCache({
@@ -288,7 +291,9 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
 
       logAudit('PERSONAGEM', `Indicadores de ${character.nome} atualizados (HP: ${localHp}, Éter: ${localEther}, Destino: ${localDestino})`, character.id);
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, docPath);
+      if (!isOfflineModeActive()) {
+        handleFirestoreError(err, OperationType.UPDATE, docPath);
+      }
     } finally {
       setIsSavingVitals(false);
     }
@@ -345,14 +350,18 @@ export function CharacterSheet({ character, isGM, isOwner, statuses, versions, o
         fortitude_max: eFortitude,
         tecnicas_max: eTecnicas
       };
-      await updateDoc(doc(db, 'characters', character.id), updatedFields);
+      if (!isOfflineModeActive()) {
+        await updateDoc(doc(db, 'characters', character.id), updatedFields);
+      }
       saveSingleCharacterToCache({
         ...character,
         ...updatedFields
       });
       setIsEditingTexts(false);
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, docPath);
+      if (!isOfflineModeActive()) {
+        handleFirestoreError(err, OperationType.UPDATE, docPath);
+      }
     }
   };
 

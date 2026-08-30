@@ -6,9 +6,18 @@ import { Search, Plus, Trash2, Edit2, LayoutGrid, List as ListIcon, X, Check, Im
 import RichTextEditor from './RichTextEditor';
 import { ImageUploadField } from './ImageUploadField';
 import { getApiUrl } from '../utils/apiConfig';
+import { 
+  isOfflineModeActive, 
+  loadOfflineNpcs, 
+  saveOfflineNpcs, 
+  loadOfflineDiscordData 
+} from '../utils/offlineModeManager';
 
 export function NpcManager({ characters = [] }: { characters?: Character[] }) {
-  const [npcs, setNpcs] = useState<NPC[]>([]);
+  const [npcs, setNpcs] = useState<NPC[]>(() => {
+    const cached = loadOfflineNpcs();
+    return cached && cached.length > 0 ? cached : [];
+  });
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [editingNpc, setEditingNpc] = useState<Partial<NPC> | null>(null);
@@ -24,6 +33,20 @@ export function NpcManager({ characters = [] }: { characters?: Character[] }) {
   const [sendingDiscord, setSendingDiscord] = useState(false);
   const [sendType, setSendType] = useState<'cover' | 'all'>('cover');
   const [filterType, setFilterType] = useState<'all' | 'npc' | 'character'>('all');
+  const [isOffline, setIsOffline] = useState(isOfflineModeActive());
+
+  useEffect(() => {
+    const handleOfflineEvent = (e: Event) => {
+      const custom = e as CustomEvent;
+      setIsOffline(!!custom.detail);
+      if (custom.detail) {
+        const cachedNpcs = loadOfflineNpcs();
+        if (cachedNpcs && cachedNpcs.length > 0) setNpcs(cachedNpcs);
+      }
+    };
+    window.addEventListener('telumakOfflineModeChanged', handleOfflineEvent);
+    return () => window.removeEventListener('telumakOfflineModeChanged', handleOfflineEvent);
+  }, []);
 
   useEffect(() => {
     const handleOpenNpc = (e: any) => {
@@ -39,6 +62,14 @@ export function NpcManager({ characters = [] }: { characters?: Character[] }) {
   }, [npcs]);
 
   useEffect(() => {
+    if (isOffline) {
+      const cachedNpcs = loadOfflineNpcs();
+      if (cachedNpcs && cachedNpcs.length > 0) setNpcs(cachedNpcs);
+      const cachedDiscord = loadOfflineDiscordData();
+      if (cachedDiscord?.channels) setDiscordChannels(cachedDiscord.channels);
+      return;
+    }
+
     const unsubNpcs = onSnapshot(collection(db, 'npcs'), (snap) => {
       const items: NPC[] = [];
       snap.forEach(doc => {
@@ -46,9 +77,11 @@ export function NpcManager({ characters = [] }: { characters?: Character[] }) {
       });
       items.sort((a, b) => (a.name || (a as any).nome || "").localeCompare(b.name || (b as any).nome || ""));
       setNpcs(items);
+      saveOfflineNpcs(items);
     }, (err) => {
       console.warn("NPC Snapshot erro:", err);
-      setNpcs([]);
+      const fallback = loadOfflineNpcs();
+      if (fallback) setNpcs(fallback);
     });
     
     const unsubChannels = onSnapshot(collection(db, 'discord_channels'), (snap) => {
@@ -62,14 +95,13 @@ export function NpcManager({ characters = [] }: { characters?: Character[] }) {
       }
     }, (err) => {
       console.warn("Discord Channels erro:", err);
-      setDiscordChannels([]);
     });
     
     return () => {
       unsubNpcs();
       unsubChannels();
     };
-  }, []);
+  }, [isOffline]);
 
   const handleDownloadAll = (validImages: string[], npcName: string) => {
     validImages.forEach((url, idx) => {
@@ -222,15 +254,38 @@ export function NpcManager({ characters = [] }: { characters?: Character[] }) {
       ferramenta_destreza_max: editingNpc.ferramenta_destreza_max || 0,
       ferramenta_cognicao_max: editingNpc.ferramenta_cognicao_max || 0,
       ferramenta_carisma_max: editingNpc.ferramenta_carisma_max || 0,
-      updatedAt: serverTimestamp()
+      updatedAt: new Date().toISOString()
     };
+
+    if (isOffline) {
+      let updatedList: NPC[];
+      if (editingNpc.id) {
+        updatedList = npcs.map(n => n.id === editingNpc.id ? { ...n, ...data } as NPC : n);
+      } else {
+        const newNpc: NPC = {
+          id: `offline_npc_${Date.now()}`,
+          ...data,
+          createdAt: new Date().toISOString()
+        } as NPC;
+        updatedList = [newNpc, ...npcs];
+      }
+      setNpcs(updatedList);
+      saveOfflineNpcs(updatedList);
+      setEditingNpc(null);
+      return;
+    }
+
     try {
       if (editingNpc.id) {
-        await updateDoc(doc(db, 'npcs', editingNpc.id), data);
+        await updateDoc(doc(db, 'npcs', editingNpc.id), {
+          ...data,
+          updatedAt: serverTimestamp()
+        });
       } else {
         await addDoc(collection(db, 'npcs'), {
           ...data,
-          createdAt: serverTimestamp()
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
         });
       }
       setEditingNpc(null);
@@ -242,6 +297,12 @@ export function NpcManager({ characters = [] }: { characters?: Character[] }) {
 
   const handleDelete = async (id: string) => {
     if (confirm('Tem certeza que deseja excluir este NPC?')) {
+      if (isOffline) {
+        const updatedList = npcs.filter(n => n.id !== id);
+        setNpcs(updatedList);
+        saveOfflineNpcs(updatedList);
+        return;
+      }
       await deleteDoc(doc(db, 'npcs', id));
     }
   };

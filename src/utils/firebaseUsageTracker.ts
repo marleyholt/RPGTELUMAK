@@ -30,6 +30,8 @@ export interface DayUsageStats {
   };
 }
 
+export type FirebaseUsageStats = DayUsageStats;
+
 export const FIREBASE_SPARK_LIMITS = {
   DAILY_READS: 50000,
   DAILY_WRITES: 20000,

@@ -92,6 +92,8 @@ export function BattleMap({ isGM, currentUserEmail, characters }: BattleMapProps
           gridHeight: 12
         });
       }
+    }, (err) => {
+      handleFirestoreError(err, OperationType.GET, arenaDocPath);
     });
 
     const tokensPath = 'arena/default/tokens';
