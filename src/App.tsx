@@ -335,6 +335,17 @@ export default function App() {
         });
       });
       setAllUsers(list);
+
+      // Keep currentUser's profile strictly in sync in real-time
+      if (currentUser?.uid) {
+        const myProfile = list.find(u => u.uid === currentUser.uid);
+        if (myProfile) {
+          setUserProfile(prev => {
+            if (!prev) return myProfile;
+            return { ...prev, ...myProfile };
+          });
+        }
+      }
     }, (err) => {
       console.warn("Snapshot users warning:", err);
     });
@@ -1731,6 +1742,8 @@ export default function App() {
           isOpen={showGMConfig}
           onClose={() => setShowGMConfig(false)}
           characters={characters}
+          currentUserProfile={userProfile}
+          onProfileUpdated={(updated) => setUserProfile(updated)}
           onOpenCreateCharModal={() => {
             setShowGMConfig(false);
             setShowCreateCharForm(true);

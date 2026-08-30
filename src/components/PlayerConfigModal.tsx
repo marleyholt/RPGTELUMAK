@@ -57,14 +57,18 @@ export function PlayerConfigModal({
         const userRef = doc(db, 'users', userProfile.uid);
         const updatedData = {
           displayName: displayName.trim(),
-          photoURL: avatarUrl || null
+          photoURL: avatarUrl || null,
+          discordDisplayName: displayName.trim(),
+          discordAvatar: avatarUrl || null
         };
         await updateDoc(userRef, updatedData);
 
         const updatedProfile: UserProfile = {
           ...userProfile,
           displayName: displayName.trim(),
-          photoURL: avatarUrl || null
+          photoURL: avatarUrl || null,
+          discordDisplayName: displayName.trim(),
+          discordAvatar: avatarUrl || null
         };
         onProfileUpdated(updatedProfile);
         setProfileSuccess(true);

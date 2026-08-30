@@ -946,9 +946,12 @@ export function DiscordNotebook({
     if (currentUserProfile?.discordDisplayName?.trim()) {
       return currentUserProfile.discordDisplayName.trim();
     }
-    if (isGM) return 'Alex AP (Mestre)';
-    const senderChar = characters.find(c => c.email_dono === currentUserProfile?.email);
-    return senderChar?.nome || currentUserProfile?.displayName || 'Jogador';
+    if (currentUserProfile?.displayName?.trim()) {
+      return currentUserProfile.displayName.trim();
+    }
+    if (isGM) return 'Mestre (GM)';
+    const senderChar = characters.find(c => c.email_dono && currentUserProfile?.email && c.email_dono.toLowerCase().trim() === currentUserProfile.email.toLowerCase().trim());
+    return senderChar?.nome || 'Jogador';
   }, [currentUserProfile, isGM, characters]);
 
   const effectiveDiscordTag = useMemo(() => {
@@ -963,8 +966,11 @@ export function DiscordNotebook({
     if (currentUserProfile?.discordAvatar?.trim()) {
       return currentUserProfile.discordAvatar.trim();
     }
-    const senderChar = characters.find(c => c.email_dono === currentUserProfile?.email);
-    return senderChar?.img_saudavel || currentUserProfile?.photoURL || 'https://cdn.discordapp.com/embed/avatars/0.png';
+    if (currentUserProfile?.photoURL?.trim()) {
+      return currentUserProfile.photoURL.trim();
+    }
+    const senderChar = characters.find(c => c.email_dono && currentUserProfile?.email && c.email_dono.toLowerCase().trim() === currentUserProfile.email.toLowerCase().trim());
+    return senderChar?.img_saudavel || 'https://cdn.discordapp.com/embed/avatars/0.png';
   }, [currentUserProfile, characters]);
 
   // Save Identity Modal changes to Firestore
@@ -981,11 +987,15 @@ export function DiscordNotebook({
         ? identityTag.trim() 
         : (identityTag.trim() ? `#${identityTag.trim()}` : '#0001');
 
+      const newName = identityName.trim() || effectiveDiscordName;
+      const newAvatar = identityAvatar.trim() || null;
+
       await updateDoc(doc(db, 'users', currentUserProfile.uid), {
-        discordDisplayName: identityName.trim() || effectiveDiscordName,
+        discordDisplayName: newName,
         discordTag: formattedTag,
-        discordAvatar: identityAvatar.trim() || null,
-        displayName: identityName.trim() || currentUserProfile.displayName,
+        discordAvatar: newAvatar,
+        displayName: newName,
+        photoURL: newAvatar,
         quickSheetSections: identityQuickSheet
       });
       trackWrite('users', 1);
@@ -2283,7 +2293,18 @@ export function DiscordNotebook({
 
               {filteredMessages.map((msg, idx) => {
                 const isBot = msg.authorName.includes('[Discord]') || msg.authorName.includes('BOT') || msg.isFromDiscord;
-                const avatarUrl = msg.authorAvatar || 'https://cdn.discordapp.com/embed/avatars/0.png';
+                const authorUser = allUsers?.find(u => u.email && msg.authorEmail && u.email.toLowerCase().trim() === msg.authorEmail.toLowerCase().trim());
+                const isCurrentUser = currentUserProfile?.email && msg.authorEmail && currentUserProfile.email.toLowerCase().trim() === msg.authorEmail.toLowerCase().trim();
+                const effectiveAuthor = isCurrentUser ? currentUserProfile : authorUser;
+
+                const displayAuthorName = (!msg.isFromDiscord && effectiveAuthor)
+                  ? (effectiveAuthor.discordDisplayName?.trim() || effectiveAuthor.displayName?.trim() || msg.authorName)
+                  : msg.authorName;
+
+                const avatarUrl = (!msg.isFromDiscord && effectiveAuthor)
+                  ? (effectiveAuthor.discordAvatar?.trim() || effectiveAuthor.photoURL?.trim() || msg.authorAvatar || 'https://cdn.discordapp.com/embed/avatars/0.png')
+                  : (msg.authorAvatar || 'https://cdn.discordapp.com/embed/avatars/0.png');
+
                 const isPinned = !!msg.pinned;
                 const isHighlighted = highlightedMessageId === msg.id;
                 const isOwner = currentUserProfile?.email && msg.authorEmail === currentUserProfile.email;
@@ -2360,7 +2381,7 @@ export function DiscordNotebook({
                     >
                     {/* Avatar */}
                     <div className="w-10 h-10 rounded-full bg-[#1e1f22] overflow-hidden shrink-0 mt-0.5 shadow border border-white/5">
-                      <img src={avatarUrl} alt={msg.authorName} className="w-full h-full object-cover" />
+                      <img src={avatarUrl} alt={displayAuthorName} className="w-full h-full object-cover" />
                     </div>
 
                     {/* Message Body */}
@@ -2375,7 +2396,7 @@ export function DiscordNotebook({
 
                       <div className="flex items-baseline gap-2">
                         <span className="font-bold text-[13px] text-white hover:underline cursor-pointer">
-                          {highlightSearch(msg.authorName, `author-${msg.id}`)}
+                          {highlightSearch(displayAuthorName, `author-${msg.id}`)}
                         </span>
                         {isBot && (
                           <span className="bg-[#5865f2] text-white text-[9px] font-black uppercase px-1 py-0.2 rounded font-mono">

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { doc, updateDoc, setDoc, collection, onSnapshot, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
+import { updateProfile } from 'firebase/auth';
+import { db, auth } from '../firebase';
 import { Character, UserProfile } from '../types';
 import { 
   Sliders, X, Shield, Check, RefreshCw, 
   Search, Link as LinkIcon, Unlink, Crown, Users, Scroll, Plus, FileText,
-  Image as ImageIcon
+  Image as ImageIcon, User, Save, Edit2
 } from 'lucide-react';
 import { ImageUploadField } from './ImageUploadField';
 import { CampaignBackupModal } from './CampaignBackupModal';
@@ -15,6 +16,8 @@ interface GMConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
   characters: Character[];
+  currentUserProfile?: UserProfile | null;
+  onProfileUpdated?: (updated: UserProfile) => void;
   onOpenCreateCharModal?: () => void;
   onOpenImportPdfModal?: () => void;
   onOpenCampaignBackupModal?: () => void;
@@ -24,6 +27,8 @@ export function GMConfigModal({
   isOpen, 
   onClose, 
   characters, 
+  currentUserProfile,
+  onProfileUpdated,
   onOpenCreateCharModal, 
   onOpenImportPdfModal,
   onOpenCampaignBackupModal
@@ -38,6 +43,20 @@ export function GMConfigModal({
   // System Logo Branding State
   const [systemLogo, setSystemLogo] = useState<string>('/telumak-logo.svg');
   const [isSavingLogo, setIsSavingLogo] = useState(false);
+
+  // GM Profile State
+  const [gmDisplayName, setGmDisplayName] = useState('');
+  const [gmAvatarUrl, setGmAvatarUrl] = useState('');
+  const [isSavingGmProfile, setIsSavingGmProfile] = useState(false);
+  const [gmProfileSuccess, setGmProfileSuccess] = useState(false);
+  const [gmProfileError, setGmProfileError] = useState('');
+
+  useEffect(() => {
+    if (currentUserProfile) {
+      setGmDisplayName(currentUserProfile.displayName || currentUserProfile.discordDisplayName || '');
+      setGmAvatarUrl(currentUserProfile.photoURL || currentUserProfile.discordAvatar || '');
+    }
+  }, [currentUserProfile, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -151,6 +170,51 @@ export function GMConfigModal({
       setTimeout(() => setAccountActionMessage(null), 3500);
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `characters/${charId}`);
+    }
+  };
+
+  const handleSaveGmProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUserProfile?.uid) return;
+
+    setIsSavingGmProfile(true);
+    setGmProfileError('');
+    setGmProfileSuccess(false);
+
+    try {
+      const cleanName = gmDisplayName.trim() || 'Mestre (GM)';
+      const cleanAvatar = gmAvatarUrl.trim() || null;
+
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, {
+          displayName: cleanName,
+          photoURL: cleanAvatar
+        });
+      }
+
+      const userRef = doc(db, 'users', currentUserProfile.uid);
+      const updateData = {
+        displayName: cleanName,
+        photoURL: cleanAvatar,
+        discordDisplayName: cleanName,
+        discordAvatar: cleanAvatar
+      };
+      await updateDoc(userRef, updateData);
+
+      if (onProfileUpdated) {
+        onProfileUpdated({
+          ...currentUserProfile,
+          ...updateData
+        });
+      }
+
+      setGmProfileSuccess(true);
+      setTimeout(() => setGmProfileSuccess(false), 3500);
+    } catch (err: any) {
+      console.error('Erro ao salvar perfil do Mestre:', err);
+      setGmProfileError(err.message || 'Falha ao salvar perfil.');
+    } finally {
+      setIsSavingGmProfile(false);
     }
   };
 
@@ -300,6 +364,85 @@ export function GMConfigModal({
                 </button>
               )}
             </div>
+
+            {/* GM Personal Profile & Display Name / Avatar */}
+            {currentUserProfile && (
+              <form onSubmit={handleSaveGmProfile} className="bg-[#080808] border border-blue-500/30 p-4 space-y-4 shadow-lg">
+                <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-sky-400" />
+                    <h3 className="text-xs font-black uppercase tracking-wider text-white">
+                      Meu Perfil de Mestre (Nickname & Avatar)
+                    </h3>
+                  </div>
+                  <span className="text-[9px] text-sky-400 bg-sky-950/40 border border-sky-500/30 px-2 py-0.5 font-mono">
+                    Sincronizado
+                  </span>
+                </div>
+
+                {gmProfileSuccess && (
+                  <div className="p-2.5 bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 text-xs font-mono flex items-center gap-2">
+                    <Check className="h-4 w-4 text-emerald-400 shrink-0" />
+                    <span>✓ Nickname e Avatar do Mestre atualizados com sucesso em todas as telas e no Discord!</span>
+                  </div>
+                )}
+
+                {gmProfileError && (
+                  <div className="p-2.5 bg-rose-950/40 border border-rose-500/40 text-rose-300 text-xs font-mono flex items-center gap-2">
+                    <X className="h-4 w-4 text-rose-400 shrink-0" />
+                    <span>{gmProfileError}</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-bold uppercase text-white/70">
+                      Nome de Exibição (Nick do Mestre)
+                    </label>
+                    <input
+                      type="text"
+                      value={gmDisplayName}
+                      onChange={(e) => setGmDisplayName(e.target.value)}
+                      placeholder="Ex: Mestre João, GM Alex..."
+                      className="w-full bg-black border border-white/20 p-2.5 text-white text-xs focus:border-sky-400 focus:outline-none font-mono"
+                    />
+                    <p className="text-[9px] text-white/40 font-mono">
+                      Este nome será refletido nas mensagens do Discord, no ícone inferior e na lista de membros.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <ImageUploadField
+                      label="Avatar do Mestre (URL ou Upload)"
+                      value={gmAvatarUrl}
+                      onChange={(url) => setGmAvatarUrl(url)}
+                      helperText="Cole a URL ou suba uma imagem quadrada"
+                      aspectRatio="square"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="submit"
+                    disabled={isSavingGmProfile}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-black uppercase tracking-wider transition flex items-center gap-2 shadow"
+                  >
+                    {isSavingGmProfile ? (
+                      <>
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                        <span>Salvando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-3.5 w-3.5" />
+                        <span>Salvar Nick & Avatar</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
 
             <div className="bg-[#080808] border border-blue-500/30 p-4 space-y-4 shadow-lg">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
