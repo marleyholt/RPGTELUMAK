@@ -32,7 +32,7 @@ import { TelemetryModal } from './components/TelemetryModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { PdfSheetImporterModal } from './components/PdfSheetImporterModal';
 import { UserManualModal } from './components/UserManualModal';
-import { trackRead, trackWrite, trackDelete, initGlobalTelemetrySync, subscribeToUsageStats, FirebaseUsageStats } from './utils/firebaseUsageTracker';
+import { trackRead, trackWrite, trackDelete, initGlobalTelemetrySync, subscribeToUsageStats, FirebaseUsageStats, isBlazePlanActive } from './utils/firebaseUsageTracker';
 import { 
   saveCharactersToCache, 
   loadCharactersFromCache 
@@ -274,9 +274,22 @@ export default function App() {
         // Ensure standard profile exists
         const userRef = doc(db, 'users', user.uid);
         const userPath = `users/${user.uid}`;
+        const isMasterEmail = user.email && user.email.toLowerCase().trim() === 'leaog.8@gmail.com';
+        
+        // Check local cache first for role to protect against quota exhaustion
+        const cachedRoleKey = `telumak_cached_role_${user.uid}`;
+        const cachedRole = (localStorage.getItem(cachedRoleKey) as 'GM' | 'PLAYER') || (isMasterEmail ? 'GM' : 'PLAYER');
+
+        let profile: UserProfile = {
+          uid: user.uid,
+          email: user.email || '',
+          displayName: user.displayName || 'Gamer',
+          photoURL: user.photoURL || null,
+          role: isMasterEmail ? 'GM' : cachedRole
+        };
+
         try {
           const userSnap = await getDoc(userRef);
-          let profile: UserProfile;
 
           if (!userSnap.exists()) {
             profile = {
@@ -284,19 +297,24 @@ export default function App() {
               email: user.email || '',
               displayName: user.displayName || 'Gamer',
               photoURL: user.photoURL || null,
-              role: (user.email === 'leaog.8@gmail.com') ? 'GM' : 'PLAYER'
+              role: isMasterEmail ? 'GM' : 'PLAYER'
             };
             await setDoc(userRef, profile);
           } else {
             profile = userSnap.data() as UserProfile;
-            if (user.email === 'leaog.8@gmail.com' && profile.role !== 'GM') {
+            if (isMasterEmail && profile.role !== 'GM') {
               profile.role = 'GM';
               await setDoc(userRef, { ...profile, role: 'GM' }, { merge: true });
             }
           }
+          // Cache the verified role in localStorage
+          localStorage.setItem(cachedRoleKey, profile.role || (isMasterEmail ? 'GM' : 'PLAYER'));
           setUserProfile(profile);
         } catch (err) {
+          // In case Firestore quota exhausted or network error, retain GM privileges if master email or previously cached as GM
+          console.warn("Could not fetch remote user profile (using offline/cached fallback):", err);
           handleFirestoreError(err, OperationType.GET, userPath);
+          setUserProfile(profile);
         }
       } else {
         setCurrentUser(null);
@@ -993,7 +1011,8 @@ export default function App() {
     }
   };
 
-  const isGM = userProfile?.role === 'GM';
+  const isMasterAccount = (currentUser?.email && currentUser.email.toLowerCase().trim() === 'leaog.8@gmail.com') || (userProfile?.email && userProfile.email.toLowerCase().trim() === 'leaog.8@gmail.com');
+  const isGM = isMasterAccount || userProfile?.role === 'GM' || (currentUser?.uid && localStorage.getItem(`telumak_cached_role_${currentUser.uid}`) === 'GM');
   const activeCharacters = characters.filter(c => !c.arquivado);
   const currentLoggedInEmail = currentUser?.email?.toLowerCase().trim() || '';
   const myCharactersList = activeCharacters.filter(c => c.email_dono && c.email_dono.toLowerCase().trim() === currentLoggedInEmail);
@@ -1337,8 +1356,12 @@ export default function App() {
             )}
 
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] bg-blue-500/15 font-bold tracking-widest text-sky-400 border border-blue-500/30 rounded px-2.5 py-1">
-                {userProfile?.role || 'PLAYER'}
+              <span className={`text-[10px] font-bold tracking-widest border rounded px-2.5 py-1 ${
+                isGM 
+                  ? 'bg-blue-500/20 text-sky-400 border-blue-500/40' 
+                  : 'bg-white/5 text-white/60 border-white/10'
+              }`}>
+                {isGM ? 'GM' : (userProfile?.role || 'PLAYER')}
               </span>
               <button
                 type="button"
@@ -1390,30 +1413,60 @@ export default function App() {
         </div>
       )}
 
-      {/* QUOTA EXHAUSTED GLOBAL BANNER */}
-      {usageStats?.isQuotaExhausted && (
-        <div className="no-print bg-rose-950/90 border-b-2 border-rose-500 px-4 py-3 text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 animate-fadeIn">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-rose-600/30 border border-rose-500/50 rounded shrink-0">
-              <AlertOctagon className="h-5 w-5 text-rose-400 animate-pulse" />
-            </div>
-            <div>
-              <p className="text-xs sm:text-sm font-black uppercase tracking-wider text-rose-200">
-                🚨 Cota Diária do Firebase Atingida (50.000 leituras/dia)
-              </p>
-              <p className="text-[11px] sm:text-xs text-rose-300/80">
-                O limite gratuito do Google Cloud foi temporariamente atingido hoje. O sistema continua ativo em modo cache/offline e os contadores serão resetados automaticamente às <strong>04:00 (Horário de Brasília)</strong>.
-              </p>
-            </div>
+      {/* BLAZE / PAID TOKENS DISCREET NOTIFICATION BANNER */}
+      {isBlazePlanActive() && (
+        <div className="no-print bg-emerald-950/70 border-b border-emerald-500/40 px-3 py-1.5 text-white flex items-center justify-between gap-2 animate-fadeIn text-xs">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block"></span>
+            <span className="font-bold text-emerald-300">🔥 Tokens Pagos Firebase (Plano Blaze) Ativos</span>
+            <span className="text-white/60 hidden sm:inline text-[11px]">— Plataforma liberada com sincronização irrestrita na nuvem.</span>
           </div>
           <button
             type="button"
             onClick={() => setShowTelemetryModal(true)}
-            className="shrink-0 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-black uppercase text-[10px] tracking-wider transition border border-rose-400/30 shadow flex items-center gap-1.5"
+            className="px-2 py-0.5 bg-emerald-800/60 hover:bg-emerald-700/80 text-emerald-200 font-mono text-[10px] uppercase border border-emerald-400/30 transition flex items-center gap-1"
           >
-            <Activity className="h-3.5 w-3.5" />
-            <span>Ver Telemetria</span>
+            <Activity className="h-3 w-3" />
+            <span>Telemetria</span>
           </button>
+        </div>
+      )}
+
+      {/* QUOTA EXHAUSTED GLOBAL BANNER (Only if Spark free tier and exhausted) */}
+      {!isBlazePlanActive() && usageStats?.isQuotaExhausted && (
+        <div className="no-print bg-rose-950/90 border-b-2 border-rose-500 px-4 py-2.5 text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 animate-fadeIn">
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 bg-rose-600/30 border border-rose-500/50 rounded shrink-0">
+              <AlertOctagon className="h-4 w-4 text-rose-400 animate-pulse" />
+            </div>
+            <div>
+              <p className="text-xs sm:text-sm font-black uppercase tracking-wider text-rose-200">
+                Cota Diária Gratuita do Firebase Atingida (50.000 leituras/dia)
+              </p>
+              <p className="text-[11px] sm:text-xs text-rose-300/80">
+                Se você já ativou o Plano Pago (Blaze) no console do Firebase, acesse as <strong>Configurações do Mestre ⚙️</strong> e ative o <strong>Plano Blaze</strong> para liberar o sistema.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {isGM && (
+              <button
+                type="button"
+                onClick={() => setShowGMConfig(true)}
+                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-black font-black uppercase text-[10px] tracking-wider transition border border-amber-400 shadow flex items-center gap-1.5"
+              >
+                <span>⚙️ Ativar Modo Pago (Blaze)</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowTelemetryModal(true)}
+              className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-black uppercase text-[10px] tracking-wider transition border border-rose-400/30 shadow flex items-center gap-1.5"
+            >
+              <Activity className="h-3.5 w-3.5" />
+              <span>Ver Telemetria</span>
+            </button>
+          </div>
         </div>
       )}
 

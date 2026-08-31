@@ -18,7 +18,9 @@ import {
   trackRead,
   trackWrite,
   flushTelemetryToFirestore,
-  initGlobalTelemetrySync
+  initGlobalTelemetrySync,
+  isBlazePlanActive,
+  setBlazePlanActive
 } from '../utils/firebaseUsageTracker';
 import { 
   TelemetryLogEntry, 
@@ -497,23 +499,55 @@ export function TelemetryModal({
               {/* Top Banner Status */}
               <div className="p-4 bg-[#121417] border border-blue-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 ${usageStats.isQuotaExhausted ? 'bg-rose-500/20 text-rose-400 border-rose-500/40' : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'} border flex items-center justify-center shrink-0`}>
-                    {usageStats.isQuotaExhausted ? <AlertTriangle className="h-6 w-6" /> : <ShieldCheck className="h-6 w-6" />}
+                  <div className={`w-10 h-10 ${
+                    isBlazePlanActive()
+                      ? 'bg-amber-500/20 text-amber-400 border-amber-500/40'
+                      : usageStats.isQuotaExhausted 
+                        ? 'bg-rose-500/20 text-rose-400 border-rose-500/40' 
+                        : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                  } border flex items-center justify-center shrink-0`}>
+                    {isBlazePlanActive() ? <Zap className="h-6 w-6" /> : usageStats.isQuotaExhausted ? <AlertTriangle className="h-6 w-6" /> : <ShieldCheck className="h-6 w-6" />}
                   </div>
                   <div>
                     <h3 className="text-sm font-black uppercase tracking-wide text-white flex items-center gap-2">
-                      <span>{usageStats.isQuotaExhausted ? 'Status da Cota: Limite Diário Atingido' : 'Status da Cota Diária: Saudável & Otimizada'}</span>
+                      <span>
+                        {isBlazePlanActive() 
+                          ? '🔥 Plano Blaze Ativo (Tokens Pagos / Liberado)' 
+                          : usageStats.isQuotaExhausted 
+                            ? 'Status da Cota: Limite Diário Atingido' 
+                            : 'Status da Cota Diária: Saudável & Otimizada'}
+                      </span>
                       <span className="text-[10px] text-sky-400 bg-blue-500/10 px-2 py-0.5 border border-blue-500/30">
                         {usageStats.isGlobalSynced ? 'Mesa Global (5+ Jogadores)' : 'Offline / Local'}
                       </span>
                     </h3>
                     <p className="text-xs text-white/60">
-                      Plano Spark Gratuito: 50.000 leituras e 20.000 gravações por dia somando todos os participantes.
+                      {isBlazePlanActive()
+                        ? 'Acesso irrestrito ao Firestore. O faturamento por tokens adicionais é tarifado pelo Google Cloud sem interrupção de serviço.'
+                        : 'Plano Spark Gratuito: 50.000 leituras e 20.000 gravações por dia somando todos os participantes.'}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 self-end sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !isBlazePlanActive();
+                      setBlazePlanActive(next);
+                      setUsageStats(getTodayStats());
+                    }}
+                    className={`px-2.5 py-1 text-[11px] font-bold transition flex items-center gap-1 border ${
+                      isBlazePlanActive()
+                        ? 'bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 border-amber-500/50'
+                        : 'bg-blue-500/20 hover:bg-blue-500/30 text-sky-300 border-blue-500/40'
+                    }`}
+                    title="Alternar entre visualização do Plano Gratuito (Spark) e Plano Pago (Blaze)"
+                  >
+                    <Zap className="h-3 w-3" />
+                    <span>{isBlazePlanActive() ? 'Mudar p/ Spark Free' : 'Ativar Plano Blaze'}</span>
+                  </button>
+
                   <button
                     type="button"
                     disabled={isSyncing}

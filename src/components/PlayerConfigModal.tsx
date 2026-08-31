@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { User, Lock, Mail, Image as ImageIcon, Check, X, RefreshCw, Key, Shield } from 'lucide-react';
+import { User, Lock, Mail, Image as ImageIcon, Check, X, RefreshCw, Key, Shield, Crown } from 'lucide-react';
 import { updateProfile, updatePassword, signOut } from 'firebase/auth';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { UserProfile, Character } from '../types';
 import { ImageUploadField } from './ImageUploadField';
@@ -33,6 +33,12 @@ export function PlayerConfigModal({
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [profileError, setProfileError] = useState('');
+
+  // GM Key activation state
+  const [gmSecretInput, setGmSecretInput] = useState('');
+  const [gmSecretSuccess, setGmSecretSuccess] = useState(false);
+  const [gmSecretError, setGmSecretError] = useState('');
+  const [activatingGm, setActivatingGm] = useState(false);
 
   if (!isOpen || !userProfile) return null;
 
@@ -115,6 +121,50 @@ export function PlayerConfigModal({
       }
     } finally {
       setSavingPassword(false);
+    }
+  };
+
+  const handleActivateGmKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setGmSecretError('');
+    setGmSecretSuccess(false);
+
+    const isMaster = userProfile.email && userProfile.email.toLowerCase().trim() === 'leaog.8@gmail.com';
+    const isSecretValid = gmSecretInput.trim().toUpperCase() === 'TELUMAK_GM';
+
+    if (!isMaster && !isSecretValid) {
+      setGmSecretError('Chave do Mestre inválida.');
+      return;
+    }
+
+    setActivatingGm(true);
+    try {
+      // 1. Cache immediately in localStorage
+      localStorage.setItem(`telumak_cached_role_${userProfile.uid}`, 'GM');
+
+      // 2. Update Firestore if possible
+      try {
+        const userRef = doc(db, 'users', userProfile.uid);
+        await updateDoc(userRef, { role: 'GM' });
+      } catch (err) {
+        console.warn("Firestore update skipped during offline/quota state, cached locally.");
+      }
+
+      const updatedProfile: UserProfile = {
+        ...userProfile,
+        role: 'GM'
+      };
+      onProfileUpdated(updatedProfile);
+      setGmSecretSuccess(true);
+      setGmSecretInput('');
+      setTimeout(() => {
+        setGmSecretSuccess(false);
+        onClose();
+      }, 1500);
+    } catch (err: any) {
+      setGmSecretError(err.message || 'Erro ao ativar credencial de GM.');
+    } finally {
+      setActivatingGm(false);
     }
   };
 
@@ -289,6 +339,56 @@ export function PlayerConfigModal({
               </button>
             </div>
           </form>
+
+          {/* Form 3: Master (GM) Key Activation / Recovery */}
+          {userProfile.role !== 'GM' && (
+            <form onSubmit={handleActivateGmKey} className="space-y-3 bg-[#0a0808] border border-amber-500/30 p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                  <Crown className="h-3.5 w-3.5" />
+                  Ativação de Privilégio Mestre (GM)
+                </h3>
+                <span className="text-[9px] font-mono text-amber-300/70 border border-amber-500/30 bg-amber-950/40 px-2 py-0.5">
+                  Recuperação
+                </span>
+              </div>
+
+              <p className="text-[10px] text-white/50 font-mono">
+                Se você é o Mestre da mesa e o sistema entrou em modo jogador devido ao término de cota temporária, digite sua Chave de GM para reativar instantaneamente os painéis do Mestre.
+              </p>
+
+              {gmSecretError && (
+                <div className="p-2 bg-rose-950/30 border border-rose-500/40 text-rose-300 text-xs font-mono">
+                  {gmSecretError}
+                </div>
+              )}
+
+              {gmSecretSuccess && (
+                <div className="p-2 bg-emerald-950/30 border border-emerald-500/40 text-emerald-300 text-xs font-mono flex items-center gap-1.5">
+                  <Check className="h-3.5 w-3.5" />
+                  Privilégios de Mestre (GM) restabelecidos com sucesso!
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={gmSecretInput}
+                  onChange={(e) => setGmSecretInput(e.target.value)}
+                  placeholder="Chave GM (ex: TELUMAK_GM)"
+                  className="flex-1 bg-[#050505] border border-amber-500/30 px-3 py-2 text-amber-300 text-xs font-mono focus:outline-none focus:border-amber-400"
+                />
+                <button
+                  type="submit"
+                  disabled={activatingGm || (!gmSecretInput && userProfile.email !== 'leaog.8@gmail.com')}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-black font-black text-xs uppercase tracking-wider transition flex items-center gap-1.5 disabled:opacity-40 shadow"
+                >
+                  {activatingGm ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Crown className="h-3.5 w-3.5" />}
+                  Ativar GM
+                </button>
+              </div>
+            </form>
+          )}
 
         </div>
 

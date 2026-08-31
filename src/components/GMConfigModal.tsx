@@ -6,11 +6,12 @@ import { Character, UserProfile } from '../types';
 import { 
   Sliders, X, Shield, Check, RefreshCw, 
   Search, Link as LinkIcon, Unlink, Crown, Users, Scroll, Plus, FileText,
-  Image as ImageIcon, User, Save, Edit2
+  Image as ImageIcon, User, Save, Edit2, Zap, CheckCircle2
 } from 'lucide-react';
 import { ImageUploadField } from './ImageUploadField';
 import { CampaignBackupModal } from './CampaignBackupModal';
 import { handleFirestoreError, OperationType } from '../utils/errors';
+import { isBlazePlanActive, setBlazePlanActive } from '../utils/firebaseUsageTracker';
 
 interface GMConfigModalProps {
   isOpen: boolean;
@@ -50,6 +51,9 @@ export function GMConfigModal({
   const [isSavingGmProfile, setIsSavingGmProfile] = useState(false);
   const [gmProfileSuccess, setGmProfileSuccess] = useState(false);
   const [gmProfileError, setGmProfileError] = useState('');
+
+  // Firebase Billing Plan State
+  const [isBlazeActive, setIsBlazeActive] = useState<boolean>(() => isBlazePlanActive());
 
   useEffect(() => {
     if (currentUserProfile) {
@@ -333,6 +337,58 @@ export function GMConfigModal({
                   <span className="text-[9px] text-sky-300/80 font-mono">Ficha Sankötei Antiga</span>
                 </button>
               )}
+            </div>
+
+            {/* Firebase Plan & Billing Mode (Spark vs Blaze) */}
+            <div className="bg-[#080808] border border-blue-500/30 p-4 space-y-3 shadow-lg">
+              <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                <div className="flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-amber-400" />
+                  <h3 className="text-xs font-black uppercase tracking-wider text-white">
+                    Plano de Faturamento Firebase
+                  </h3>
+                </div>
+                <span className={`text-[9px] font-mono px-2 py-0.5 border ${
+                  isBlazeActive 
+                    ? 'text-amber-400 bg-amber-950/40 border-amber-500/40' 
+                    : 'text-sky-400 bg-sky-950/40 border-sky-500/30'
+                }`}>
+                  {isBlazeActive ? '🔥 PLANO BLAZE (PAGO / ILIMITADO)' : '✨ PLANO SPARK (GRATUITO)'}
+                </span>
+              </div>
+              
+              <p className="text-[10px] text-white/50 font-mono leading-relaxed">
+                {isBlazeActive ? (
+                  <span>
+                    A conta está configurada no <strong>Plano Blaze</strong> (Pay-as-you-go). A plataforma está 100% liberada para leitura, escrita e sincronizações contínuas em tempo real com seu limite orçamentário configurado no Google Cloud.
+                  </span>
+                ) : (
+                  <span>
+                    A conta está configurada no limite do <strong>Plano Spark Gratuito</strong> (50.000 leituras/dia). Caso tenha adicionado cartão ou ativado o Plano Blaze no console do Firebase, ative o modo Blaze abaixo.
+                  </span>
+                )}
+              </p>
+
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !isBlazeActive;
+                    setIsBlazeActive(next);
+                    setBlazePlanActive(next);
+                    setAccountActionMessage(next ? '✓ Modo Plano Blaze ativado! Sistema 100% liberado.' : '✓ Modo Plano Spark Gratuito ativado.');
+                    setTimeout(() => setAccountActionMessage(null), 4000);
+                  }}
+                  className={`py-2 px-4 text-[11px] font-black uppercase tracking-wider transition flex items-center gap-2 shadow border ${
+                    isBlazeActive
+                      ? 'bg-amber-600 hover:bg-amber-500 text-black border-amber-400'
+                      : 'bg-blue-600 hover:bg-blue-500 text-white border-blue-400'
+                  }`}
+                >
+                  <Zap className="h-3.5 w-3.5" />
+                  <span>{isBlazeActive ? 'Alternar para Plano Gratuito (Spark)' : 'Ativar Modo Plano Blaze (Pago / Ilimitado)'}</span>
+                </button>
+              </div>
             </div>
 
             {/* Campaign Backup & Offline Management */}

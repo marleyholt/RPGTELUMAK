@@ -41,6 +41,31 @@ export const FIREBASE_SPARK_LIMITS = {
 };
 
 const STORAGE_KEY_PREFIX = 'telumak_firestore_quota_';
+const BLAZE_PLAN_KEY = 'telumak_firebase_blaze_plan';
+
+export function isBlazePlanActive(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return localStorage.getItem(BLAZE_PLAN_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export function setBlazePlanActive(active: boolean) {
+  if (typeof window === 'undefined') return;
+  try {
+    if (active) {
+      localStorage.setItem(BLAZE_PLAN_KEY, 'true');
+      isQuotaExhaustedGlobal = false;
+    } else {
+      localStorage.removeItem(BLAZE_PLAN_KEY);
+    }
+    notifyListeners();
+  } catch (e) {
+    console.warn("Erro ao salvar plano Blaze:", e);
+  }
+}
 
 export function getTodayString(): string {
   const now = new Date();
@@ -86,7 +111,11 @@ function getDefaultCollections(): { [key: string]: CollectionUsage } {
 }
 
 export function setQuotaExhaustedState(exhausted: boolean) {
-  isQuotaExhaustedGlobal = exhausted;
+  if (isBlazePlanActive()) {
+    isQuotaExhaustedGlobal = false;
+  } else {
+    isQuotaExhaustedGlobal = exhausted;
+  }
   notifyListeners();
 }
 
