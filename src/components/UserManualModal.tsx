@@ -23,7 +23,10 @@ import {
   CheckCircle2, 
   ArrowRight,
   Info,
-  Laptop
+  Laptop,
+  Zap,
+  CreditCard,
+  AlertTriangle
 } from 'lucide-react';
 
 interface UserManualModalProps {
@@ -49,6 +52,7 @@ export function UserManualModal({ isOpen, onClose, userRole = 'PLAYER' }: UserMa
     { id: 'pdf_import', title: '6. Importador de Fichas PDF', icon: FileText },
     { id: 'discord_integration', title: '7. Grimório & Canais do Discord', icon: MessageSquareText },
     { id: 'telemetry_audit', title: '8. Auditoria & Telemetria', icon: Activity },
+    { id: 'billing_blaze', title: '9. Cota Grátis & Plano Blaze (O que fazer)', icon: Zap },
   ];
 
   const playerSections = [
@@ -363,6 +367,93 @@ export function UserManualModal({ isOpen, onClose, userRole = 'PLAYER' }: UserMa
                       <div className="p-3 bg-[#181a24] border border-sky-500/30 rounded">
                         <strong className="text-sky-300">Monitor de Telemetria & Cotas:</strong>
                         <p className="mt-1 text-gray-400">Acompanhe a quantidade estimada de leituras e escritas no Firebase e receba alertas caso a cota se aproxime do limite diário.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {selectedSection === 'billing_blaze' && (
+                  <div className="space-y-5">
+                    <div className="p-4 bg-amber-950/30 border border-amber-500/40 rounded-lg">
+                      <h3 className="text-lg font-black text-amber-300 uppercase tracking-wide flex items-center gap-2">
+                        <Zap className="w-5 h-5 text-amber-400" />
+                        Guia de Sobrevivência: Cota Gratuita & Plano Blaze
+                      </h3>
+                      <p className="mt-1.5 text-gray-300 text-xs sm:text-sm">
+                        Entenda como funciona o faturamento do Firebase, o que fazer quando atingir o limite gratuito diário e como ativar o modo pago de forma 100% segura e econômica.
+                      </p>
+                    </div>
+
+                    {/* 1. SEUS DADOS NUNCA SÃO APAGADOS */}
+                    <div className="p-4 bg-emerald-950/40 border border-emerald-500/40 rounded-lg space-y-2">
+                      <h4 className="text-xs sm:text-sm font-black uppercase text-emerald-300 flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        1. Fique Calmo: Seus Dados NUNCA são Apagados!
+                      </h4>
+                      <p className="text-xs text-gray-300 leading-relaxed">
+                        Quando o limite de 50.000 leituras/dia do plano gratuito (Spark) é atingido, o Google Cloud apenas <strong>pausa temporariamente</strong> novas consultas para não cobrar nada de você sem autorização. Todas as suas fichas, personagens, NPCs e anotações permanecem 100% salvos e intocados no banco de dados.
+                      </p>
+                      <div className="p-2.5 bg-black/40 border border-emerald-500/20 rounded text-[11px] text-emerald-200/90 font-mono">
+                        💡 Se você vir a mensagem vermelha <em>"Erro ao carregar coleções"</em> no console do Google, não se assuste: é apenas a trava da cota agindo. Assim que o faturamento é vinculado, tudo reaparece normalmente.
+                      </div>
+                    </div>
+
+                    {/* 2. PASSO A PASSO QUANDO A COTA ACABAR */}
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-black uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
+                        <Settings className="w-4 h-4" />
+                        2. Passo a Passo: Como Liberar o Sistema (Plano Blaze)
+                      </h4>
+
+                      <div className="space-y-2 text-xs">
+                        <div className="p-3 bg-[#181a24] border-l-4 border-sky-500 rounded-r">
+                          <strong className="text-white block font-bold mb-1">Passo 1: Acessar o Console do Firebase</strong>
+                          <p className="text-gray-300">
+                            Acesse <code className="text-sky-300 bg-black/50 px-1 py-0.5 rounded">console.firebase.google.com</code>, entre no projeto <strong>TELUMAK DATABASE</strong> e no canto inferior esquerdo clique em <strong>"Modificar"</strong> ou <strong>"Fazer Upgrade para Plano Blaze"</strong>.
+                          </p>
+                        </div>
+
+                        <div className="p-3 bg-[#181a24] border-l-4 border-sky-500 rounded-r">
+                          <strong className="text-white block font-bold mb-1">Passo 2: Adicionar Forma de Pagamento / Saldo Pré-Pago</strong>
+                          <p className="text-gray-300">
+                            Vincule seu cartão ou faça um adiantamento manual de crédito (ex: <strong>R$ 30,00</strong>). Esse valor fica como saldo positivo no Google Cloud e rende milhões de leituras!
+                          </p>
+                        </div>
+
+                        <div className="p-3 bg-[#181a24] border-l-4 border-amber-500 rounded-r">
+                          <strong className="text-amber-300 block font-bold mb-1">Passo 3: Aguardar o Tempo de Propagação do Google (5 a 20 minutos)</strong>
+                          <p className="text-gray-300">
+                            Após o pagamento, os servidores mundiais do Google levam de <strong>5 a 20 minutos</strong> para propagar a remoção do bloqueio diário.
+                          </p>
+                        </div>
+
+                        <div className="p-3 bg-[#181a24] border-l-4 border-emerald-500 rounded-r">
+                          <strong className="text-emerald-300 block font-bold mb-1">Passo 4: Ativar o Modo Blaze no Portal Telumak</strong>
+                          <p className="text-gray-300">
+                            Abra o portal do RPG, clique no ícone de engrenagem <strong>⚙️ Configurações do Mestre</strong> no topo direito e na seção <em>"Plano de Faturamento Firebase"</em>, clique em <strong>"Ativar Modo Plano Blaze (Pago / Ilimitado)"</strong>.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 3. CUSTOS E TRANQUILIDADE */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div className="p-3 bg-[#151722] border border-white/10 rounded">
+                        <strong className="text-sky-300 flex items-center gap-1.5 mb-1 font-bold">
+                          <CreditCard className="w-4 h-4 text-sky-400" /> Quanto Custa o Plano Blaze?
+                        </strong>
+                        <p className="text-gray-400 text-[11px] leading-relaxed">
+                          Você continua recebendo <strong>50.000 leituras GRÁTIS todos os dias</strong>. Se você ultrapassar, cada 100.000 leituras extras custam apenas cerca de <strong>R$ 0,35</strong> (trinta e cinco centavos). Um saldo de R$ 30,00 dura meses de jogo intenso!
+                        </p>
+                      </div>
+
+                      <div className="p-3 bg-[#151722] border border-white/10 rounded">
+                        <strong className="text-amber-300 flex items-center gap-1.5 mb-1 font-bold">
+                          <Shield className="w-4 h-4 text-amber-400" /> Transição Transparente & Sem Paradas
+                        </strong>
+                        <p className="text-gray-400 text-[11px] leading-relaxed">
+                          Com o Plano Blaze ativo, o sistema nunca mais trava. Ao esgotar as 50.000 gratuitas diárias, a mesa continua jogando sem qualquer interrupção, consumindo direto do saldo em centavos.
+                        </p>
                       </div>
                     </div>
                   </div>
