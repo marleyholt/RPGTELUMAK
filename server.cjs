@@ -101,6 +101,9 @@ async function startServer() {
     });
     discordClient.on("ready", () => {
       console.log(`[DISCORD BOT] Logado e pronto como ${discordClient?.user?.tag}`);
+      if (db) {
+        setupFirestoreToDiscordBridge(db, discordClient, defaultChannelId);
+      }
     });
     discordClient.on("messageCreate", async (message) => {
       if (message.author.bot) return;
@@ -175,6 +178,144 @@ async function startServer() {
     });
   } else {
     console.warn("DISCORD_BOT_TOKEN n\xE3o configurado no .env");
+  }
+  function setupFirestoreToDiscordBridge(dbInstance, client, defaultChanId) {
+    if (!dbInstance || !client) return;
+    console.log("[FIRESTORE BRIDGE] Inicializando ponte bidirecional Firestore <-> Discord...");
+    const inFlightMessages = /* @__PURE__ */ new Set();
+    (0, import_firestore.onSnapshot)(
+      (0, import_firestore.query)(
+        (0, import_firestore.collection)(dbInstance, "discord_notebook_messages"),
+        (0, import_firestore.where)("isFromDiscord", "==", false)
+      ),
+      async (snapshot) => {
+        for (const change of snapshot.docChanges()) {
+          if (change.type === "added" || change.type === "modified") {
+            const docId = change.doc.id;
+            const data = change.doc.data();
+            if (data.discordMessageId || data.discordSynced || inFlightMessages.has(docId)) {
+              continue;
+            }
+            let targetDiscordChannelId = data.discordTargetId;
+            if (!targetDiscordChannelId && data.channelId && /^\d{17,20}$/.test(data.channelId)) {
+              targetDiscordChannelId = data.channelId;
+            }
+            if (!targetDiscordChannelId && data.channelId) {
+              try {
+                const chDoc = await (0, import_firestore.getDoc)((0, import_firestore.doc)(dbInstance, "discord_channels", data.channelId));
+                if (chDoc.exists() && chDoc.data()?.discordChannelId) {
+                  targetDiscordChannelId = chDoc.data()?.discordChannelId;
+                }
+              } catch (err) {
+                console.warn("[FIRESTORE BRIDGE] Erro ao buscar canal vinculado em discord_channels:", err);
+              }
+            }
+            if (!targetDiscordChannelId) {
+              continue;
+            }
+            inFlightMessages.add(docId);
+            try {
+              if (!client.isReady()) {
+                inFlightMessages.delete(docId);
+                continue;
+              }
+              const channel = await client.channels.fetch(targetDiscordChannelId).catch(() => null);
+              if (channel && channel.isTextBased() && "send" in channel) {
+                const sendOptions = {};
+                const sender = data.authorName || "Jogador";
+                sendOptions.content = `**[${sender}]**
+${data.content || ""}`;
+                const allAtts = [];
+                if (Array.isArray(data.attachments)) {
+                  allAtts.push(...data.attachments.filter(Boolean));
+                } else if (data.attachment && typeof data.attachment === "string") {
+                  allAtts.push(data.attachment);
+                }
+                const filesToSend = [];
+                let fileIdx = 1;
+                for (const att of allAtts) {
+                  if (typeof att === "string" && att.startsWith("data:image/")) {
+                    const base64Data = att.split(",")[1];
+                    const buffer = Buffer.from(base64Data, "base64");
+                    const rawExt = att.substring(att.indexOf("/") + 1, att.indexOf(";")) || "png";
+                    const cleanExt = rawExt.replace("+xml", "").replace("jpeg", "jpg");
+                    filesToSend.push(new import_discord.AttachmentBuilder(buffer, { name: `anexo_${Date.now()}_${fileIdx}.${cleanExt}` }));
+                    fileIdx++;
+                  } else if (typeof att === "string" && (att.startsWith("http://") || att.startsWith("https://"))) {
+                    filesToSend.push(new import_discord.AttachmentBuilder(att, { name: `anexo_${Date.now()}_${fileIdx}.png` }));
+                    fileIdx++;
+                  }
+                }
+                if (filesToSend.length > 0) {
+                  sendOptions.files = filesToSend.slice(0, 10);
+                }
+                const sentMsg = await channel.send(sendOptions);
+                console.log(`[PORTAL -> FIRESTORE -> DISCORD] Mensagem enviada para #${channel.name || targetDiscordChannelId}! ID Discord: ${sentMsg.id}`);
+                await (0, import_firestore.updateDoc)((0, import_firestore.doc)(dbInstance, "discord_notebook_messages", docId), {
+                  discordMessageId: sentMsg.id,
+                  discordSynced: true,
+                  discordChannelId: targetDiscordChannelId
+                });
+              } else {
+                console.warn(`[PORTAL -> FIRESTORE -> DISCORD] Canal ${targetDiscordChannelId} n\xE3o encontrado no Discord ou sem permiss\xE3o de envio.`);
+              }
+            } catch (err) {
+              console.error("[PORTAL -> FIRESTORE -> DISCORD] Erro ao enviar mensagem para o Discord:", err?.message || err);
+            } finally {
+              setTimeout(() => {
+                inFlightMessages.delete(docId);
+              }, 5e3);
+            }
+          }
+        }
+      },
+      (err) => {
+        console.error("[FIRESTORE BRIDGE] Erro no listener de discord_notebook_messages:", err);
+      }
+    );
+    if (defaultChanId) {
+      (0, import_firestore.onSnapshot)(
+        (0, import_firestore.query)(
+          (0, import_firestore.collection)(dbInstance, "messages"),
+          (0, import_firestore.where)("tipo", "==", "CHAT")
+        ),
+        async (snapshot) => {
+          for (const change of snapshot.docChanges()) {
+            if (change.type === "added") {
+              const docId = change.doc.id;
+              const data = change.doc.data();
+              if (data.discordSynced || inFlightMessages.has(docId) || data.remetente && String(data.remetente).startsWith("[Discord]")) {
+                continue;
+              }
+              inFlightMessages.add(docId);
+              try {
+                if (!client.isReady()) {
+                  inFlightMessages.delete(docId);
+                  continue;
+                }
+                const channel = await client.channels.fetch(defaultChanId).catch(() => null);
+                if (channel && channel.isTextBased() && "send" in channel) {
+                  await channel.send(`**[RPG - ${data.remetente || "Jogador"}]** ${data.conteudo || ""}`);
+                  console.log(`[CHAT RPG -> DISCORD] Mensagem enviada para o canal padr\xE3o do Discord!`);
+                  await (0, import_firestore.updateDoc)((0, import_firestore.doc)(dbInstance, "messages", docId), {
+                    discordSynced: true
+                  });
+                }
+              } catch (err) {
+                console.error("[CHAT RPG -> DISCORD] Erro ao enviar mensagem:", err?.message || err);
+              } finally {
+                setTimeout(() => {
+                  inFlightMessages.delete(docId);
+                }, 5e3);
+              }
+            }
+          }
+        },
+        (err) => {
+          console.error("[FIRESTORE BRIDGE] Erro no listener de messages:", err);
+        }
+      );
+    }
   }
   app.get("/api/discord/server-info", async (req, res) => {
     const { guildId, channelId } = req.query;
