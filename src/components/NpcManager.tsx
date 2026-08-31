@@ -169,8 +169,11 @@ export function NpcManager({ characters = [] }: { characters?: Character[] }) {
       // Resolve canal correto (discordChannelId se existir, senão id do firestore)
       const effectiveChannelId = targetChannelObj?.discordChannelId || targetChannelObj?.id || selectedChannel;
       
+      const targetDiscordChannelId = targetChannelObj?.discordChannelId || (/^\d{17,20}$/.test(effectiveChannelId) ? effectiveChannelId : (/^\d{17,20}$/.test(selectedChannel) ? selectedChannel : null));
+
       const payload: Record<string, any> = {
         channelId: effectiveChannelId,
+        discordTargetId: targetDiscordChannelId || null,
         authorName: 'Mestre',
         authorAvatar: 'https://cdn-icons-png.flaticon.com/512/9055/9055160.png',
         authorEmail: 'gm@telumak.com',
@@ -184,7 +187,6 @@ export function NpcManager({ characters = [] }: { characters?: Character[] }) {
       const docRef = await addDoc(collection(db, 'discord_notebook_messages'), payload);
 
       // Também encaminhar para a API do Discord se o canal possuir discordChannelId ou for ID de canal do Discord
-      const targetDiscordChannelId = targetChannelObj?.discordChannelId || (/^\d{17,20}$/.test(effectiveChannelId) ? effectiveChannelId : (/^\d{17,20}$/.test(selectedChannel) ? selectedChannel : null));
       if (targetDiscordChannelId) {
         fetch(getApiUrl('/api/discord/notebook/send'), {
           method: 'POST',

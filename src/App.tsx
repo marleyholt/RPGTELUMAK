@@ -486,7 +486,8 @@ export default function App() {
       saveOfflineCharacters(list);
 
       // Select default character if Player has only one
-      const myChars = list.filter(c => c.email_dono === currentUser.email);
+      const userEmail = currentUser.email?.toLowerCase().trim() || '';
+      const myChars = list.filter(c => c.email_dono && c.email_dono.toLowerCase().trim() === userEmail);
       if (userProfile?.role === 'PLAYER' && myChars.length > 0 && !selectedCharId) {
         setSelectedCharId(myChars[0].id);
       }
@@ -641,7 +642,8 @@ export default function App() {
       return;
     }
 
-    const myChars = characters.filter(c => c.email_dono === currentUser.email);
+    const userEmail = currentUser.email?.toLowerCase().trim() || '';
+    const myChars = characters.filter(c => c.email_dono && c.email_dono.toLowerCase().trim() === userEmail);
     const compute = () => {
       const count = countUnreadDiscordMessages(
         discordRecentMessages,
@@ -666,7 +668,8 @@ export default function App() {
   useEffect(() => {
     if (userProfile?.role === 'GM' || !currentUser) return;
 
-    const myChar = characters.find(c => c.email_dono === currentUser.email);
+    const userEmail = currentUser.email?.toLowerCase().trim() || '';
+    const myChar = characters.find(c => c.email_dono && c.email_dono.toLowerCase().trim() === userEmail);
     if (!myChar) return;
 
     const currentCharString = JSON.stringify({
@@ -711,7 +714,8 @@ export default function App() {
   }, [characters, currentUser, userProfile?.role, lastAckedCharSnapshot]);
 
   const handleAcknowledgeSheetUpdate = () => {
-    const myChar = characters.find(c => c.email_dono === currentUser?.email);
+    const userEmail = currentUser?.email?.toLowerCase().trim() || '';
+    const myChar = characters.find(c => c.email_dono && c.email_dono.toLowerCase().trim() === userEmail);
     if (myChar) {
       const currentCharString = JSON.stringify({
         hp_atual: myChar.hp_atual,
@@ -991,7 +995,8 @@ export default function App() {
 
   const isGM = userProfile?.role === 'GM';
   const activeCharacters = characters.filter(c => !c.arquivado);
-  const myCharactersList = activeCharacters.filter(c => c.email_dono === currentUser?.email);
+  const currentLoggedInEmail = currentUser?.email?.toLowerCase().trim() || '';
+  const myCharactersList = activeCharacters.filter(c => c.email_dono && c.email_dono.toLowerCase().trim() === currentLoggedInEmail);
   const mestreMesaRoster = activeCharacters.filter(c => c.ativo_na_mesa);
   const isPlayerActiveOnTable = isGM || myCharactersList.some(c => c.ativo_na_mesa);
   const currentSelectedCharacter = activeCharacters.find(c => c.id === selectedCharId) || (myCharactersList.length > 0 ? myCharactersList[0] : (isGM && activeCharacters.length > 0 ? activeCharacters[0] : null));
@@ -1695,7 +1700,7 @@ export default function App() {
             <CharacterSheet
               character={currentSelectedCharacter}
               isGM={isGM}
-              isOwner={currentSelectedCharacter.email_dono === currentUser.email}
+              isOwner={Boolean(currentSelectedCharacter.email_dono && currentUser.email && currentSelectedCharacter.email_dono.trim().toLowerCase() === currentUser.email.trim().toLowerCase())}
               statuses={statuses}
               versions={activeCharVersionsList}
               onCharacterArchived={() => {

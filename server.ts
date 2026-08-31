@@ -6,7 +6,7 @@ import { createServer as createViteServer } from "vite";
 import { Client, GatewayIntentBits, AttachmentBuilder } from 'discord.js';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, collection, addDoc, serverTimestamp, getDoc, doc, query, where, getDocs, updateDoc, setDoc } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, serverTimestamp, getDoc, doc, query, where, getDocs, updateDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { GoogleGenAI } from "@google/genai";
 import fs from 'fs';
 
@@ -95,6 +95,9 @@ async function startServer() {
 
     discordClient.on('ready', () => {
       console.log(`[DISCORD BOT] Logado e pronto como ${discordClient?.user?.tag}`);
+      if (db) {
+        setupFirestoreToDiscordBridge(db, discordClient, defaultChannelId);
+      }
     });
 
     // Escutando mensagens do Discord de QUALQUER canal ao qual o bot tem acesso
@@ -185,6 +188,171 @@ async function startServer() {
     });
   } else {
     console.warn("DISCORD_BOT_TOKEN não configurado no .env");
+  }
+
+  // Função da Ponte Bidirecional Firestore <-> Discord
+  function setupFirestoreToDiscordBridge(dbInstance: any, client: Client, defaultChanId?: string) {
+    if (!dbInstance || !client) return;
+    console.log("[FIRESTORE BRIDGE] Inicializando ponte bidirecional Firestore <-> Discord...");
+
+    const inFlightMessages = new Set<string>();
+
+    // 1. Escuta novas mensagens no discord_notebook_messages criadas no Portal
+    onSnapshot(
+      query(
+        collection(dbInstance, 'discord_notebook_messages'),
+        where('isFromDiscord', '==', false)
+      ),
+      async (snapshot) => {
+        for (const change of snapshot.docChanges()) {
+          if (change.type === 'added' || change.type === 'modified') {
+            const docId = change.doc.id;
+            const data = change.doc.data();
+
+            // Mensagem já enviada para o Discord ou em processo de envio
+            if (data.discordMessageId || data.discordSynced || inFlightMessages.has(docId)) {
+              continue;
+            }
+
+            // Descobre o ID do canal do Discord
+            let targetDiscordChannelId = data.discordTargetId;
+            if (!targetDiscordChannelId && data.channelId && /^\d{17,20}$/.test(data.channelId)) {
+              targetDiscordChannelId = data.channelId;
+            }
+
+            if (!targetDiscordChannelId && data.channelId) {
+              try {
+                const chDoc = await getDoc(doc(dbInstance, 'discord_channels', data.channelId));
+                if (chDoc.exists() && chDoc.data()?.discordChannelId) {
+                  targetDiscordChannelId = chDoc.data()?.discordChannelId;
+                }
+              } catch (err) {
+                console.warn("[FIRESTORE BRIDGE] Erro ao buscar canal vinculado em discord_channels:", err);
+              }
+            }
+
+            if (!targetDiscordChannelId) {
+              // Canal puramente local no Firestore
+              continue;
+            }
+
+            inFlightMessages.add(docId);
+
+            try {
+              if (!client.isReady()) {
+                inFlightMessages.delete(docId);
+                continue;
+              }
+
+              const channel = await client.channels.fetch(targetDiscordChannelId).catch(() => null);
+              if (channel && channel.isTextBased() && 'send' in channel) {
+                const sendOptions: any = {};
+                const sender = data.authorName || 'Jogador';
+                sendOptions.content = `**[${sender}]**\n${data.content || ''}`;
+
+                // Lista de anexos unificada
+                const allAtts: string[] = [];
+                if (Array.isArray(data.attachments)) {
+                  allAtts.push(...data.attachments.filter(Boolean));
+                } else if (data.attachment && typeof data.attachment === 'string') {
+                  allAtts.push(data.attachment);
+                }
+
+                const filesToSend: AttachmentBuilder[] = [];
+                let fileIdx = 1;
+                for (const att of allAtts) {
+                  if (typeof att === 'string' && att.startsWith('data:image/')) {
+                    const base64Data = att.split(',')[1];
+                    const buffer = Buffer.from(base64Data, 'base64');
+                    const rawExt = att.substring(att.indexOf('/') + 1, att.indexOf(';')) || 'png';
+                    const cleanExt = rawExt.replace('+xml', '').replace('jpeg', 'jpg');
+                    filesToSend.push(new AttachmentBuilder(buffer, { name: `anexo_${Date.now()}_${fileIdx}.${cleanExt}` }));
+                    fileIdx++;
+                  } else if (typeof att === 'string' && (att.startsWith('http://') || att.startsWith('https://'))) {
+                    filesToSend.push(new AttachmentBuilder(att, { name: `anexo_${Date.now()}_${fileIdx}.png` }));
+                    fileIdx++;
+                  }
+                }
+
+                if (filesToSend.length > 0) {
+                  sendOptions.files = filesToSend.slice(0, 10);
+                }
+
+                const sentMsg = await channel.send(sendOptions);
+                console.log(`[PORTAL -> FIRESTORE -> DISCORD] Mensagem enviada para #${channel.name || targetDiscordChannelId}! ID Discord: ${sentMsg.id}`);
+
+                await updateDoc(doc(dbInstance, 'discord_notebook_messages', docId), {
+                  discordMessageId: sentMsg.id,
+                  discordSynced: true,
+                  discordChannelId: targetDiscordChannelId
+                });
+              } else {
+                console.warn(`[PORTAL -> FIRESTORE -> DISCORD] Canal ${targetDiscordChannelId} não encontrado no Discord ou sem permissão de envio.`);
+              }
+            } catch (err: any) {
+              console.error("[PORTAL -> FIRESTORE -> DISCORD] Erro ao enviar mensagem para o Discord:", err?.message || err);
+            } finally {
+              setTimeout(() => {
+                inFlightMessages.delete(docId);
+              }, 5000);
+            }
+          }
+        }
+      },
+      (err) => {
+        console.error("[FIRESTORE BRIDGE] Erro no listener de discord_notebook_messages:", err);
+      }
+    );
+
+    // 2. Escuta mensagens do chat RPG de jogo (coleção 'messages') para o canal padrão do Discord
+    if (defaultChanId) {
+      onSnapshot(
+        query(
+          collection(dbInstance, 'messages'),
+          where('tipo', '==', 'CHAT')
+        ),
+        async (snapshot) => {
+          for (const change of snapshot.docChanges()) {
+            if (change.type === 'added') {
+              const docId = change.doc.id;
+              const data = change.doc.data();
+
+              if (data.discordSynced || inFlightMessages.has(docId) || (data.remetente && String(data.remetente).startsWith('[Discord]'))) {
+                continue;
+              }
+
+              inFlightMessages.add(docId);
+
+              try {
+                if (!client.isReady()) {
+                  inFlightMessages.delete(docId);
+                  continue;
+                }
+
+                const channel = await client.channels.fetch(defaultChanId).catch(() => null);
+                if (channel && channel.isTextBased() && 'send' in channel) {
+                  await channel.send(`**[RPG - ${data.remetente || 'Jogador'}]** ${data.conteudo || ''}`);
+                  console.log(`[CHAT RPG -> DISCORD] Mensagem enviada para o canal padrão do Discord!`);
+
+                  await updateDoc(doc(dbInstance, 'messages', docId), {
+                    discordSynced: true
+                  });
+                }
+              } catch (err: any) {
+                console.error("[CHAT RPG -> DISCORD] Erro ao enviar mensagem:", err?.message || err);
+              } finally {
+                setTimeout(() => {
+                  inFlightMessages.delete(docId);
+                }, 5000);
+              }
+            }
+          }
+        },
+        (err) => {
+          console.error("[FIRESTORE BRIDGE] Erro no listener de messages:", err);
+        }
+      );
+    }
   }
 
   // Rota para consultar dados do servidor / canais do Discord

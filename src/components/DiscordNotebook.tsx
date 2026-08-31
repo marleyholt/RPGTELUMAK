@@ -674,7 +674,33 @@ export function DiscordNotebook({
     return unsub;
   }, [activeChannelKeys, messageLimit, filterPinnedOnly, searchQuery]);
 
-  const myActiveCharacter = characters?.find(c => c.email_dono === currentUserProfile?.email && c.ativo_na_mesa && !c.arquivado);
+  // Resolved Active Character for the current logged-in user (case-insensitive and trimmed)
+  const myActiveCharacter = useMemo(() => {
+    if (!currentUserProfile?.email || !characters?.length) return null;
+    const userEmail = currentUserProfile.email.toLowerCase().trim();
+    // 1. Prioriza o personagem marcado como ativo na mesa
+    const activeTableChar = characters.find(c => 
+      c.email_dono && 
+      c.email_dono.toLowerCase().trim() === userEmail && 
+      c.ativo_na_mesa && 
+      !c.arquivado
+    );
+    if (activeTableChar) return activeTableChar;
+
+    // 2. Se não houver explicitamente ativo na mesa, pega qualquer personagem válido não-arquivado do jogador
+    const anyOwnerChar = characters.find(c => 
+      c.email_dono && 
+      c.email_dono.toLowerCase().trim() === userEmail && 
+      !c.arquivado
+    );
+    if (anyOwnerChar) return anyOwnerChar;
+
+    // 3. Fallback: qualquer personagem do jogador
+    return characters.find(c => 
+      c.email_dono && 
+      c.email_dono.toLowerCase().trim() === userEmail
+    ) || null;
+  }, [characters, currentUserProfile?.email]);
 
   // Scroll tracking
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -1099,10 +1125,14 @@ export function DiscordNotebook({
       });
     }
 
+    const discordTargetId = activeChannel?.discordChannelId || (/^\d{17,20}$/.test(activeChannelId) ? activeChannelId : null);
+
     try {
       // Build safe payload with NO undefined values (Firestore rejects undefined)
       const messagePayload: Record<string, any> = {
         channelId: activeChannelId,
+        discordTargetId: discordTargetId || null,
+        channelName: activeChannel?.name || '',
         authorName: senderName,
         authorAvatar: senderAvatar,
         authorEmail: currentUserProfile?.email || '',
@@ -1124,8 +1154,7 @@ export function DiscordNotebook({
         conteudo: finalContent.substring(0, 50)
       });
 
-      // Se o canal estiver vinculado a um ID do Discord oficial, despacha para o bot enviar no Discord
-      const discordTargetId = activeChannel?.discordChannelId || (/^\d{17,20}$/.test(activeChannelId) ? activeChannelId : null);
+      // Se o canal estiver vinculado a um ID do Discord oficial, despacha também via REST para resposta imediata
       if (discordTargetId) {
         fetch(getApiUrl('/api/discord/notebook/send'), {
           method: 'POST',
