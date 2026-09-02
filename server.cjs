@@ -93,6 +93,9 @@ async function startServer() {
   let discordClient = null;
   let botStatusMessage = "Iniciando...";
   let botLastError = null;
+  const processedDiscordMsgIds = /* @__PURE__ */ new Set();
+  let activeBridgeUnsub1 = null;
+  let activeBridgeUnsub2 = null;
   async function initOrRestartDiscordBot() {
     const activeToken = process.env.DISCORD_BOT_TOKEN || token;
     if (!activeToken) {
@@ -131,6 +134,11 @@ async function startServer() {
       });
       discordClient.on("messageCreate", async (message) => {
         if (message.author.bot) return;
+        if (processedDiscordMsgIds.has(message.id)) {
+          return;
+        }
+        processedDiscordMsgIds.add(message.id);
+        setTimeout(() => processedDiscordMsgIds.delete(message.id), 6e4);
         console.log(`[DISCORD -> BACKEND] Mensagem recebida no canal ${message.channelId} de ${message.author.username}: "${message.content}"`);
         if (db) {
           try {
@@ -163,7 +171,7 @@ async function startServer() {
                 conteudo: message.content || "",
                 createdAt: (0, import_firestore.serverTimestamp)()
               };
-              await (0, import_firestore.addDoc)((0, import_firestore.collection)(db, "messages"), chatMsg);
+              await (0, import_firestore.setDoc)((0, import_firestore.doc)(db, "messages", `discord_${message.id}`), chatMsg, { merge: true });
             }
           } catch (err) {
             console.error("[DISCORD -> FIRESTORE] Erro ao salvar mensagem do Discord no Firestore:", err?.message || err);
@@ -215,9 +223,23 @@ async function startServer() {
   }
   function setupFirestoreToDiscordBridge(dbInstance, client, defaultChanId) {
     if (!dbInstance || !client) return;
+    if (activeBridgeUnsub1) {
+      try {
+        activeBridgeUnsub1();
+      } catch {
+      }
+      activeBridgeUnsub1 = null;
+    }
+    if (activeBridgeUnsub2) {
+      try {
+        activeBridgeUnsub2();
+      } catch {
+      }
+      activeBridgeUnsub2 = null;
+    }
     console.log("[FIRESTORE BRIDGE] Inicializando ponte bidirecional Firestore <-> Discord...");
     const inFlightMessages = /* @__PURE__ */ new Set();
-    (0, import_firestore.onSnapshot)(
+    activeBridgeUnsub1 = (0, import_firestore.onSnapshot)(
       (0, import_firestore.query)(
         (0, import_firestore.collection)(dbInstance, "discord_notebook_messages"),
         (0, import_firestore.where)("isFromDiscord", "==", false)
@@ -308,7 +330,7 @@ ${data.content || ""}`;
       }
     );
     if (defaultChanId) {
-      (0, import_firestore.onSnapshot)(
+      activeBridgeUnsub2 = (0, import_firestore.onSnapshot)(
         (0, import_firestore.query)(
           (0, import_firestore.collection)(dbInstance, "messages"),
           (0, import_firestore.where)("tipo", "==", "CHAT")
