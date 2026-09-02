@@ -55,7 +55,7 @@ var getFirebaseConfig = () => {
 async function startServer() {
   const app = (0, import_express.default)();
   app.use((0, import_cors.default)());
-  const PORT = 3e3;
+  const PORT = Number(process.env.PORT) || 3e3;
   app.use(import_express.default.json({ limit: "50mb" }));
   app.use(import_express.default.urlencoded({ extended: true, limit: "50mb" }));
   app.use(import_express.default.static(import_path.default.join(process.cwd(), "public")));
