@@ -846,7 +846,7 @@ ${textContent}`
   });
   if (process.env.NODE_ENV !== "production") {
     const vite = await (0, import_vite.createServer)({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, allowedHosts: true },
       appType: "spa"
     });
     app.use(vite.middlewares);
