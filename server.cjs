@@ -94,6 +94,7 @@ async function startServer() {
   let botStatusMessage = "Iniciando...";
   let botLastError = null;
   const processedDiscordMsgIds = /* @__PURE__ */ new Set();
+  const recentOutboundMsgs = /* @__PURE__ */ new Map();
   let activeBridgeUnsub1 = null;
   let activeBridgeUnsub2 = null;
   async function initOrRestartDiscordBot() {
@@ -249,7 +250,7 @@ async function startServer() {
           if (change.type === "added" || change.type === "modified") {
             const docId = change.doc.id;
             const data = change.doc.data();
-            if (data.discordMessageId || data.discordSynced || inFlightMessages.has(docId)) {
+            if (data.discordMessageId || data.discordSynced || data.syncingToDiscord || inFlightMessages.has(docId)) {
               continue;
             }
             let targetDiscordChannelId = data.discordTargetId;
@@ -269,7 +270,27 @@ async function startServer() {
             if (!targetDiscordChannelId) {
               continue;
             }
+            const sender = data.authorName || "Jogador";
+            const cleanContent = (data.content || "").trim();
+            const dedupKey = `${targetDiscordChannelId}_${sender}_${cleanContent}`;
+            const now = Date.now();
+            if (recentOutboundMsgs.has(dedupKey) && now - (recentOutboundMsgs.get(dedupKey) || 0) < 1e4) {
+              console.log(`[FIRESTORE BRIDGE] Mensagem duplicada ignorada para #${targetDiscordChannelId}`);
+              (0, import_firestore.updateDoc)((0, import_firestore.doc)(dbInstance, "discord_notebook_messages", docId), {
+                discordSynced: true,
+                syncingToDiscord: false
+              }).catch(() => {
+              });
+              continue;
+            }
             inFlightMessages.add(docId);
+            recentOutboundMsgs.set(dedupKey, now);
+            try {
+              await (0, import_firestore.updateDoc)((0, import_firestore.doc)(dbInstance, "discord_notebook_messages", docId), {
+                syncingToDiscord: true
+              });
+            } catch {
+            }
             try {
               if (!client.isReady()) {
                 inFlightMessages.delete(docId);
@@ -278,7 +299,6 @@ async function startServer() {
               const channel = await client.channels.fetch(targetDiscordChannelId).catch(() => null);
               if (channel && channel.isTextBased() && "send" in channel) {
                 const sendOptions = {};
-                const sender = data.authorName || "Jogador";
                 sendOptions.content = `**[${sender}]**
 ${data.content || ""}`;
                 const allAtts = [];
@@ -310,6 +330,7 @@ ${data.content || ""}`;
                 await (0, import_firestore.updateDoc)((0, import_firestore.doc)(dbInstance, "discord_notebook_messages", docId), {
                   discordMessageId: sentMsg.id,
                   discordSynced: true,
+                  syncingToDiscord: false,
                   discordChannelId: targetDiscordChannelId
                 });
               } else {
@@ -343,7 +364,17 @@ ${data.content || ""}`;
               if (data.discordSynced || inFlightMessages.has(docId) || data.remetente && String(data.remetente).startsWith("[Discord]")) {
                 continue;
               }
+              const sender = data.remetente || "Jogador";
+              const cleanContent = (data.conteudo || "").trim();
+              const dedupKey = `rpg_chat_${sender}_${cleanContent}`;
+              const now = Date.now();
+              if (recentOutboundMsgs.has(dedupKey) && now - (recentOutboundMsgs.get(dedupKey) || 0) < 1e4) {
+                (0, import_firestore.updateDoc)((0, import_firestore.doc)(dbInstance, "messages", docId), { discordSynced: true }).catch(() => {
+                });
+                continue;
+              }
               inFlightMessages.add(docId);
+              recentOutboundMsgs.set(dedupKey, now);
               try {
                 if (!client.isReady()) {
                   inFlightMessages.delete(docId);
@@ -351,7 +382,7 @@ ${data.content || ""}`;
                 }
                 const channel = await client.channels.fetch(defaultChanId).catch(() => null);
                 if (channel && channel.isTextBased() && "send" in channel) {
-                  await channel.send(`**[RPG - ${data.remetente || "Jogador"}]** ${data.conteudo || ""}`);
+                  await channel.send(`**[RPG - ${sender}]** ${cleanContent}`);
                   console.log(`[CHAT RPG -> DISCORD] Mensagem enviada para o canal padr\xE3o do Discord!`);
                   await (0, import_firestore.updateDoc)((0, import_firestore.doc)(dbInstance, "messages", docId), {
                     discordSynced: true
@@ -493,11 +524,20 @@ ${data.content || ""}`;
     }
   });
   app.post("/api/discord/notebook/send", async (req, res) => {
-    const { channelId, remetente, conteudo, attachment, attachments } = req.body;
+    const { channelId, remetente, conteudo, attachment, attachments, docId } = req.body;
     const targetChannelId = channelId || defaultChannelId;
     if (!targetChannelId) {
       return res.status(400).json({ error: "ID do canal n\xE3o fornecido" });
     }
+    const cleanSender = remetente || "Jogador";
+    const cleanContent = (conteudo || "").trim();
+    const dedupKey = `${targetChannelId}_${cleanSender}_${cleanContent}`;
+    const now = Date.now();
+    if (recentOutboundMsgs.has(dedupKey) && now - (recentOutboundMsgs.get(dedupKey) || 0) < 1e4) {
+      console.log(`[DISCORD REST] Mensagem id\xEAntica enviada h\xE1 menos de 10s para #${targetChannelId}, deduplicando.`);
+      return res.json({ success: true, duplicated: true });
+    }
+    recentOutboundMsgs.set(dedupKey, now);
     if (!discordClient || !discordClient.isReady()) {
       return res.status(200).json({
         success: false,
@@ -509,8 +549,8 @@ ${data.content || ""}`;
       const channel = await discordClient.channels.fetch(targetChannelId).catch(() => null);
       if (channel && channel.isTextBased() && "send" in channel) {
         const sendOptions = {};
-        let formattedText = `**[${remetente}]**
-${conteudo || ""}`;
+        let formattedText = `**[${cleanSender}]**
+${cleanContent}`;
         sendOptions.content = formattedText;
         const allAtts = [];
         if (Array.isArray(attachments)) {
@@ -540,6 +580,14 @@ ${conteudo || ""}`;
         }
         const sentMsg = await channel.send(sendOptions);
         console.log(`[DISCORD] Mensagem enviada para o canal #${channel.name || targetChannelId} no Discord! ID: ${sentMsg.id}`);
+        if (db && docId) {
+          (0, import_firestore.updateDoc)((0, import_firestore.doc)(db, "discord_notebook_messages", docId), {
+            discordMessageId: sentMsg.id,
+            discordSynced: true,
+            syncingToDiscord: false
+          }).catch(() => {
+          });
+        }
         return res.json({ success: true, discordMessageId: sentMsg.id });
       } else {
         return res.status(400).json({ error: "Canal do Discord n\xE3o encontrado ou o bot n\xE3o tem permiss\xE3o para enviar mensagens nele." });
@@ -775,10 +823,18 @@ ${textContent}`
     if (!discordClient || !discordClient.isReady() || !targetChannelId) {
       return res.status(500).json({ error: "Discord Bot n\xE3o est\xE1 pronto ou ID do canal n\xE3o configurado" });
     }
+    const sender = remetente || "Jogador";
+    const cleanContent = (conteudo || "").trim();
+    const dedupKey = `rpg_chat_${sender}_${cleanContent}`;
+    const now = Date.now();
+    if (recentOutboundMsgs.has(dedupKey) && now - (recentOutboundMsgs.get(dedupKey) || 0) < 1e4) {
+      return res.json({ success: true, duplicated: true });
+    }
+    recentOutboundMsgs.set(dedupKey, now);
     try {
       const channel = await discordClient.channels.fetch(targetChannelId);
       if (channel && channel.isTextBased() && "send" in channel) {
-        await channel.send(`**[RPG - ${remetente}]** ${conteudo}`);
+        await channel.send(`**[RPG - ${sender}]** ${cleanContent}`);
         return res.json({ success: true });
       } else {
         return res.status(500).json({ error: "Canal do Discord inv\xE1lido ou n\xE3o suporta texto" });
