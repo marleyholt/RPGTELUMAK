@@ -11,7 +11,8 @@ import {
   MessageSquareQuote, MessageSquare, Circle, Volume2, Mic, MicOff, Headphones, ChevronDown, 
   ChevronRight, Plus, Download, FileText, Lock, Edit2, Check, Radio, UserCheck, Shield,
   Smile, Terminal, AlertTriangle, CheckCircle2, Info, Bug, ShieldAlert, Cpu, ArrowUp,
-  Bot, Sparkles, ExternalLink, Sliders, Users, Video, Menu, PanelLeftClose, PanelLeftOpen, PanelLeft, Link2
+  Bot, Sparkles, ExternalLink, Sliders, Users, Video, Menu, PanelLeftClose, PanelLeftOpen, PanelLeft, Link2,
+  Maximize2, Minimize2
 } from 'lucide-react';
 import { processImageFile } from '../utils/imageUpload';
 import { ImageCropModal } from './ImageCropModal';
@@ -261,6 +262,31 @@ export function DiscordNotebook({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showChannelsSidebar, setShowChannelsSidebar] = useState(true);
   const [showMembersSidebar, setShowMembersSidebar] = useState(true);
+
+  // Fullscreen / Expanded view state for maximum reading & writing space
+  const [isExpanded, setIsExpanded] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('telumak_discord_expanded') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('telumak_discord_expanded', String(isExpanded));
+    } catch {}
+  }, [isExpanded]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isExpanded) {
+        setIsExpanded(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isExpanded]);
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
   const [collapsedCategories, setCollapsedCategories] = useState<{ [key: string]: boolean }>({});
   const [searchQuery, setSearchQuery] = useState('');
@@ -1790,7 +1816,14 @@ export function DiscordNotebook({
   };
 
   return (
-    <div className="flex h-[84vh] max-h-[940px] w-full bg-[#313338] border border-[#232428] shadow-2xl rounded-lg overflow-hidden text-[#dbdee1] font-sans select-none relative">
+    <div className={`
+      flex w-full bg-[#313338] overflow-hidden text-[#dbdee1] font-sans select-none
+      transition-all duration-200
+      ${isExpanded 
+        ? 'fixed inset-0 z-50 h-screen w-screen max-h-none rounded-none border-none shadow-none' 
+        : 'h-[calc(100vh-100px)] min-h-[580px] max-h-[960px] border border-[#232428] shadow-2xl rounded-lg relative'
+      }
+    `}>
       
       {/* Mobile Backdrop when Sidebar is Open */}
       {isSidebarOpen && (
@@ -2269,7 +2302,7 @@ export function DiscordNotebook({
             </div>
 
             <div className="flex items-center gap-1.5 sm:gap-2 text-[#b5bac1]">
-              {/* Google Meet Button */}
+              {/* Google Meet Button (Somente Ícone) */}
               {isGM ? (
                 meetSession?.url ? (
                   <div className="flex items-center gap-1 shrink-0">
@@ -2277,10 +2310,10 @@ export function DiscordNotebook({
                       href={meetSession.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 px-3 py-1.5 rounded flex items-center gap-1.5 text-xs font-bold transition border border-emerald-500/30"
+                      className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 p-1.5 rounded flex items-center justify-center text-xs font-bold transition border border-emerald-500/30"
+                      title="Entrar na Mesa (Google Meet)"
                     >
-                      <Video className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Entrar na Mesa</span>
+                      <Video className="w-4 h-4" />
                     </a>
                     <button
                       onClick={handleCloseMeet}
@@ -2295,11 +2328,10 @@ export function DiscordNotebook({
                     type="button"
                     onClick={() => handleMeetLogin()}
                     disabled={isCreatingMeet}
-                    className="bg-sky-500/20 text-sky-400 hover:bg-sky-500/30 px-3 py-1.5 rounded flex items-center gap-1.5 text-xs font-bold transition border border-sky-500/30 disabled:opacity-50 shrink-0"
-                    title="Criar sala do Google Meet para a mesa"
+                    className="bg-sky-500/20 text-sky-400 hover:bg-sky-500/30 p-1.5 rounded flex items-center justify-center text-xs font-bold transition border border-sky-500/30 disabled:opacity-50 shrink-0"
+                    title={isCreatingMeet ? 'Criando sala do Google Meet...' : 'Abrir Mesa no Google Meet'}
                   >
-                    <Video className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">{isCreatingMeet ? 'Criando...' : 'Abrir Mesa no Meet'}</span>
+                    <Video className={`w-4 h-4 ${isCreatingMeet ? 'animate-spin text-amber-400' : ''}`} />
                   </button>
                 )
               ) : (
@@ -2308,41 +2340,15 @@ export function DiscordNotebook({
                     href={meetSession.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 px-3 py-1.5 rounded flex items-center gap-1.5 text-xs font-bold transition border border-emerald-500/30 animate-pulse shrink-0"
+                    className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 p-1.5 rounded flex items-center justify-center text-xs font-bold transition border border-emerald-500/30 animate-pulse shrink-0"
+                    title="Entrar na Mesa (Google Meet)"
                   >
-                    <Video className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Entrar na Mesa</span>
+                    <Video className="w-4 h-4" />
                   </a>
                 )
               )}
               
-              <div className="w-px h-6 bg-[#4e5058] mx-1 hidden sm:block"></div>
-
-              {/* Discord Bot Status & Force Start/Restart Button */}
-              {isGM && (
-                <button
-                  type="button"
-                  onClick={handleForceRestartDiscordBot}
-                  disabled={discordBotStatus.loading}
-                  className={`p-1.5 rounded transition-colors flex items-center justify-center border relative ${
-                    discordBotStatus.connected
-                      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25'
-                      : 'bg-[#5865f2]/20 text-sky-300 border-[#5865f2]/40 hover:bg-[#5865f2]/30'
-                  }`}
-                  title={
-                    discordBotStatus.loading 
-                      ? 'Iniciando / Reconectando Bot...' 
-                      : discordBotStatus.connected 
-                        ? `Bot Online: ${discordBotStatus.user || 'Conectado'} (Clique para reiniciar sincronização)` 
-                        : `Bot Desconectado (Clique para forçar início do Bot)`
-                  }
-                >
-                  <Bot className={`h-4 w-4 ${discordBotStatus.loading ? 'animate-spin text-amber-400' : ''}`} />
-                  <span className={`w-2 h-2 rounded-full absolute -top-0.5 -right-0.5 border border-black ${
-                    discordBotStatus.connected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
-                  }`} />
-                </button>
-              )}
+              <div className="w-px h-6 bg-[#4e5058] mx-0.5 hidden sm:block"></div>
 
               {/* Export Messages Button */}
               <button
@@ -2404,6 +2410,24 @@ export function DiscordNotebook({
                   </button>
                 )}
               </div>
+
+              {/* Botão de Expandir / Tela Inteira (Somente Ícone) */}
+              <button
+                type="button"
+                onClick={() => setIsExpanded(prev => !prev)}
+                className={`p-1.5 rounded transition flex items-center justify-center border shrink-0 ${
+                  isExpanded 
+                    ? 'bg-[#5865f2] text-white border-[#5865f2] shadow-md ring-1 ring-white/20' 
+                    : 'bg-white/5 text-[#dbdee1] hover:bg-[#3f4147] hover:text-white border-white/10'
+                }`}
+                title={isExpanded ? "Restaurar tamanho normal (ou pressione ESC)" : "Expandir para tela cheia"}
+              >
+                {isExpanded ? (
+                  <Minimize2 className="h-4 w-4 text-white" />
+                ) : (
+                  <Maximize2 className="h-4 w-4 text-sky-400" />
+                )}
+              </button>
             </div>
           </div>
 
@@ -2958,7 +2982,7 @@ export function DiscordNotebook({
                   }}
                   placeholder={`Conversar em #${activeChannel.name}... (ou digite uma rolagem como 4+2d10!9)`}
                   rows={3}
-                  className="flex-1 bg-transparent text-white text-xs placeholder-[#80848e] focus:outline-none resize-y min-h-[56px] max-h-96 py-1 px-1 custom-scroll leading-relaxed"
+                  className="flex-1 bg-transparent text-white text-xs sm:text-sm placeholder-[#80848e] focus:outline-none resize-y min-h-[64px] max-h-96 py-1 px-1 custom-scroll leading-relaxed"
                 />
               </div>
 

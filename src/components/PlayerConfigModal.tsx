@@ -15,6 +15,8 @@ interface PlayerConfigModalProps {
   onLogout: () => void;
 }
 
+const MASTER_GM_EMAILS = ['leaog.8@gmail.com', 'araujoh.direito@gmail.com'];
+
 export function PlayerConfigModal({
   isOpen,
   onClose,
@@ -129,8 +131,7 @@ export function PlayerConfigModal({
     setGmSecretError('');
     setGmSecretSuccess(false);
 
-    const masterEmails = ['leaog.8@gmail.com', 'araujoh.direito@gmail.com'];
-    const isMaster = userProfile.email && masterEmails.includes(userProfile.email.toLowerCase().trim());
+    const isMaster = userProfile.email && MASTER_GM_EMAILS.includes(userProfile.email.toLowerCase().trim());
     const isSecretValid = gmSecretInput.trim().toUpperCase() === 'TELUMAK_GM';
 
     if (!isMaster && !isSecretValid) {
@@ -381,7 +382,7 @@ export function PlayerConfigModal({
                 />
                 <button
                   type="submit"
-                  disabled={activatingGm || (!gmSecretInput && !masterEmails.includes(userProfile.email?.toLowerCase().trim() || ''))}
+                  disabled={activatingGm || (!gmSecretInput && !MASTER_GM_EMAILS.includes(userProfile.email?.toLowerCase().trim() || ''))}
                   className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-black font-black text-xs uppercase tracking-wider transition flex items-center gap-1.5 disabled:opacity-40 shadow"
                 >
                   {activatingGm ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Crown className="h-3.5 w-3.5" />}
