@@ -35,7 +35,7 @@ const getFirebaseConfig = () => {
 async function startServer() {
   const app = express();
   app.use(cors());
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   // Accept larger payloads for base64 PDF and image uploads
   app.use(express.json({ limit: '50mb' }));
