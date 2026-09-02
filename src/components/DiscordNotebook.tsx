@@ -165,6 +165,71 @@ export function DiscordNotebook({
     }
   };
 
+  // Discord Bot Status and Manual Start/Restart state
+  const [discordBotStatus, setDiscordBotStatus] = useState<{
+    connected: boolean;
+    user?: string;
+    error?: string;
+    loading?: boolean;
+    lastChecked?: number;
+  }>({ connected: false, loading: false });
+
+  const checkDiscordBotStatus = useCallback(async () => {
+    try {
+      const res = await fetch(getApiUrl('/api/discord/status'));
+      const data = await res.json();
+      setDiscordBotStatus({
+        connected: !!data.connected,
+        user: data.user,
+        error: data.error,
+        loading: false,
+        lastChecked: Date.now()
+      });
+    } catch (err) {
+      setDiscordBotStatus({
+        connected: false,
+        error: 'Servidor inacessível',
+        loading: false,
+        lastChecked: Date.now()
+      });
+    }
+  }, []);
+
+  const handleForceRestartDiscordBot = async () => {
+    setDiscordBotStatus(prev => ({ ...prev, loading: true }));
+    try {
+      const res = await fetch(getApiUrl('/api/discord/restart'), { method: 'POST' });
+      const data = await res.json();
+      setDiscordBotStatus({
+        connected: !!data.connected,
+        user: data.user,
+        error: data.error,
+        loading: false,
+        lastChecked: Date.now()
+      });
+      if (data.connected) {
+        if (onAddLog) onAddLog('success', `Bot do Discord iniciado e conectado! (${data.user || 'Online'})`);
+      } else {
+        if (onAddLog) onAddLog('warn', `Bot do Discord: ${data.error || 'Verifique variáveis de ambiente'}`);
+      }
+    } catch (err: any) {
+      setDiscordBotStatus({
+        connected: false,
+        error: 'Erro ao contatar API do bot',
+        loading: false,
+        lastChecked: Date.now()
+      });
+      if (onAddLog) onAddLog('error', 'Falha ao forçar início do bot do Discord');
+    }
+  };
+
+  // Auto-check bot status every 60s
+  useEffect(() => {
+    checkDiscordBotStatus();
+    const interval = setInterval(checkDiscordBotStatus, 60000);
+    return () => clearInterval(interval);
+  }, [checkDiscordBotStatus]);
+
   // Auto-detection state for Discord channel
   const [isDetectingChannel, setIsDetectingChannel] = useState(false);
   const [detectChannelStatus, setDetectChannelStatus] = useState<{
@@ -2196,7 +2261,7 @@ export function DiscordNotebook({
                   </button>
                 )
               ) : (
-                (myActiveCharacter?.ativo_na_mesa && meetSession?.url) && (
+                meetSession?.url && (
                   <a
                     href={meetSession.url}
                     target="_blank"
@@ -2210,6 +2275,35 @@ export function DiscordNotebook({
               )}
               
               <div className="w-px h-6 bg-[#4e5058] mx-1 hidden sm:block"></div>
+
+              {/* Discord Bot Status & Force Start/Restart Button */}
+              {isGM && (
+                <button
+                  type="button"
+                  onClick={handleForceRestartDiscordBot}
+                  disabled={discordBotStatus.loading}
+                  className={`p-1.5 rounded transition-colors flex items-center gap-1.5 text-xs font-bold border ${
+                    discordBotStatus.connected
+                      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25'
+                      : 'bg-[#5865f2]/20 text-sky-300 border-[#5865f2]/40 hover:bg-[#5865f2]/30'
+                  }`}
+                  title={
+                    discordBotStatus.loading 
+                      ? 'Iniciando / Reconectando Bot...' 
+                      : discordBotStatus.connected 
+                        ? `Bot Online: ${discordBotStatus.user || 'Conectado'} (Clique para reiniciar sincronização)` 
+                        : `Bot Desconectado (Clique para forçar início do Bot)`
+                  }
+                >
+                  <Bot className={`h-4 w-4 ${discordBotStatus.loading ? 'animate-spin text-amber-400' : ''}`} />
+                  <span className="hidden md:inline text-[11px]">
+                    {discordBotStatus.loading ? 'Iniciando...' : discordBotStatus.connected ? 'Bot Online' : 'Iniciar Bot'}
+                  </span>
+                  <span className={`w-2 h-2 rounded-full ${
+                    discordBotStatus.connected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                  }`} />
+                </button>
+              )}
 
               {/* Export Messages Button */}
               <button

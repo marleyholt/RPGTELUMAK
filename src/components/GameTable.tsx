@@ -14,9 +14,11 @@ interface GameTableProps {
   onOpenCharSheet: (charId: string) => void;
   onOpenNpcSheet: (npcId: string) => void;
   onQuickEditNpc?: (npc: NPC) => void;
+  isGM?: boolean;
+  currentUserEmail?: string | null;
 }
 
-export function GameTable({ characters, onQuickEditChar, onOpenCharSheet, onOpenNpcSheet }: Omit<GameTableProps, 'npcs'>) {
+export function GameTable({ characters, onQuickEditChar, onOpenCharSheet, onOpenNpcSheet, isGM = false, currentUserEmail = null }: Omit<GameTableProps, 'npcs'>) {
   const [npcs, setNpcs] = useState<NPC[]>([]);
   const [ephemeralNpcs, setEphemeralNpcs] = useState<NPC[]>([]);
   
@@ -131,7 +133,7 @@ export function GameTable({ characters, onQuickEditChar, onOpenCharSheet, onOpen
   };
   const [showSelector, setShowSelector] = useState<'character' | 'npc' | null>(null);
 
-  const activeCharacters = characters.filter(c => c.active_on_board);
+  const activeCharacters = characters.filter(c => c.active_on_board || (c as any).ativo_na_mesa);
   const allActive = [...activeCharacters.map(c => ({...c, _type: 'character'})), ...ephemeralNpcs.map(n => ({...n, _type: 'npc'}))];
 
   const handleUpdateCharMarker = async (charId: string, field: string, amount: number, current: number, max?: number) => {
@@ -194,7 +196,10 @@ export function GameTable({ characters, onQuickEditChar, onOpenCharSheet, onOpen
     }
 
     try {
-      await updateDoc(doc(db, 'characters', id), { active_on_board: !currentVal });
+      await updateDoc(doc(db, 'characters', id), { 
+        active_on_board: !currentVal,
+        ativo_na_mesa: !currentVal
+      });
     } catch (e) {
       console.error(e);
     }
@@ -207,7 +212,10 @@ export function GameTable({ characters, onQuickEditChar, onOpenCharSheet, onOpen
       await Promise.all(deletePromises);
 
       const updatePromises = activeCharacters.map(c => 
-        updateDoc(doc(db, 'characters', c.id), { active_on_board: false })
+        updateDoc(doc(db, 'characters', c.id), { 
+          active_on_board: false,
+          ativo_na_mesa: false
+        })
       );
       await Promise.all(updatePromises);
     } catch (e) {
@@ -222,22 +230,31 @@ export function GameTable({ characters, onQuickEditChar, onOpenCharSheet, onOpen
       <div className="flex items-center justify-between p-4 bg-[#2b2d31] border-b border-[#1f2023] shrink-0">
         <h2 className="text-lg font-black uppercase tracking-wider text-white flex items-center gap-2">
           <Swords className="w-5 h-5 text-red-500" />
-          Mesa de Combate do Mestre
+          {isGM ? 'Mesa de Combate do Mestre' : 'Mesa de Jogo & Combate'}
         </h2>
-        <div className="flex gap-2">
-          <button onClick={() => setShowSelector('character')} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase rounded shadow">
-            <Plus className="w-3.5 h-3.5" /> Player
-          </button>
-          <button onClick={() => setShowSelector('npc')} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold uppercase rounded shadow">
-            <Plus className="w-3.5 h-3.5" /> NPC
-          </button>
-          <button onClick={() => setShowBlankCardModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-600 hover:bg-zinc-500 text-white text-xs font-bold uppercase rounded shadow">
-            <FileText className="w-3.5 h-3.5" /> Criar Card
-          </button>
-          <button onClick={handleClearBoard} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-bold uppercase rounded shadow ml-2">
-            <X className="w-3.5 h-3.5" /> Limpar Mesa
-          </button>
-        </div>
+        {isGM ? (
+          <div className="flex gap-2">
+            <button onClick={() => setShowSelector('character')} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase rounded shadow">
+              <Plus className="w-3.5 h-3.5" /> Player
+            </button>
+            <button onClick={() => setShowSelector('npc')} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold uppercase rounded shadow">
+              <Plus className="w-3.5 h-3.5" /> NPC
+            </button>
+            <button onClick={() => setShowBlankCardModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-600 hover:bg-zinc-500 text-white text-xs font-bold uppercase rounded shadow">
+              <FileText className="w-3.5 h-3.5" /> Criar Card
+            </button>
+            <button onClick={handleClearBoard} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-bold uppercase rounded shadow ml-2">
+              <X className="w-3.5 h-3.5" /> Limpar Mesa
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1.5 px-3 py-1 bg-green-500/20 text-green-400 text-xs font-bold uppercase rounded border border-green-500/30">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+              Sessão Aberta
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 custom-scroll flex flex-col lg:flex-row gap-6">
@@ -249,12 +266,17 @@ export function GameTable({ characters, onQuickEditChar, onOpenCharSheet, onOpen
               <div className="col-span-full py-12 text-center border-2 border-dashed border-white/10 rounded-lg">
                 <Users className="w-12 h-12 text-white/10 mx-auto mb-3" />
                 <p className="text-white/40 uppercase font-black tracking-widest text-sm">A Mesa está Vazia</p>
-                <p className="text-white/20 text-xs mt-1">Adicione aventureiros ou NPCs usando os botões acima.</p>
+                <p className="text-white/20 text-xs mt-1">
+                  {isGM 
+                    ? "Adicione aventureiros ou NPCs usando os botões acima." 
+                    : "Aguardando o Mestre convocar os aventureiros e NPCs para a mesa."}
+                </p>
               </div>
             )}
 
             {allActive.map(entity => {
               const isPC = entity._type === 'character';
+              const canEditEntity = isGM || (isPC && (entity as any).email_dono === currentUserEmail);
               
               // Common values
               const name = isPC ? (entity as any).nome : (entity as any).name;
@@ -287,13 +309,15 @@ export function GameTable({ characters, onQuickEditChar, onOpenCharSheet, onOpen
                       </div>
                     </div>
                     
-                    <button 
-                      onClick={() => handleToggleBoard(entity.id, entity._type as any, true)}
-                      className="absolute top-2 right-2 p-1 text-white/20 hover:text-red-400 hover:bg-white/5 rounded transition"
-                      title="Remover da Mesa"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+                    {isGM && (
+                      <button 
+                        onClick={() => handleToggleBoard(entity.id, entity._type as any, true)}
+                        className="absolute top-2 right-2 p-1 text-white/20 hover:text-red-400 hover:bg-white/5 rounded transition"
+                        title="Remover da Mesa"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
 
                   {/* Card Body - Markers */}
@@ -305,9 +329,13 @@ export function GameTable({ characters, onQuickEditChar, onOpenCharSheet, onOpen
                         <span className="text-[9px] font-bold text-white/60 uppercase">Saúde</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button onClick={() => isPC ? handleUpdateCharMarker(entity.id, 'hp_atual', -1, hp) : handleUpdateNpcMarker(entity.id, 'hp_atual', -1, hp)} className="w-5 h-5 bg-white/5 hover:bg-red-500/20 text-white/50 hover:text-red-400 rounded flex items-center justify-center transition"><Minus className="w-3 h-3" /></button>
+                        {canEditEntity && (
+                          <button onClick={() => isPC ? handleUpdateCharMarker(entity.id, 'hp_atual', -1, hp) : handleUpdateNpcMarker(entity.id, 'hp_atual', -1, hp)} className="w-5 h-5 bg-white/5 hover:bg-red-500/20 text-white/50 hover:text-red-400 rounded flex items-center justify-center transition"><Minus className="w-3 h-3" /></button>
+                        )}
                         <span className="text-xs font-mono font-bold w-12 text-center text-white">{hp} / {hpMax}</span>
-                        <button onClick={() => isPC ? handleUpdateCharMarker(entity.id, 'hp_atual', 1, hp) : handleUpdateNpcMarker(entity.id, 'hp_atual', 1, hp)} className="w-5 h-5 bg-white/5 hover:bg-green-500/20 text-white/50 hover:text-green-400 rounded flex items-center justify-center transition"><Plus className="w-3 h-3" /></button>
+                        {canEditEntity && (
+                          <button onClick={() => isPC ? handleUpdateCharMarker(entity.id, 'hp_atual', 1, hp) : handleUpdateNpcMarker(entity.id, 'hp_atual', 1, hp)} className="w-5 h-5 bg-white/5 hover:bg-green-500/20 text-white/50 hover:text-green-400 rounded flex items-center justify-center transition"><Plus className="w-3 h-3" /></button>
+                        )}
                       </div>
                     </div>
 
@@ -318,9 +346,13 @@ export function GameTable({ characters, onQuickEditChar, onOpenCharSheet, onOpen
                         <span className="text-[9px] font-bold text-white/60 uppercase">Energia</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button onClick={() => isPC ? handleUpdateCharMarker(entity.id, 'ether_atual', -1, ether) : handleUpdateNpcMarker(entity.id, 'ether_atual', -1, ether)} className="w-5 h-5 bg-white/5 hover:bg-yellow-500/20 text-white/50 hover:text-yellow-400 rounded flex items-center justify-center transition"><Minus className="w-3 h-3" /></button>
+                        {canEditEntity && (
+                          <button onClick={() => isPC ? handleUpdateCharMarker(entity.id, 'ether_atual', -1, ether) : handleUpdateNpcMarker(entity.id, 'ether_atual', -1, ether)} className="w-5 h-5 bg-white/5 hover:bg-yellow-500/20 text-white/50 hover:text-yellow-400 rounded flex items-center justify-center transition"><Minus className="w-3 h-3" /></button>
+                        )}
                         <span className="text-xs font-mono font-bold w-12 text-center text-white">{ether} / {etherMax}</span>
-                        <button onClick={() => isPC ? handleUpdateCharMarker(entity.id, 'ether_atual', 1, ether) : handleUpdateNpcMarker(entity.id, 'ether_atual', 1, ether)} className="w-5 h-5 bg-white/5 hover:bg-green-500/20 text-white/50 hover:text-green-400 rounded flex items-center justify-center transition"><Plus className="w-3 h-3" /></button>
+                        {canEditEntity && (
+                          <button onClick={() => isPC ? handleUpdateCharMarker(entity.id, 'ether_atual', 1, ether) : handleUpdateNpcMarker(entity.id, 'ether_atual', 1, ether)} className="w-5 h-5 bg-white/5 hover:bg-green-500/20 text-white/50 hover:text-green-400 rounded flex items-center justify-center transition"><Plus className="w-3 h-3" /></button>
+                        )}
                       </div>
                     </div>
 
@@ -331,9 +363,13 @@ export function GameTable({ characters, onQuickEditChar, onOpenCharSheet, onOpen
                         <span className="text-[9px] font-bold text-white/60 uppercase">Poder</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button onClick={() => isPC ? handleUpdateCharMarker(entity.id, 'destino_atual', -1, destiny) : handleUpdateNpcMarker(entity.id, 'poder_atual', -1, destiny)} className="w-5 h-5 bg-white/5 hover:bg-sky-500/20 text-white/50 hover:text-sky-400 rounded flex items-center justify-center transition"><Minus className="w-3 h-3" /></button>
+                        {canEditEntity && (
+                          <button onClick={() => isPC ? handleUpdateCharMarker(entity.id, 'destino_atual', -1, destiny) : handleUpdateNpcMarker(entity.id, 'poder_atual', -1, destiny)} className="w-5 h-5 bg-white/5 hover:bg-sky-500/20 text-white/50 hover:text-sky-400 rounded flex items-center justify-center transition"><Minus className="w-3 h-3" /></button>
+                        )}
                         <span className="text-xs font-mono font-bold w-12 text-center text-white">{destiny} / {destinyMax}</span>
-                        <button onClick={() => isPC ? handleUpdateCharMarker(entity.id, 'destino_atual', 1, destiny) : handleUpdateNpcMarker(entity.id, 'poder_atual', 1, destiny)} className="w-5 h-5 bg-white/5 hover:bg-green-500/20 text-white/50 hover:text-green-400 rounded flex items-center justify-center transition"><Plus className="w-3 h-3" /></button>
+                        {canEditEntity && (
+                          <button onClick={() => isPC ? handleUpdateCharMarker(entity.id, 'destino_atual', 1, destiny) : handleUpdateNpcMarker(entity.id, 'poder_atual', 1, destiny)} className="w-5 h-5 bg-white/5 hover:bg-green-500/20 text-white/50 hover:text-green-400 rounded flex items-center justify-center transition"><Plus className="w-3 h-3" /></button>
+                        )}
                       </div>
                     </div>
 
@@ -348,9 +384,13 @@ export function GameTable({ characters, onQuickEditChar, onOpenCharSheet, onOpen
                         <div key={tool.id} className="flex items-center justify-between bg-black/40 rounded p-1 border border-white/5">
                           <span className="text-[8px] font-bold text-sky-300 uppercase w-6">{tool.label}</span>
                           <div className="flex items-center gap-1">
-                            <button onClick={() => isPC ? handleUpdateCharMarker(entity.id, `ferramenta_${tool.id}_atual`, -1, tool.val) : handleUpdateNpcMarker(entity.id, `ferramenta_${tool.id}_atual`, -1, tool.val)} className="w-4 h-4 bg-white/5 hover:bg-red-500/20 text-white/50 hover:text-red-400 rounded flex items-center justify-center transition"><Minus className="w-2.5 h-2.5" /></button>
+                            {canEditEntity && (
+                              <button onClick={() => isPC ? handleUpdateCharMarker(entity.id, `ferramenta_${tool.id}_atual`, -1, tool.val) : handleUpdateNpcMarker(entity.id, `ferramenta_${tool.id}_atual`, -1, tool.val)} className="w-4 h-4 bg-white/5 hover:bg-red-500/20 text-white/50 hover:text-red-400 rounded flex items-center justify-center transition"><Minus className="w-2.5 h-2.5" /></button>
+                            )}
                             <span className="text-[9px] font-mono font-bold w-7 text-center text-white">{tool.val}</span>
-                            <button onClick={() => isPC ? handleUpdateCharMarker(entity.id, `ferramenta_${tool.id}_atual`, 1, tool.val) : handleUpdateNpcMarker(entity.id, `ferramenta_${tool.id}_atual`, 1, tool.val)} className="w-4 h-4 bg-white/5 hover:bg-green-500/20 text-white/50 hover:text-green-400 rounded flex items-center justify-center transition"><Plus className="w-2.5 h-2.5" /></button>
+                            {canEditEntity && (
+                              <button onClick={() => isPC ? handleUpdateCharMarker(entity.id, `ferramenta_${tool.id}_atual`, 1, tool.val) : handleUpdateNpcMarker(entity.id, `ferramenta_${tool.id}_atual`, 1, tool.val)} className="w-4 h-4 bg-white/5 hover:bg-green-500/20 text-white/50 hover:text-green-400 rounded flex items-center justify-center transition"><Plus className="w-2.5 h-2.5" /></button>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -365,12 +405,14 @@ export function GameTable({ characters, onQuickEditChar, onOpenCharSheet, onOpen
                     >
                       <FileText className="w-3.5 h-3.5" /> Ficha
                     </button>
-                    <button 
-                      onClick={() => isPC ? onQuickEditChar(entity as any) : handleOpenQuickEditNpc(entity as any)}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-[9px] font-bold text-white/60 hover:text-white hover:bg-white/5 rounded transition uppercase tracking-wider"
-                    >
-                      <Settings className="w-3.5 h-3.5" /> Ajustes
-                    </button>
+                    {isGM && (
+                      <button 
+                        onClick={() => isPC ? onQuickEditChar(entity as any) : handleOpenQuickEditNpc(entity as any)}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-[9px] font-bold text-white/60 hover:text-white hover:bg-white/5 rounded transition uppercase tracking-wider"
+                      >
+                        <Settings className="w-3.5 h-3.5" /> Ajustes
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -379,24 +421,26 @@ export function GameTable({ characters, onQuickEditChar, onOpenCharSheet, onOpen
         </div>
 
         {/* Notepad Sidebar */}
-        <div className="w-full lg:w-96 flex flex-col bg-[#2b2d31] border border-[#1f2023] rounded-lg shrink-0 shadow-lg" style={{ resize: 'horizontal', overflow: 'auto', minWidth: '300px', maxWidth: '60vw' }}>
-          <div className="p-3 bg-black/20 border-b border-white/5 flex items-center justify-between sticky top-0 z-10">
-            <h3 className="text-xs font-black uppercase tracking-wider text-sky-400 flex items-center gap-2">
-              <FileText className="w-4 h-4" /> Bloco de Notas (Sessão)
-            </h3>
-          </div>
-          <div className="flex-1 p-2 bg-black/20 overflow-y-auto">
-            <div className="min-h-[500px] h-full bg-[#1e1f22] rounded flex flex-col">
-              <div className="flex-1 overflow-y-auto">
-                <RichTextEditor 
-                  value={notepadContent} 
-                  onChange={setNotepadContent} 
-                  placeholder="Anotações da sessão, pontos de vida de monstros genéricos, status..." 
-                />
+        {isGM && (
+          <div className="w-full lg:w-96 flex flex-col bg-[#2b2d31] border border-[#1f2023] rounded-lg shrink-0 shadow-lg" style={{ resize: 'horizontal', overflow: 'auto', minWidth: '300px', maxWidth: '60vw' }}>
+            <div className="p-3 bg-black/20 border-b border-white/5 flex items-center justify-between sticky top-0 z-10">
+              <h3 className="text-xs font-black uppercase tracking-wider text-sky-400 flex items-center gap-2">
+                <FileText className="w-4 h-4" /> Bloco de Notas (Sessão)
+              </h3>
+            </div>
+            <div className="flex-1 p-2 bg-black/20 overflow-y-auto">
+              <div className="min-h-[500px] h-full bg-[#1e1f22] rounded flex flex-col">
+                <div className="flex-1 overflow-y-auto">
+                  <RichTextEditor 
+                    value={notepadContent} 
+                    onChange={setNotepadContent} 
+                    placeholder="Anotações da sessão, pontos de vida de monstros genéricos, status..." 
+                  />
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Selectors */}

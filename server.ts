@@ -83,111 +83,150 @@ async function startServer() {
   const defaultChannelId = process.env.DISCORD_CHANNEL_ID;
   
   let discordClient: Client | null = null;
-  
-  if (token) {
-    discordClient = new Client({
-      intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
-      ]
-    });
+  let botStatusMessage: string = 'Iniciando...';
+  let botLastError: string | null = null;
 
-    discordClient.on('ready', () => {
-      console.log(`[DISCORD BOT] Logado e pronto como ${discordClient?.user?.tag}`);
-      if (db) {
-        setupFirestoreToDiscordBridge(db, discordClient, defaultChannelId);
-      }
-    });
+  async function initOrRestartDiscordBot() {
+    const activeToken = process.env.DISCORD_BOT_TOKEN || token;
+    if (!activeToken) {
+      botStatusMessage = 'Token não configurado no .env (DISCORD_BOT_TOKEN ausente)';
+      console.warn("[DISCORD BOT] " + botStatusMessage);
+      return { success: false, message: botStatusMessage };
+    }
 
-    // Escutando mensagens do Discord de QUALQUER canal ao qual o bot tem acesso
-    discordClient.on('messageCreate', async (message) => {
-      // Ignorar mensagens do próprio bot
-      if (message.author.bot) return;
-
-      console.log(`[DISCORD -> BACKEND] Mensagem recebida no canal ${message.channelId} de ${message.author.username}: "${message.content}"`);
-
-      if (db) {
+    try {
+      if (discordClient) {
+        console.log("[DISCORD BOT] Destruindo cliente anterior para reinicialização...");
         try {
-          const attachments = message.attachments ? Array.from(message.attachments.values()).map(att => att.url) : [];
-          
-          // 1. Salva na coleção do NOTEBOOK do Discord com ID determinístico para evitar duplicatas
-          const docId = `discord_${message.id}`;
-          const chanName = ('name' in message.channel && typeof (message.channel as any).name === 'string') ? (message.channel as any).name : '';
-          const notebookDoc: any = {
-            channelId: message.channelId,
-            channelName: chanName,
-            discordMessageId: message.id,
-            authorName: message.member?.displayName || message.author.globalName || message.author.username,
-            authorAvatar: message.author.displayAvatarURL() || 'https://cdn.discordapp.com/embed/avatars/0.png',
-            authorEmail: 'discord-bot@system.local',
-            content: message.content || '',
-            isFromDiscord: true,
-            pinned: false,
-            createdAt: serverTimestamp()
-          };
-
-          if (attachments.length > 0) {
-            notebookDoc.attachments = attachments;
-          }
-
-          await setDoc(doc(db, 'discord_notebook_messages', docId), notebookDoc, { merge: true });
-          console.log(`[DISCORD -> FIRESTORE] Mensagem gravada/atualizada com sucesso! Doc ID: ${docId} no canal ${message.channelId}`);
-
-          // 2. Se for o canal principal/padrão, salva também no chat rápido de jogo
-          if (defaultChannelId && message.channelId === defaultChannelId) {
-            const chatMsg = {
-              remetente: `[Discord] ${message.author.username}`,
-              remetente_email: 'discord-bot@system.local',
-              destinatario: 'TODOS',
-              tipo: 'CHAT',
-              conteudo: message.content || '',
-              createdAt: serverTimestamp()
-            };
-            await addDoc(collection(db, 'messages'), chatMsg);
-          }
-        } catch (err: any) {
-          console.error("[DISCORD -> FIRESTORE] Erro ao salvar mensagem do Discord no Firestore:", err?.message || err);
+          await discordClient.destroy();
+        } catch (destroyErr) {
+          console.warn("[DISCORD BOT] Aviso ao encerrar cliente anterior:", destroyErr);
         }
-      } else {
-        console.warn("[DISCORD -> FIRESTORE] db do Firestore não está inicializado no backend.");
+        discordClient = null;
       }
-    });
 
-    // Escutando edições de mensagens no Discord
-    discordClient.on('messageUpdate', async (_oldMsg, newMsg) => {
-      try {
-        if (newMsg.author?.bot) return;
-        if (!newMsg.content) return;
+      discordClient = new Client({
+        intents: [
+          GatewayIntentBits.Guilds,
+          GatewayIntentBits.GuildMessages,
+          GatewayIntentBits.MessageContent
+        ]
+      });
 
-        console.log(`[DISCORD -> BACKEND] Mensagem editada no canal ${newMsg.channelId} (ID: ${newMsg.id})`);
+      discordClient.on('ready', () => {
+        botStatusMessage = `Online e conectado como ${discordClient?.user?.tag}`;
+        botLastError = null;
+        console.log(`[DISCORD BOT] ${botStatusMessage}`);
+        if (db) {
+          setupFirestoreToDiscordBridge(db, discordClient, defaultChannelId);
+        }
+      });
+
+      discordClient.on('error', (err) => {
+        botLastError = err?.message || 'Erro de conexão no Discord';
+        console.error("[DISCORD BOT CLIENT ERROR]:", err);
+      });
+
+      // Escutando mensagens do Discord de QUALQUER canal ao qual o bot tem acesso
+      discordClient.on('messageCreate', async (message) => {
+        // Ignorar mensagens do próprio bot
+        if (message.author.bot) return;
+
+        console.log(`[DISCORD -> BACKEND] Mensagem recebida no canal ${message.channelId} de ${message.author.username}: "${message.content}"`);
 
         if (db) {
-          const q = query(
-            collection(db, 'discord_notebook_messages'),
-            where('discordMessageId', '==', newMsg.id)
-          );
-          const snap = await getDocs(q);
-          if (!snap.empty) {
-            for (const docSnap of snap.docs) {
-              await updateDoc(doc(db, 'discord_notebook_messages', docSnap.id), {
-                content: newMsg.content,
-                editedAt: serverTimestamp()
-              });
-            }
-            console.log(`[DISCORD -> FIRESTORE] Mensagem do Discord sincronizada após edição!`);
-          }
-        }
-      } catch (err: any) {
-        console.warn("[DISCORD -> FIRESTORE] Erro ao sincronizar edição feita no Discord:", err?.message || err);
-      }
-    });
+          try {
+            const attachments = message.attachments ? Array.from(message.attachments.values()).map(att => att.url) : [];
+            
+            // 1. Salva na coleção do NOTEBOOK do Discord com ID determinístico para evitar duplicatas
+            const docId = `discord_${message.id}`;
+            const chanName = ('name' in message.channel && typeof (message.channel as any).name === 'string') ? (message.channel as any).name : '';
+            const notebookDoc: any = {
+              channelId: message.channelId,
+              channelName: chanName,
+              discordMessageId: message.id,
+              authorName: message.member?.displayName || message.author.globalName || message.author.username,
+              authorAvatar: message.author.displayAvatarURL() || 'https://cdn.discordapp.com/embed/avatars/0.png',
+              authorEmail: 'discord-bot@system.local',
+              content: message.content || '',
+              isFromDiscord: true,
+              pinned: false,
+              createdAt: serverTimestamp()
+            };
 
-    discordClient.login(token).catch(err => {
-      console.error("[DISCORD BOT] Erro ao logar o bot no Discord:", err);
-    });
+            if (attachments.length > 0) {
+              notebookDoc.attachments = attachments;
+            }
+
+            await setDoc(doc(db, 'discord_notebook_messages', docId), notebookDoc, { merge: true });
+            console.log(`[DISCORD -> FIRESTORE] Mensagem gravada/atualizada com sucesso! Doc ID: ${docId} no canal ${message.channelId}`);
+
+            // 2. Se for o canal principal/padrão, salva também no chat rápido de jogo
+            if (defaultChannelId && message.channelId === defaultChannelId) {
+              const chatMsg = {
+                remetente: `[Discord] ${message.author.username}`,
+                remetente_email: 'discord-bot@system.local',
+                destinatario: 'TODOS',
+                tipo: 'CHAT',
+                conteudo: message.content || '',
+                createdAt: serverTimestamp()
+              };
+              await addDoc(collection(db, 'messages'), chatMsg);
+            }
+          } catch (err: any) {
+            console.error("[DISCORD -> FIRESTORE] Erro ao salvar mensagem do Discord no Firestore:", err?.message || err);
+          }
+        } else {
+          console.warn("[DISCORD -> FIRESTORE] db do Firestore não está inicializado no backend.");
+        }
+      });
+
+      // Escutando edições de mensagens no Discord
+      discordClient.on('messageUpdate', async (_oldMsg, newMsg) => {
+        try {
+          if (newMsg.author?.bot) return;
+          if (!newMsg.content) return;
+
+          console.log(`[DISCORD -> BACKEND] Mensagem editada no canal ${newMsg.channelId} (ID: ${newMsg.id})`);
+
+          if (db) {
+            const q = query(
+              collection(db, 'discord_notebook_messages'),
+              where('discordMessageId', '==', newMsg.id)
+            );
+            const snap = await getDocs(q);
+            if (!snap.empty) {
+              for (const docSnap of snap.docs) {
+                await updateDoc(doc(db, 'discord_notebook_messages', docSnap.id), {
+                  content: newMsg.content,
+                  editedAt: serverTimestamp()
+                });
+              }
+              console.log(`[DISCORD -> FIRESTORE] Mensagem do Discord sincronizada após edição!`);
+            }
+          }
+        } catch (err: any) {
+          console.warn("[DISCORD -> FIRESTORE] Erro ao sincronizar edição feita no Discord:", err?.message || err);
+        }
+      });
+
+      await discordClient.login(activeToken);
+      botStatusMessage = `Autenticado no Discord. Conectando Gateway...`;
+      return { success: true, message: botStatusMessage };
+    } catch (err: any) {
+      botLastError = err?.message || 'Falha ao autenticar no Discord';
+      botStatusMessage = `Erro: ${botLastError}`;
+      console.error("[DISCORD BOT] Erro ao inicializar bot no Discord:", err);
+      return { success: false, error: botLastError };
+    }
+  }
+
+  // Inicialização inicial
+  if (token) {
+    initOrRestartDiscordBot();
   } else {
-    console.warn("DISCORD_BOT_TOKEN não configurado no .env");
+    botStatusMessage = 'DISCORD_BOT_TOKEN não configurado no .env';
+    console.warn("[DISCORD BOT] " + botStatusMessage);
   }
 
   // Função da Ponte Bidirecional Firestore <-> Discord
@@ -354,6 +393,53 @@ async function startServer() {
       );
     }
   }
+
+  // Rota para checar status detalhado do Bot do Discord
+  app.get("/api/discord/status", (req, res) => {
+    const isReady = !!(discordClient && discordClient.isReady());
+    const isDbReady = !!db;
+    
+    return res.json({
+      online: isReady,
+      status: botStatusMessage,
+      error: botLastError,
+      userTag: discordClient?.user?.tag || null,
+      userId: discordClient?.user?.id || null,
+      guildsCount: discordClient?.guilds?.cache?.size || 0,
+      ping: discordClient?.ws?.ping ?? null,
+      dbConnected: isDbReady,
+      hasToken: !!(process.env.DISCORD_BOT_TOKEN || token),
+      hasDefaultChannel: !!defaultChannelId
+    });
+  });
+
+  // Rota para forçar o início / reconexão do Bot do Discord sob demanda
+  app.post("/api/discord/restart", async (req, res) => {
+    console.log("[API DISCORD] Requisição de reinício forçado do Bot do Discord recebida...");
+    try {
+      const result = await initOrRestartDiscordBot();
+      if (result.success) {
+        return res.json({
+          success: true,
+          message: "Comando de inicialização enviado ao Discord!",
+          status: botStatusMessage,
+          online: !!(discordClient && discordClient.isReady()),
+          userTag: discordClient?.user?.tag || null
+        });
+      } else {
+        return res.status(500).json({
+          success: false,
+          message: result.message || result.error || "Falha ao iniciar o bot",
+          error: result.error
+        });
+      }
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        error: err.message || "Erro inesperado ao reiniciar o bot"
+      });
+    }
+  });
 
   // Rota para consultar dados do servidor / canais do Discord
   app.get("/api/discord/server-info", async (req, res) => {

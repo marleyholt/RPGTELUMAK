@@ -1240,16 +1240,16 @@ export default function App() {
             </button>
 
             {isGM && (
-            <button
-              onClick={() => setCurrentTab('mesa')}
-              className={`flex items-center gap-1.5 px-5 py-2 text-xs font-black uppercase tracking-widest transition duration-150 ${
-                currentTab === 'mesa' ? 'bg-red-600 text-white shadow' : 'text-white/40 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-              <span>Mesa</span>
-            </button>
-          )}
+              <button
+                onClick={() => setCurrentTab('mesa')}
+                className={`flex items-center gap-1.5 px-5 py-2 text-xs font-black uppercase tracking-widest transition duration-150 ${
+                  currentTab === 'mesa' ? 'bg-red-600 text-white shadow' : 'text-white/40 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                <span>Mesa</span>
+              </button>
+            )}
 
             {isGM && (
               <button
