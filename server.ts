@@ -89,6 +89,9 @@ async function startServer() {
   // Cache in-memory para deduplicar eventos de mensagens recebidas do Discord
   const processedDiscordMsgIds = new Set<string>();
 
+  // Cache in-memory para deduplicar mensagens enviadas DO Portal PARA o Discord (evita disparos duplos/triplos)
+  const recentOutboundMsgs = new Map<string, number>();
+
   let activeBridgeUnsub1: (() => void) | null = null;
   let activeBridgeUnsub2: (() => void) | null = null;
 
@@ -271,8 +274,8 @@ async function startServer() {
             const docId = change.doc.id;
             const data = change.doc.data();
 
-            // Mensagem já enviada para o Discord ou em processo de envio
-            if (data.discordMessageId || data.discordSynced || inFlightMessages.has(docId)) {
+            // Mensagem já enviada para o Discord, enviada via REST ou em processo de envio
+            if (data.discordMessageId || data.discordSynced || data.syncingToDiscord || inFlightMessages.has(docId)) {
               continue;
             }
 
@@ -298,7 +301,29 @@ async function startServer() {
               continue;
             }
 
+            // Deduplicação estrita recente (evita conflito entre REST e múltiplas instâncias PM2)
+            const sender = data.authorName || 'Jogador';
+            const cleanContent = (data.content || '').trim();
+            const dedupKey = `${targetDiscordChannelId}_${sender}_${cleanContent}`;
+            const now = Date.now();
+            if (recentOutboundMsgs.has(dedupKey) && now - (recentOutboundMsgs.get(dedupKey) || 0) < 10000) {
+              console.log(`[FIRESTORE BRIDGE] Mensagem duplicada ignorada para #${targetDiscordChannelId}`);
+              updateDoc(doc(dbInstance, 'discord_notebook_messages', docId), {
+                discordSynced: true,
+                syncingToDiscord: false
+              }).catch(() => {});
+              continue;
+            }
+
             inFlightMessages.add(docId);
+            recentOutboundMsgs.set(dedupKey, now);
+
+            // Trava atômica no Firestore para outras instâncias
+            try {
+              await updateDoc(doc(dbInstance, 'discord_notebook_messages', docId), {
+                syncingToDiscord: true
+              });
+            } catch {}
 
             try {
               if (!client.isReady()) {
@@ -309,7 +334,6 @@ async function startServer() {
               const channel = await client.channels.fetch(targetDiscordChannelId).catch(() => null);
               if (channel && channel.isTextBased() && 'send' in channel) {
                 const sendOptions: any = {};
-                const sender = data.authorName || 'Jogador';
                 sendOptions.content = `**[${sender}]**\n${data.content || ''}`;
 
                 // Lista de anexos unificada
@@ -346,6 +370,7 @@ async function startServer() {
                 await updateDoc(doc(dbInstance, 'discord_notebook_messages', docId), {
                   discordMessageId: sentMsg.id,
                   discordSynced: true,
+                  syncingToDiscord: false,
                   discordChannelId: targetDiscordChannelId
                 });
               } else {
@@ -383,7 +408,17 @@ async function startServer() {
                 continue;
               }
 
+              const sender = data.remetente || 'Jogador';
+              const cleanContent = (data.conteudo || '').trim();
+              const dedupKey = `rpg_chat_${sender}_${cleanContent}`;
+              const now = Date.now();
+              if (recentOutboundMsgs.has(dedupKey) && now - (recentOutboundMsgs.get(dedupKey) || 0) < 10000) {
+                updateDoc(doc(dbInstance, 'messages', docId), { discordSynced: true }).catch(() => {});
+                continue;
+              }
+
               inFlightMessages.add(docId);
+              recentOutboundMsgs.set(dedupKey, now);
 
               try {
                 if (!client.isReady()) {
@@ -393,7 +428,7 @@ async function startServer() {
 
                 const channel = await client.channels.fetch(defaultChanId).catch(() => null);
                 if (channel && channel.isTextBased() && 'send' in channel) {
-                  await channel.send(`**[RPG - ${data.remetente || 'Jogador'}]** ${data.conteudo || ''}`);
+                  await channel.send(`**[RPG - ${sender}]** ${cleanContent}`);
                   console.log(`[CHAT RPG -> DISCORD] Mensagem enviada para o canal padrão do Discord!`);
 
                   await updateDoc(doc(dbInstance, 'messages', docId), {
@@ -560,12 +595,23 @@ async function startServer() {
 
   // Rota para o NOTEBOOK enviar mensagem para um canal específico do Discord
   app.post("/api/discord/notebook/send", async (req, res) => {
-    const { channelId, remetente, conteudo, attachment, attachments } = req.body;
+    const { channelId, remetente, conteudo, attachment, attachments, docId } = req.body;
     const targetChannelId = channelId || defaultChannelId;
 
     if (!targetChannelId) {
       return res.status(400).json({ error: "ID do canal não fornecido" });
     }
+
+    // Deduplicação estrita de envio recente
+    const cleanSender = remetente || 'Jogador';
+    const cleanContent = (conteudo || '').trim();
+    const dedupKey = `${targetChannelId}_${cleanSender}_${cleanContent}`;
+    const now = Date.now();
+    if (recentOutboundMsgs.has(dedupKey) && now - (recentOutboundMsgs.get(dedupKey) || 0) < 10000) {
+      console.log(`[DISCORD REST] Mensagem idêntica enviada há menos de 10s para #${targetChannelId}, deduplicando.`);
+      return res.json({ success: true, duplicated: true });
+    }
+    recentOutboundMsgs.set(dedupKey, now);
 
     if (!discordClient || !discordClient.isReady()) {
       return res.status(200).json({ 
@@ -580,7 +626,7 @@ async function startServer() {
       if (channel && channel.isTextBased() && 'send' in channel) {
         const sendOptions: any = {};
         
-        let formattedText = `**[${remetente}]**\n${conteudo || ''}`;
+        let formattedText = `**[${cleanSender}]**\n${cleanContent}`;
         sendOptions.content = formattedText;
 
         // Lista de anexos unificada (suporta attachment único e array attachments)
@@ -616,6 +662,14 @@ async function startServer() {
 
         const sentMsg = await channel.send(sendOptions);
         console.log(`[DISCORD] Mensagem enviada para o canal #${channel.name || targetChannelId} no Discord! ID: ${sentMsg.id}`);
+
+        if (db && docId) {
+          updateDoc(doc(db, 'discord_notebook_messages', docId), {
+            discordMessageId: sentMsg.id,
+            discordSynced: true,
+            syncingToDiscord: false
+          }).catch(() => {});
+        }
 
         return res.json({ success: true, discordMessageId: sentMsg.id });
       } else {
@@ -882,10 +936,19 @@ Observações importantes:
       return res.status(500).json({ error: "Discord Bot não está pronto ou ID do canal não configurado" });
     }
 
+    const sender = remetente || 'Jogador';
+    const cleanContent = (conteudo || '').trim();
+    const dedupKey = `rpg_chat_${sender}_${cleanContent}`;
+    const now = Date.now();
+    if (recentOutboundMsgs.has(dedupKey) && now - (recentOutboundMsgs.get(dedupKey) || 0) < 10000) {
+      return res.json({ success: true, duplicated: true });
+    }
+    recentOutboundMsgs.set(dedupKey, now);
+
     try {
       const channel = await discordClient.channels.fetch(targetChannelId);
       if (channel && channel.isTextBased() && 'send' in channel) {
-        await channel.send(`**[RPG - ${remetente}]** ${conteudo}`);
+        await channel.send(`**[RPG - ${sender}]** ${cleanContent}`);
         return res.json({ success: true });
       } else {
         return res.status(500).json({ error: "Canal do Discord inválido ou não suporta texto" });

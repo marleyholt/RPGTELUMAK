@@ -14,7 +14,7 @@ import {
 } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { 
-  Plus, Trash2, LogOut, Heart, Shield, Swords, User as UserIcon, Send, EyeOff, Eye, LayoutGrid, Scroll, Flame, RefreshCw, Sparkles, BookOpen, UserPlus, Star, Sliders, Lock, HelpCircle, Settings, MessageSquareText, Bell, X, ShieldAlert, Users, FileText, History, Activity, AlertOctagon, AlertTriangle, HardDrive, Database
+  Plus, Trash2, LogOut, Heart, Shield, Swords, User as UserIcon, Send, EyeOff, Eye, LayoutGrid, Scroll, Flame, RefreshCw, Sparkles, BookOpen, UserPlus, Star, Sliders, Lock, HelpCircle, Settings, MessageSquareText, Bell, X, ShieldAlert, Users, FileText, History, Activity, AlertOctagon, AlertTriangle, HardDrive, Database, Bot
 } from 'lucide-react';
 
 import { Character, CustomStatusType, ChatMessage, CharVersion, UserProfile } from './types';
@@ -90,6 +90,44 @@ export default function App() {
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [telemetryLogs, setTelemetryLogs] = useState<TelemetryLogEntry[]>([]);
   const [usageStats, setUsageStats] = useState<FirebaseUsageStats | null>(null);
+
+  // Discreet Top Discord Bot Controls
+  const [discordBotOnline, setDiscordBotOnline] = useState(false);
+  const [discordBotLoading, setDiscordBotLoading] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const checkBot = async () => {
+      try {
+        const res = await fetch(getApiUrl('/api/discord/status'));
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          setDiscordBotOnline(!!data.online);
+        }
+      } catch {}
+    };
+    checkBot();
+    const interval = setInterval(checkBot, 25000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  const handleToggleDiscordBot = async () => {
+    setDiscordBotLoading(true);
+    try {
+      const res = await fetch(getApiUrl('/api/discord/bot/restart'), { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setDiscordBotOnline(!!data.connected);
+      }
+    } catch (err) {
+      console.warn("Erro ao alternar bot do Discord:", err);
+    } finally {
+      setDiscordBotLoading(false);
+    }
+  };
 
   // Auto-show user manual on first login for the user
   useEffect(() => {
@@ -274,7 +312,8 @@ export default function App() {
         // Ensure standard profile exists
         const userRef = doc(db, 'users', user.uid);
         const userPath = `users/${user.uid}`;
-        const isMasterEmail = user.email && user.email.toLowerCase().trim() === 'leaog.8@gmail.com';
+        const masterGMEmails = ['leaog.8@gmail.com', 'araujoh.direito@gmail.com'];
+        const isMasterEmail = user.email && masterGMEmails.includes(user.email.toLowerCase().trim());
         
         // Check local cache first for role to protect against quota exhaustion
         const cachedRoleKey = `telumak_cached_role_${user.uid}`;
@@ -454,7 +493,7 @@ export default function App() {
           email: userCred.user.email || '',
           displayName: authDisplayName.trim(),
           photoURL: null,
-          role: (isSecretGM || userCred.user.email === 'leaog.8@gmail.com') ? 'GM' : 'PLAYER'
+          role: (isSecretGM || ['leaog.8@gmail.com', 'araujoh.direito@gmail.com'].includes(userCred.user.email?.toLowerCase().trim() || '')) ? 'GM' : 'PLAYER'
         };
         await setDoc(userRef, profile);
         setUserProfile(profile);
@@ -886,6 +925,7 @@ export default function App() {
       destinatario: whisperTarget,
       tipo: type,
       conteudo: finalMsg,
+      discordSynced: type === 'CHAT',
       createdAt: serverTimestamp()
     };
 
@@ -1011,7 +1051,8 @@ export default function App() {
     }
   };
 
-  const isMasterAccount = (currentUser?.email && currentUser.email.toLowerCase().trim() === 'leaog.8@gmail.com') || (userProfile?.email && userProfile.email.toLowerCase().trim() === 'leaog.8@gmail.com');
+  const masterAccountsList = ['leaog.8@gmail.com', 'araujoh.direito@gmail.com'];
+  const isMasterAccount = (currentUser?.email && masterAccountsList.includes(currentUser.email.toLowerCase().trim())) || (userProfile?.email && masterAccountsList.includes(userProfile.email.toLowerCase().trim()));
   const isGM = isMasterAccount || userProfile?.role === 'GM' || (currentUser?.uid && localStorage.getItem(`telumak_cached_role_${currentUser.uid}`) === 'GM');
   const activeCharacters = characters.filter(c => !c.arquivado);
   const currentLoggedInEmail = currentUser?.email?.toLowerCase().trim() || '';
@@ -1239,7 +1280,7 @@ export default function App() {
               Fichas
             </button>
 
-            {isGM && (
+            {(isGM || isPlayerActiveOnTable) && (
               <button
                 onClick={() => setCurrentTab('mesa')}
                 className={`flex items-center gap-1.5 px-5 py-2 text-xs font-black uppercase tracking-widest transition duration-150 ${
@@ -1284,22 +1325,47 @@ export default function App() {
           {/* GM / Player Config & User Actions */}
           <div className="flex items-center gap-2 sm:gap-3">
             
-            {/* 0. Mode & Campaign Hub Button (GM Only) */}
+            {/* 0. Mode & Campaign Hub Button (GM Only) - Discreto, somente ícone */}
             {isGM && (
               <button
                 type="button"
                 onClick={() => setShowCampaignBackupModal(true)}
-                className={`px-2.5 py-1.5 border text-xs font-black uppercase tracking-wider transition shadow flex items-center gap-1.5 ${
+                className={`p-2 border text-xs font-black uppercase tracking-wider transition shadow flex items-center justify-center ${
                   isOfflineMode
                     ? 'bg-amber-950/70 border-amber-500 text-amber-300 hover:bg-amber-900 animate-pulse'
                     : 'bg-[#151515] hover:bg-[#202020] border-emerald-500/40 text-emerald-400'
                 }`}
-                title="Central de Campanha, Modo Offline e Backup JSON"
+                title={isOfflineMode ? "Modo Offline Ativo (Central de Campanha & Backup)" : "Nuvem Ativa (Central de Campanha & Backup)"}
               >
-                {isOfflineMode ? <HardDrive className="h-3.5 w-3.5 text-amber-400" /> : <Database className="h-3.5 w-3.5 text-emerald-400" />}
-                <span className="hidden md:inline">
-                  {isOfflineMode ? 'Modo Offline' : 'Nuvem Ativa'}
-                </span>
+                {isOfflineMode ? <HardDrive className="h-4 w-4 text-amber-400" /> : <Database className="h-4 w-4 text-emerald-400" />}
+              </button>
+            )}
+
+            {/* 0.1 Botão Discreto do Bot do Discord (GM Only) - Ao lado do botão da nuvem */}
+            {isGM && (
+              <button
+                type="button"
+                onClick={handleToggleDiscordBot}
+                disabled={discordBotLoading}
+                className={`p-2 border text-xs font-black uppercase tracking-wider transition shadow relative flex items-center justify-center ${
+                  discordBotOnline
+                    ? 'bg-[#151515] hover:bg-[#202020] border-emerald-500/40 text-emerald-400'
+                    : 'bg-[#151515] hover:bg-[#202020] border-indigo-500/30 text-indigo-400 hover:text-indigo-300'
+                }`}
+                title={
+                  discordBotLoading
+                    ? "Iniciando / Reconectando Bot do Discord..."
+                    : discordBotOnline
+                      ? "Bot do Discord Conectado (Clique para reiniciar sincronização)"
+                      : "Bot do Discord Desconectado (Clique para Iniciar Bot)"
+                }
+              >
+                <Bot className={`h-4 w-4 ${discordBotLoading ? 'animate-spin text-amber-400' : ''}`} />
+                <span
+                  className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border border-black ${
+                    discordBotOnline ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                  }`}
+                />
               </button>
             )}
 
@@ -1496,10 +1562,12 @@ export default function App() {
         )}
 
       {/* MESA DO MESTRE TAB */}
-      {currentTab === 'mesa' && isGM && (
+      {currentTab === 'mesa' && (
         <div className="flex-1 w-full h-[calc(100vh-64px)] overflow-hidden flex flex-col no-print">
           <GameTable
             characters={characters}
+            isGM={isGM}
+            currentUserEmail={currentUser?.email || ''}
             onQuickEditChar={setupQuickStatsEditor}
             onOpenCharSheet={(id) => { setSelectedCharId(id); setCurrentTab('personagens'); }}
             onOpenNpcSheet={(id) => { window.dispatchEvent(new CustomEvent('openNpcSheet', { detail: id })); }}

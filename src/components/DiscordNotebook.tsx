@@ -1231,6 +1231,8 @@ export function DiscordNotebook({
         authorEmail: currentUserProfile?.email || '',
         content: finalContent,
         isFromDiscord: false,
+        discordSynced: !!discordTargetId,
+        syncingToDiscord: !!discordTargetId,
         pinned: false,
         createdAt: serverTimestamp()
       };
@@ -1247,7 +1249,7 @@ export function DiscordNotebook({
         conteudo: finalContent.substring(0, 50)
       });
 
-      // Se o canal estiver vinculado a um ID do Discord oficial, despacha também via REST para resposta imediata
+      // Se o canal estiver vinculado a um ID do Discord oficial, despacha via REST (único despachante)
       if (discordTargetId) {
         fetch(getApiUrl('/api/discord/notebook/send'), {
           method: 'POST',
@@ -1256,7 +1258,8 @@ export function DiscordNotebook({
             channelId: discordTargetId,
             remetente: senderName,
             conteudo: finalContent,
-            attachment: imageToSend || undefined
+            attachment: imageToSend || undefined,
+            docId: docRef.id
           })
         }).then(async (res) => {
           if (res.ok) {
@@ -1264,16 +1267,27 @@ export function DiscordNotebook({
             if (data.success) {
               if (data.discordMessageId && docRef?.id) {
                 updateDoc(doc(db, 'discord_notebook_messages', docRef.id), {
-                  discordMessageId: data.discordMessageId
+                  discordMessageId: data.discordMessageId,
+                  discordSynced: true,
+                  syncingToDiscord: false
                 }).catch(() => {});
               }
               logEvent('success', `Mensagem sincronizada e enviada para o canal do Discord (#${discordTargetId})`);
             } else if (data.botOffline) {
+              // Se bot estiver offline, libera a trava para que a ponte tente quando voltar
+              updateDoc(doc(db, 'discord_notebook_messages', docRef.id), {
+                discordSynced: false,
+                syncingToDiscord: false
+              }).catch(() => {});
               logEvent('info', `Mensagem salva localmente. O bot do Discord está offline.`);
             }
           }
         }).catch(err => {
           console.warn("Falha ao despachar mensagem para a API do Discord:", err);
+          updateDoc(doc(db, 'discord_notebook_messages', docRef.id), {
+            discordSynced: false,
+            syncingToDiscord: false
+          }).catch(() => {});
         });
       }
     } catch (err: any) {
@@ -2310,7 +2324,7 @@ export function DiscordNotebook({
                   type="button"
                   onClick={handleForceRestartDiscordBot}
                   disabled={discordBotStatus.loading}
-                  className={`p-1.5 rounded transition-colors flex items-center gap-1.5 text-xs font-bold border ${
+                  className={`p-1.5 rounded transition-colors flex items-center justify-center border relative ${
                     discordBotStatus.connected
                       ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25'
                       : 'bg-[#5865f2]/20 text-sky-300 border-[#5865f2]/40 hover:bg-[#5865f2]/30'
@@ -2324,10 +2338,7 @@ export function DiscordNotebook({
                   }
                 >
                   <Bot className={`h-4 w-4 ${discordBotStatus.loading ? 'animate-spin text-amber-400' : ''}`} />
-                  <span className="hidden md:inline text-[11px]">
-                    {discordBotStatus.loading ? 'Iniciando...' : discordBotStatus.connected ? 'Bot Online' : 'Iniciar Bot'}
-                  </span>
-                  <span className={`w-2 h-2 rounded-full ${
+                  <span className={`w-2 h-2 rounded-full absolute -top-0.5 -right-0.5 border border-black ${
                     discordBotStatus.connected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
                   }`} />
                 </button>
