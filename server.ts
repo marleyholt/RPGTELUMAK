@@ -86,6 +86,12 @@ async function startServer() {
   let botStatusMessage: string = 'Iniciando...';
   let botLastError: string | null = null;
 
+  // Cache in-memory para deduplicar eventos de mensagens recebidas do Discord
+  const processedDiscordMsgIds = new Set<string>();
+
+  let activeBridgeUnsub1: (() => void) | null = null;
+  let activeBridgeUnsub2: (() => void) | null = null;
+
   async function initOrRestartDiscordBot() {
     const activeToken = process.env.DISCORD_BOT_TOKEN || token;
     if (!activeToken) {
@@ -132,6 +138,13 @@ async function startServer() {
         // Ignorar mensagens do próprio bot
         if (message.author.bot) return;
 
+        // Deduplicação in-memory contra re-processamento do mesmo snowflake do Discord
+        if (processedDiscordMsgIds.has(message.id)) {
+          return;
+        }
+        processedDiscordMsgIds.add(message.id);
+        setTimeout(() => processedDiscordMsgIds.delete(message.id), 60000);
+
         console.log(`[DISCORD -> BACKEND] Mensagem recebida no canal ${message.channelId} de ${message.author.username}: "${message.content}"`);
 
         if (db) {
@@ -161,7 +174,7 @@ async function startServer() {
             await setDoc(doc(db, 'discord_notebook_messages', docId), notebookDoc, { merge: true });
             console.log(`[DISCORD -> FIRESTORE] Mensagem gravada/atualizada com sucesso! Doc ID: ${docId} no canal ${message.channelId}`);
 
-            // 2. Se for o canal principal/padrão, salva também no chat rápido de jogo
+            // 2. Se for o canal principal/padrão, salva também no chat rápido de jogo (usando ID determinístico para evitar duplicatas)
             if (defaultChannelId && message.channelId === defaultChannelId) {
               const chatMsg = {
                 remetente: `[Discord] ${message.author.username}`,
@@ -171,7 +184,7 @@ async function startServer() {
                 conteudo: message.content || '',
                 createdAt: serverTimestamp()
               };
-              await addDoc(collection(db, 'messages'), chatMsg);
+              await setDoc(doc(db, 'messages', `discord_${message.id}`), chatMsg, { merge: true });
             }
           } catch (err: any) {
             console.error("[DISCORD -> FIRESTORE] Erro ao salvar mensagem do Discord no Firestore:", err?.message || err);
@@ -232,12 +245,22 @@ async function startServer() {
   // Função da Ponte Bidirecional Firestore <-> Discord
   function setupFirestoreToDiscordBridge(dbInstance: any, client: Client, defaultChanId?: string) {
     if (!dbInstance || !client) return;
+
+    if (activeBridgeUnsub1) {
+      try { activeBridgeUnsub1(); } catch {}
+      activeBridgeUnsub1 = null;
+    }
+    if (activeBridgeUnsub2) {
+      try { activeBridgeUnsub2(); } catch {}
+      activeBridgeUnsub2 = null;
+    }
+
     console.log("[FIRESTORE BRIDGE] Inicializando ponte bidirecional Firestore <-> Discord...");
 
     const inFlightMessages = new Set<string>();
 
     // 1. Escuta novas mensagens no discord_notebook_messages criadas no Portal
-    onSnapshot(
+    activeBridgeUnsub1 = onSnapshot(
       query(
         collection(dbInstance, 'discord_notebook_messages'),
         where('isFromDiscord', '==', false)
@@ -345,7 +368,7 @@ async function startServer() {
 
     // 2. Escuta mensagens do chat RPG de jogo (coleção 'messages') para o canal padrão do Discord
     if (defaultChanId) {
-      onSnapshot(
+      activeBridgeUnsub2 = onSnapshot(
         query(
           collection(dbInstance, 'messages'),
           where('tipo', '==', 'CHAT')

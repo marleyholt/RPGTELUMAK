@@ -801,7 +801,7 @@ export function DiscordNotebook({
         seenDocIds.add(msg.id);
       }
 
-      // 3. Deduplicação inteligente de instâncias / bots múltiplos (mesmo autor + mesmo texto + janela de 10s)
+      // 3. Deduplicação inteligente de instâncias / bots múltiplos (mesmo autor + mesmo texto + janela deslizante de 60s)
       const cleanContent = (msg.content || '').trim();
       const cleanAuthor = (msg.authorName || '').trim();
       
@@ -817,13 +817,41 @@ export function DiscordNotebook({
         }
       }
 
-      // Janela de 10 segundos
-      const timeBucket = Math.floor(msgTime / 10000);
+      // Janela de tempo de 15 segundos para o fingerprint básico
+      const timeBucket = Math.floor(msgTime / 15000);
       const fingerprint = `${cleanAuthor}__${cleanContent}__${timeBucket}`;
 
       if (cleanContent && seenFingerprints.has(fingerprint)) {
         continue;
       }
+
+      // Verificação por proximidade temporal (caso instâncias de bots tenham gravado com segundos de diferença)
+      const isInstanceDuplicate = deduplicated.some(existing => {
+        if (!cleanContent) return false;
+        if ((existing.authorName || '').trim() !== cleanAuthor) return false;
+        if ((existing.content || '').trim() !== cleanContent) return false;
+
+        let extTime = 0;
+        if (existing.createdAt) {
+          if (typeof existing.createdAt.toDate === 'function') extTime = existing.createdAt.toDate().getTime();
+          else if (existing.createdAt.seconds) extTime = existing.createdAt.seconds * 1000;
+          else {
+            const p = new Date(existing.createdAt).getTime();
+            extTime = isNaN(p) ? 0 : p;
+          }
+        }
+
+        // Se uma delas ainda não tiver timestamp resolvido (zero) ou se foram gravadas com até 45s de diferença:
+        if (msgTime === 0 || extTime === 0 || Math.abs(msgTime - extTime) < 45000) {
+          return true;
+        }
+        return false;
+      });
+
+      if (isInstanceDuplicate) {
+        continue;
+      }
+
       if (cleanContent) {
         seenFingerprints.add(fingerprint);
       }
