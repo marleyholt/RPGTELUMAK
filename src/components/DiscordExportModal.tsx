@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Download, X, FileText, FileJson, FileType2, Loader2, Search, Filter } from 'lucide-react';
-import { collection, getDocs, query, orderBy, where, Timestamp } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { DiscordChannelItem, DiscordNotebookMessage } from '../types';
 import html2pdf from 'html2pdf.js';
@@ -36,6 +36,22 @@ const formatMessageDate = (createdAt: any): string => {
   return isNaN(d.getTime()) ? '' : d.toLocaleString('pt-BR');
 };
 
+const urlToBase64 = async (url: string): Promise<string> => {
+  if (!url || url.startsWith('data:')) return url;
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    const blob = await res.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve((reader.result as string) || url);
+      reader.onerror = () => resolve(url);
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) {
+    return url;
+  }
+};
+
 export function DiscordExportModal({ isOpen, onClose, channels, isGM }: DiscordExportModalProps) {
   const [selectedChannelId, setSelectedChannelId] = useState<string>('ALL');
   const [startDate, setStartDate] = useState<string>('');
@@ -58,9 +74,14 @@ export function DiscordExportModal({ isOpen, onClose, channels, isGM }: DiscordE
         allMessages.push(Object.assign({ id: doc.id }, doc.data()) as DiscordNotebookMessage);
       });
 
-      // Filtrar apenas pros canais permitidos (channels da props)
-      const allowedIds = new Set(channels.map(c => c.id));
-      allMessages = allMessages.filter(m => allowedIds.has(m.channelId));
+      // Se houver canais definidos, tentar filtrar por eles, mas se zerar, manter todas para segurança
+      if (channels && channels.length > 0) {
+        const allowedIds = new Set(channels.map(c => c.id));
+        const filtered = allMessages.filter(m => allowedIds.has(m.channelId));
+        if (filtered.length > 0) {
+          allMessages = filtered;
+        }
+      }
 
       // Se um canal específico foi selecionado
       if (selectedChannelId !== 'ALL') {
@@ -85,7 +106,7 @@ export function DiscordExportModal({ isOpen, onClose, channels, isGM }: DiscordE
         const startTimestamp = new Date(startDate + 'T00:00:00').getTime();
         allMessages = allMessages.filter(m => {
           const time = getMessageTime(m.createdAt);
-          if (time === 0) return false;
+          if (time === 0) return true; // se não tiver data, não descarta
           return time >= startTimestamp;
         });
       }
@@ -93,7 +114,7 @@ export function DiscordExportModal({ isOpen, onClose, channels, isGM }: DiscordE
         const endTimestamp = new Date(endDate + 'T23:59:59').getTime();
         allMessages = allMessages.filter(m => {
           const time = getMessageTime(m.createdAt);
-          if (time === 0) return false;
+          if (time === 0) return true; // se não tiver data, não descarta
           return time <= endTimestamp;
         });
       }
@@ -104,15 +125,34 @@ export function DiscordExportModal({ isOpen, onClose, channels, isGM }: DiscordE
         return;
       }
 
-      const messagesByChannel: Record<string, DiscordNotebookMessage[]> = {};
+      // Pré-carregar e converter todas as imagens de anexos para Base64 (evita [X] no Word)
+      const base64Cache: Record<string, string> = {};
+      const allUrls: string[] = [];
       allMessages.forEach(m => {
-        if (!messagesByChannel[m.channelId]) {
-          messagesByChannel[m.channelId] = [];
+        if (m.attachments && Array.isArray(m.attachments)) {
+          m.attachments.forEach(url => {
+            if (url && !allUrls.includes(url)) allUrls.push(url);
+          });
         }
-        messagesByChannel[m.channelId].push(m);
       });
 
-      const sortedChannels = [...channels].sort((a, b) => (a.order || 0) - (b.order || 0));
+      for (const url of allUrls) {
+        const b64 = await urlToBase64(url);
+        base64Cache[url] = b64;
+      }
+
+      const messagesByChannel: Record<string, DiscordNotebookMessage[]> = {};
+      allMessages.forEach(m => {
+        const chId = m.channelId || 'geral';
+        if (!messagesByChannel[chId]) {
+          messagesByChannel[chId] = [];
+        }
+        messagesByChannel[chId].push(m);
+      });
+
+      const sortedChannels = channels && channels.length > 0 
+        ? [...channels].sort((a, b) => (a.order || 0) - (b.order || 0))
+        : Object.keys(messagesByChannel).map(id => ({ id, name: id, category: 'Geral' }));
 
       if (exportFormat === 'json') {
         const dataStr = JSON.stringify(messagesByChannel, null, 2);
@@ -134,13 +174,13 @@ export function DiscordExportModal({ isOpen, onClose, channels, isGM }: DiscordE
             body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; color: #313338; line-height: 1.5; background-color: #ffffff; margin: 20px; }
             h1 { font-size: 20pt; color: #1e1f22; border-bottom: 2px solid #5865f2; padding-bottom: 5px; margin-bottom: 30px; }
             h2 { font-size: 16pt; color: #f2f3f5; background-color: #5865f2; padding: 10px; margin-top: 40px; margin-bottom: 20px; border-radius: 4px; }
-            .message { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #e3e5e8; }
+            .message { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #e3e5e8; }
             .header { margin-bottom: 4px; display: flex; align-items: baseline; }
             .author { font-weight: bold; color: #1e1f22; font-size: 12pt; }
             .date { color: #80848e; font-size: 9pt; margin-left: 10px; }
-            .content { white-space: pre-wrap; font-size: 11pt; color: #313338; }
-            .attachments { margin-top: 10px; }
-            .attachments img { max-width: 400px; height: auto; border-radius: 4px; border: 1px solid #e3e5e8; margin-right: 10px; margin-bottom: 10px; display: block; }
+            .content { white-space: pre-wrap; font-size: 11pt; color: #313338; margin-top: 4px; }
+            .attachments { margin-top: 8px; }
+            .attachments img { max-width: 450px; height: auto; border-radius: 6px; border: 1px solid #d1d5db; margin-right: 10px; margin-top: 6px; margin-bottom: 6px; display: block; }
             blockquote { border-left: 4px solid #c9cdcf; padding-left: 12px; color: #4e5058; margin-left: 0; background-color: #f2f3f5; padding-top: 4px; padding-bottom: 4px; }
             .h1-md { font-size: 16pt; font-weight: bold; margin: 8px 0; }
             .h2-md { font-size: 14pt; font-weight: bold; margin: 8px 0; }
@@ -192,7 +232,10 @@ export function DiscordExportModal({ isOpen, onClose, channels, isGM }: DiscordE
             if (msg.content) html += `<div class="content">${processMarkdown(msg.content)}</div>`;
             if (msg.attachments && msg.attachments.length > 0) {
               html += `<div class="attachments">`;
-              msg.attachments.forEach(url => html += `<img src="${url}" alt="Anexo" />`);
+              msg.attachments.forEach(url => {
+                const imgSource = base64Cache[url] || url;
+                html += `<img src="${imgSource}" alt="Anexo" />`;
+              });
               html += `</div>`;
             }
             html += `</div>`;
