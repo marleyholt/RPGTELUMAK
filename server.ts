@@ -452,6 +452,29 @@ async function startServer() {
     }
   }
 
+  // Proxy image to bypass CORS and download binary data server-side for Word/PDF exports
+  app.get("/api/proxy-image", async (req, res) => {
+    const imageUrl = req.query.url as string;
+    if (!imageUrl) {
+      return res.status(400).json({ error: "Missing url parameter" });
+    }
+    try {
+      const fetchRes = await fetch(imageUrl);
+      if (!fetchRes.ok) {
+        return res.status(fetchRes.status).json({ error: "Failed to fetch image from remote URL" });
+      }
+      const arrayBuffer = await fetchRes.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const contentType = fetchRes.headers.get('content-type') || 'image/jpeg';
+      const base64Data = buffer.toString('base64');
+      const dataUri = `data:${contentType};base64,${base64Data}`;
+      res.json({ dataUri });
+    } catch (err: any) {
+      console.error("Error proxying image:", err);
+      res.status(500).json({ error: err?.message || "Internal server error" });
+    }
+  });
+
   // Rota para checar status detalhado do Bot do Discord
   app.get("/api/discord/status", (req, res) => {
     const isReady = !!(discordClient && discordClient.isReady());

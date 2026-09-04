@@ -39,8 +39,15 @@ const formatMessageDate = (createdAt: any): string => {
 const urlToBase64 = async (url: string): Promise<string> => {
   if (!url || url.startsWith('data:')) return url;
   try {
-    const res = await fetch(url, { mode: 'cors' });
-    const blob = await res.blob();
+    const res = await fetch(`/api/proxy-image?url=${encodeURIComponent(url)}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.dataUri) {
+        return data.dataUri;
+      }
+    }
+    const directRes = await fetch(url, { mode: 'cors' });
+    const blob = await directRes.blob();
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve((reader.result as string) || url);
@@ -236,7 +243,7 @@ export function DiscordExportModal({ isOpen, onClose, channels, isGM }: DiscordE
               html += `<div class="attachments">`;
               msg.attachments.forEach(url => {
                 const imgSource = base64Cache[url] || url;
-                html += `<img src="${imgSource}" alt="Anexo" />`;
+                html += `<img src="${imgSource}" width="400" style="width: 400px; max-width: 100%; height: auto; display: block; margin-top: 8px; margin-bottom: 8px; border: 1px solid #ccc;" alt="Anexo" />`;
               });
               html += `</div>`;
             }
