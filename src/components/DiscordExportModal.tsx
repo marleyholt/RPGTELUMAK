@@ -74,18 +74,20 @@ export function DiscordExportModal({ isOpen, onClose, channels, isGM }: DiscordE
         allMessages.push(Object.assign({ id: doc.id }, doc.data()) as DiscordNotebookMessage);
       });
 
-      // Se houver canais definidos, tentar filtrar por eles, mas se zerar, manter todas para segurança
-      if (channels && channels.length > 0) {
-        const allowedIds = new Set(channels.map(c => c.id));
-        const filtered = allMessages.filter(m => allowedIds.has(m.channelId));
-        if (filtered.length > 0) {
-          allMessages = filtered;
-        }
-      }
-
-      // Se um canal específico foi selecionado
+      // Se um canal específico foi selecionado, usar a lógica exata de chaves do DiscordNotebook (id + discordChannelId + name)
       if (selectedChannelId !== 'ALL') {
-        allMessages = allMessages.filter(m => m.channelId === selectedChannelId);
+        const targetChannel = channels.find(c => c.id === selectedChannelId || c.discordChannelId === selectedChannelId || c.name === selectedChannelId);
+        const validIds = new Set<string>([selectedChannelId]);
+        if (targetChannel) {
+          if (targetChannel.id) validIds.add(targetChannel.id);
+          if (targetChannel.discordChannelId) validIds.add(targetChannel.discordChannelId);
+          if (targetChannel.name) validIds.add(targetChannel.name);
+        }
+        allMessages = allMessages.filter(m => {
+          const mChId = String(m.channelId || '').trim();
+          if (!mChId) return false;
+          return Array.from(validIds).some(id => mChId.toLowerCase() === id.toLowerCase());
+        });
       }
       
       // Ordenar por data
@@ -106,7 +108,7 @@ export function DiscordExportModal({ isOpen, onClose, channels, isGM }: DiscordE
         const startTimestamp = new Date(startDate + 'T00:00:00').getTime();
         allMessages = allMessages.filter(m => {
           const time = getMessageTime(m.createdAt);
-          if (time === 0) return true; // se não tiver data, não descarta
+          if (time === 0) return true;
           return time >= startTimestamp;
         });
       }
@@ -114,7 +116,7 @@ export function DiscordExportModal({ isOpen, onClose, channels, isGM }: DiscordE
         const endTimestamp = new Date(endDate + 'T23:59:59').getTime();
         allMessages = allMessages.filter(m => {
           const time = getMessageTime(m.createdAt);
-          if (time === 0) return true; // se não tiver data, não descarta
+          if (time === 0) return true;
           return time <= endTimestamp;
         });
       }
@@ -141,18 +143,18 @@ export function DiscordExportModal({ isOpen, onClose, channels, isGM }: DiscordE
         base64Cache[url] = b64;
       }
 
+      // Agrupar mensagens por nome amigável do canal
       const messagesByChannel: Record<string, DiscordNotebookMessage[]> = {};
       allMessages.forEach(m => {
         const chId = m.channelId || 'geral';
-        if (!messagesByChannel[chId]) {
-          messagesByChannel[chId] = [];
+        const matchedChan = channels.find(c => c.id === chId || c.discordChannelId === chId || c.name === chId);
+        const channelKey = matchedChan ? `# ${matchedChan.name}` : `# ${chId}`;
+        
+        if (!messagesByChannel[channelKey]) {
+          messagesByChannel[channelKey] = [];
         }
-        messagesByChannel[chId].push(m);
+        messagesByChannel[channelKey].push(m);
       });
-
-      const sortedChannels = channels && channels.length > 0 
-        ? [...channels].sort((a, b) => (a.order || 0) - (b.order || 0))
-        : Object.keys(messagesByChannel).map(id => ({ id, name: id, category: 'Geral' }));
 
       if (exportFormat === 'json') {
         const dataStr = JSON.stringify(messagesByChannel, null, 2);
@@ -173,7 +175,7 @@ export function DiscordExportModal({ isOpen, onClose, channels, isGM }: DiscordE
           <style>
             body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; color: #313338; line-height: 1.5; background-color: #ffffff; margin: 20px; }
             h1 { font-size: 20pt; color: #1e1f22; border-bottom: 2px solid #5865f2; padding-bottom: 5px; margin-bottom: 30px; }
-            h2 { font-size: 16pt; color: #f2f3f5; background-color: #5865f2; padding: 10px; margin-top: 40px; margin-bottom: 20px; border-radius: 4px; }
+            h2 { font-size: 16pt; color: #ffffff; background-color: #5865f2; padding: 10px; margin-top: 40px; margin-bottom: 20px; border-radius: 4px; }
             .message { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #e3e5e8; }
             .header { margin-bottom: 4px; display: flex; align-items: baseline; }
             .author { font-weight: bold; color: #1e1f22; font-size: 12pt; }
@@ -218,11 +220,11 @@ export function DiscordExportModal({ isOpen, onClose, channels, isGM }: DiscordE
           return outHtml.replace(/<\/ul><ul>/g, '');
         };
 
-        sortedChannels.forEach(channel => {
-          const msgs = messagesByChannel[channel.id] || [];
+        Object.keys(messagesByChannel).forEach(channelKey => {
+          const msgs = messagesByChannel[channelKey];
           if (msgs.length === 0) return;
 
-          html += `<h2># ${channel.name} <span style="font-size: 11pt; font-weight: normal; color: #e3e5e8;">(${channel.category || 'Categoria Geral'})</span></h2>`;
+          html += `<h2>${channelKey}</h2>`;
           
           msgs.forEach(msg => {
             const dateStr = formatMessageDate(msg.createdAt);
@@ -254,7 +256,6 @@ export function DiscordExportModal({ isOpen, onClose, channels, isGM }: DiscordE
           link.click();
           document.body.removeChild(link);
         } else {
-          // PDF export using html2pdf
           const tempDiv = document.createElement('div');
           tempDiv.innerHTML = html;
           document.body.appendChild(tempDiv);
