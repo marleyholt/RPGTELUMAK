@@ -12,6 +12,30 @@ interface DiscordExportModalProps {
   isGM: boolean;
 }
 
+const getMessageTime = (createdAt: any): number => {
+  if (!createdAt) return 0;
+  if (typeof createdAt.toDate === 'function') {
+    return createdAt.toDate().getTime();
+  }
+  if (createdAt.seconds) {
+    return createdAt.seconds * 1000;
+  }
+  const parsed = new Date(createdAt).getTime();
+  return isNaN(parsed) ? 0 : parsed;
+};
+
+const formatMessageDate = (createdAt: any): string => {
+  if (!createdAt) return '';
+  if (typeof createdAt.toDate === 'function') {
+    return createdAt.toDate().toLocaleString('pt-BR');
+  }
+  if (createdAt.seconds) {
+    return new Date(createdAt.seconds * 1000).toLocaleString('pt-BR');
+  }
+  const d = new Date(createdAt);
+  return isNaN(d.getTime()) ? '' : d.toLocaleString('pt-BR');
+};
+
 export function DiscordExportModal({ isOpen, onClose, channels, isGM }: DiscordExportModalProps) {
   const [selectedChannelId, setSelectedChannelId] = useState<string>('ALL');
   const [startDate, setStartDate] = useState<string>('');
@@ -45,8 +69,8 @@ export function DiscordExportModal({ isOpen, onClose, channels, isGM }: DiscordE
       
       // Ordenar por data
       allMessages.sort((a, b) => {
-        const timeA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : (a.createdAt || 0);
-        const timeB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : (b.createdAt || 0);
+        const timeA = getMessageTime(a.createdAt);
+        const timeB = getMessageTime(b.createdAt);
         return timeA - timeB;
       });
 
@@ -60,16 +84,16 @@ export function DiscordExportModal({ isOpen, onClose, channels, isGM }: DiscordE
       if (startDate) {
         const startTimestamp = new Date(startDate + 'T00:00:00').getTime();
         allMessages = allMessages.filter(m => {
-          if (!m.createdAt) return false;
-          const time = m.createdAt.toDate ? m.createdAt.toDate().getTime() : m.createdAt;
+          const time = getMessageTime(m.createdAt);
+          if (time === 0) return false;
           return time >= startTimestamp;
         });
       }
       if (endDate) {
         const endTimestamp = new Date(endDate + 'T23:59:59').getTime();
         allMessages = allMessages.filter(m => {
-          if (!m.createdAt) return false;
-          const time = m.createdAt.toDate ? m.createdAt.toDate().getTime() : m.createdAt;
+          const time = getMessageTime(m.createdAt);
+          if (time === 0) return false;
           return time <= endTimestamp;
         });
       }
@@ -161,9 +185,7 @@ export function DiscordExportModal({ isOpen, onClose, channels, isGM }: DiscordE
           html += `<h2># ${channel.name} <span style="font-size: 11pt; font-weight: normal; color: #e3e5e8;">(${channel.category || 'Categoria Geral'})</span></h2>`;
           
           msgs.forEach(msg => {
-            const dateStr = msg.createdAt && msg.createdAt.toDate 
-              ? msg.createdAt.toDate().toLocaleString('pt-BR') 
-              : '';
+            const dateStr = formatMessageDate(msg.createdAt);
               
             html += `<div class="message">`;
             html += `<div class="header"><span class="author">${msg.authorName || 'Desconhecido'}</span><span class="date">${dateStr}</span></div>`;
